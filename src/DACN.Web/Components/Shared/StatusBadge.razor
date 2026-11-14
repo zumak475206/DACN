@@ -1,0 +1,77 @@
+<span class="hotel-badge @GetBadgeClass()">
+    @if (!string.IsNullOrEmpty(GetIcon()))
+    {
+        <i class="@GetIcon()"></i>
+    }
+    @GetDisplayText()
+</span>
+
+@code {
+    [Parameter] public string Status { get; set; } = string.Empty;
+    [Parameter] public string? CustomText { get; set; }
+
+    private string CleanStatus => (Status ?? "").Trim().ToLowerInvariant();
+
+    private string GetBadgeClass() => CleanStatus switch
+    {
+        // Trạng thái phòng & vệ sinh
+        "trong" or "sach_se" or "available" or "clean" or "done" or "inspected" or "hoan_thanh" => "hotel-badge-success",
+        "dang_o" or "co_khach" or "occupied" or "active" or "reserved"                         => "hotel-badge-info",
+        "don_dep" or "chua_don" or "cleaning" or "dirty" or "inspecting" or "assigned" or "in_progress" => "hotel-badge-warning",
+        "sua_chua" or "bao_duong" or "maintenance"                                             => "hotel-badge-danger",
+
+        // Trạng thái đặt phòng
+        "da_xac_nhan" or "confirmed"                                                           => "hotel-badge-info",
+        "da_nhan_phong" or "checked_in" or "checkedin"                                         => "hotel-badge-success",
+        "da_tra_phong" or "checked_out" or "checkedout"                                        => "hotel-badge-slate",
+        "cho_xac_nhan" or "pending"                                                            => "hotel-badge-warning",
+        "da_huy" or "cancelled" or "canceled" or "rejected"                                    => "hotel-badge-danger",
+
+        // Thanh toán & chi phí
+        "da_thanh_toan" or "paid" or "success" or "thanh_cong" or "approved"                   => "hotel-badge-success",
+        "da_coc" or "deposited"                                                                => "hotel-badge-warning",
+        "chua_thanh_toan" or "unpaid" or "failed"                                              => "hotel-badge-danger",
+
+        _                                                                                      => "hotel-badge-slate"
+    };
+
+    private string GetIcon() => CleanStatus switch
+    {
+        "trong" or "sach_se" or "available" or "clean" or "done" => "bi bi-check-circle-fill",
+        "dang_o" or "co_khach" or "occupied" or "checkedin"      => "bi bi-person-fill",
+        "don_dep" or "chua_don" or "dirty" or "assigned" or "in_progress" => "bi bi-brush-fill",
+        "sua_chua" or "bao_duong" or "maintenance"               => "bi bi-tools",
+        "da_thanh_toan" or "paid" or "success"                   => "bi bi-credit-card-2-front-fill",
+        "da_huy" or "cancelled"                                  => "bi bi-x-circle-fill",
+        _                                                        => ""
+    };
+
+    private string GetDisplayText()
+    {
+        if (!string.IsNullOrEmpty(CustomText)) return CustomText;
+
+        return CleanStatus switch
+        {
+            "trong" or "available"               => "Trống (Sẵn sàng)",
+            "sach_se" or "clean"                 => "Đã dọn sạch",
+            "dang_o" or "co_khach" or "occupied" => "Khách đang ở",
+            "reserved"                           => "Đã giữ phòng",
+            "don_dep" or "chua_don" or "dirty"   => "Cần dọn vệ sinh",
+            "inspecting" or "in_progress"        => "Đang dọn / Kiểm tra",
+            "assigned" or "cho_xu_ly"            => "Chờ dọn phòng",
+            "done" or "inspected"                => "Đã hoàn tất",
+            "sua_chua" or "bao_duong" or "maintenance" => "Đang bảo trì",
+            "da_xac_nhan" or "confirmed"         => "Đã xác nhận",
+            "da_nhan_phong" or "checked_in" or "checkedin" or "active" => "Đã Check-in",
+            "da_tra_phong" or "checked_out" or "checkedout" => "Đã Check-out",
+            "cho_xac_nhan" or "pending"          => "Chờ xử lý",
+            "da_huy" or "cancelled"              => "Đã hủy",
+            "da_thanh_toan" or "paid" or "success" => "Đã thanh toán",
+            "approved"                           => "Đã phê duyệt",
+            "rejected"                           => "Từ chối",
+            "da_coc"                             => "Đã đặt cọc",
+            "chua_thanh_toan"                    => "Chưa thanh toán",
+            _                                    => Status
+        };
+    }
+}

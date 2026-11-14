@@ -1,0 +1,93 @@
+@page "/rooms"
+@layout CustomerLayout
+@rendermode InteractiveServer
+@inject DACNContext Db
+
+<PageTitle>Danh Sách Loại Phòng — Grand Hotel Da Nang</PageTitle>
+
+<div class="container my-5">
+    <div class="text-center mb-5">
+        <span class="text-primary fw-bold small text-uppercase" style="letter-spacing: 1px;">Khám Phá Phòng Nghỉ Chuẩn 5 Sao</span>
+        <h2 class="fw-bold text-dark">Danh Mục Hạng Phòng Nghỉ Dưỡng</h2>
+        <p class="text-muted small mx-auto" style="max-width: 550px;">
+            Mỗi căn phòng tại Grand Hotel đều được chăm chút tỉ mỉ với nội thất cao cấp, ban công ngắm nhìn biển Mỹ Khê hoặc phố phường Đà Nẵng lung linh.
+        </p>
+    </div>
+
+    <!-- Bộ lọc phòng -->
+    <div class="hotel-card p-3 mb-5 border shadow-sm">
+        <div class="row g-3 align-items-center">
+            <div class="col-12 col-md-4">
+                <input type="text" class="hotel-input w-100" placeholder="Tìm theo tên phòng, tiện nghi..." @bind="searchQuery" @bind:event="oninput" />
+            </div>
+            <div class="col-6 col-md-4">
+                <select class="hotel-select w-100" @bind="priceFilter">
+                    <option value="0">Tất cả mức giá</option>
+                    <option value="1">Dưới 1.000.000 đ / đêm</option>
+                    <option value="2">Từ 1.000.000 đ trở lên</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-4 text-md-end text-muted small">
+                Hiển thị <strong>@FilteredRooms.Count()</strong> hạng phòng phù hợp
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid danh sách phòng -->
+    <div class="row g-4">
+        @foreach (var room in FilteredRooms)
+        {
+            <div class="col-12 col-md-6">
+                <div class="hotel-card border shadow-sm overflow-hidden h-100 d-flex flex-column flex-md-row">
+                    <div style="min-width: 240px; height: 220px; overflow: hidden;" class="position-relative">
+                        <img src="@room.Image" alt="@room.Title" style="width: 100%; height: 100%; object-fit: cover;" />
+                        <span class="badge position-absolute top-0 start-0 m-2 bg-primary">
+                            @room.Size m²
+                        </span>
+                    </div>
+                    <div class="p-3 d-flex flex-column flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <h5 class="fw-bold text-dark mb-0">@room.Title</h5>
+                            <span class="fw-bold text-primary" style="font-size: 1.1rem;">@room.Price.ToString("N0") đ</span>
+                        </div>
+                        <small class="text-muted d-block mb-2">Giá cho 1 đêm (đã gồm thuế & phí)</small>
+                        <p class="small text-muted mb-3" style="line-height: 1.4;">@room.Desc</p>
+
+                        <div class="d-flex flex-wrap gap-1 mb-3">
+                            @foreach (var amenity in room.Amenities)
+                            {
+                                <span class="badge bg-light text-secondary border small">@amenity</span>
+                            }
+                        </div>
+
+                        <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center">
+                            <small class="text-success"><i class="bi bi-check-circle-fill me-1"></i> Miễn phí hủy trước 48h</small>
+                            <a href="/#dat-phong" class="hotel-btn hotel-btn-accent py-1 px-3 small">
+                                Đặt Phòng
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string searchQuery = "";
+    private string priceFilter = "0";
+
+    private record RoomCatalog(string Title, decimal Price, int Size, string Image, string Desc, List<string> Amenities);
+
+    private List<RoomCatalog> roomsList = new()
+    {
+        new("Deluxe Sea View (Hướng Biển)", 1000000, 38, "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=600&q=80", "Ban công riêng nhìn thẳng biển Mỹ Khê, ngắm hoàng hôn và đón gió biển lộng gió.", new() { "Ban công", "Bồn tắm nằm", "Smart TV 55 inch", "Bữa sáng buffet", "Minibar" }),
+        new("Suite Gia Đình (Family Suite)", 1500000, 65, "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=600&q=80", "Không gian 2 phòng ngủ độc lập, sofa tiếp khách và khu vực ăn uống dành cho gia đình 4 người.", new() { "2 Giường King", "Khu ăn uống", "Máy pha cà phê", "Bàn làm việc", "Áo choàng tắm" }),
+        new("Superior Giường Đôi (Double Bed)", 750000, 32, "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=600&q=80", "Thiết kế hiện đại thanh lịch, nệm cao su non cao cấp mang lại giấc ngủ trọn vẹn.", new() { "Giường King 1m8", "Vòi sen tắm đứng", "Két an toàn", "Trà & Cafe miễn phí" }),
+        new("Standard City View (Hướng Phố)", 500000, 26, "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=600&q=80", "Lựa chọn tiết kiệm tối ưu cho chuyến công tác hoặc khách du lịch tự túc.", new() { "View phố Đà Nẵng", "Bàn làm việc", "Điều hòa Inverter", "Wifi 6" })
+    };
+
+    private IEnumerable<RoomCatalog> FilteredRooms => roomsList
+        .Where(r => string.IsNullOrWhiteSpace(searchQuery) || r.Title.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) || r.Desc.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
+        .Where(r => priceFilter == "0" || (priceFilter == "1" && r.Price < 1000000) || (priceFilter == "2" && r.Price >= 1000000));
+}

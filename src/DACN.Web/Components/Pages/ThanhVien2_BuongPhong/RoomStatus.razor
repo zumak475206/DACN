@@ -1,0 +1,167 @@
+@page "/housekeeping/rooms"
+@rendermode InteractiveServer
+@inject DACNContext Db
+
+<PageTitle>Trạng Thái Buồng Phòng — TV2</PageTitle>
+
+<PageHeader Title="Quản Lý Trạng Thái Buồng Phòng"
+            Subtitle="Theo dõi trực quan trạng thái từng phòng: Sẵn sàng, Đang ở, Chờ dọn, Đang sửa chữa"
+            Icon="bi bi-door-closed-fill"
+            MemberTag="TV2 — BUỒNG PHÒNG & VẬN HÀNH"
+            MemberTagClass="member-tag-tv2">
+    <Actions>
+        <button class="hotel-btn hotel-btn-outline" @onclick="LoadDataAsync">
+            <i class="bi bi-arrow-clockwise"></i> Làm mới
+        </button>
+        <a href="/housekeeping/tasks" class="hotel-btn hotel-btn-success">
+            <i class="bi bi-brush"></i> Xem Bảng Phân Công Dọn
+        </a>
+    </Actions>
+</PageHeader>
+
+<!-- Thống kê trạng thái -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <StatCard Title="Đã Dọn Sạch" Value="@cleanCount.ToString()" Description="Sẵn sàng đón khách mới" Icon="bi bi-shield-check" Variant="success" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Cần Vệ Sinh" Value="@cleaningNeededCount.ToString()" Description="Khách vừa trả phòng" Icon="bi bi-brush" Variant="warning" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Đang Có Khách Ở" Value="@occupiedCount.ToString()" Description="Phòng đang lưu trú" Icon="bi bi-person-fill" Variant="info" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Đang Bảo Trì / Hỏng" Value="@maintenanceCount.ToString()" Description="Cần thợ sửa chữa" Icon="bi bi-tools" Variant="danger" />
+    </div>
+</div>
+
+<!-- Grid buồng phòng theo tầng -->
+<div class="hotel-card mb-4">
+    <div class="hotel-card-header">
+        <div class="hotel-card-title">
+            <i class="bi bi-grid-fill text-success"></i>
+            <span>Danh Sách Phòng Khách Sạn</span>
+        </div>
+        <div class="d-flex gap-2">
+            <select class="hotel-select" style="width: 170px;" @bind="filterStatus">
+                <option value="">Tất cả trạng thái</option>
+                <option value="Available">Trống sạch</option>
+                <option value="Occupied">Đang ở</option>
+                <option value="Dirty">Cần dọn dẹp</option>
+                <option value="Maintenance">Bảo trì / Sửa</option>
+            </select>
+        </div>
+    </div>
+    <div class="hotel-card-body">
+        @if (isLoading)
+        {
+            <div class="text-center py-4 text-muted">Đang tải dữ liệu buồng phòng...</div>
+        }
+        else
+        {
+            <div class="row g-3">
+                @foreach (var room in FilteredRooms)
+                {
+                    <div class="col-6 col-sm-4 col-md-3 col-xl-2">
+                        <div class="room-box">
+                            <div class="room-box-header">
+                                <span class="room-box-number">P.@room.SoPhong</span>
+                                <span class="room-status-indicator @(room.TrangThaiVeSinh == "Dirty" ? "don_dep" : room.TrangThai)"></span>
+                            </div>
+                            <div class="room-box-type text-truncate">@room.MaLoaiPhongNavigation?.Ten</div>
+                            <div class="mt-2 d-flex justify-content-between align-items-center">
+                                <StatusBadge Status="@(room.TrangThaiVeSinh == "Dirty" ? "Dirty" : room.TrangThai)" />
+                            </div>
+                            <div class="mt-2 text-end">
+                                @if (room.TrangThaiVeSinh == "Dirty" || room.TrangThai == "don_dep" || room.TrangThai == "chua_don")
+                                {
+                                    <button class="hotel-btn hotel-btn-success py-1 px-2 w-100" style="font-size: 0.75rem;" @onclick="() => XacNhanSach(room.MaId)">
+                                        <i class="bi bi-check-lg"></i> Đã Dọn Xong
+                                    </button>
+                                }
+                                else if (room.TrangThai == "Available" || room.TrangThai == "trong")
+                                {
+                                    <button class="hotel-btn hotel-btn-outline py-1 px-2 w-100" style="font-size: 0.75rem;" @onclick='() => ChuyenTrangThai(room.MaId, "Dirty")'>
+                                        <i class="bi bi-brush"></i> Báo Cần Dọn
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-muted" style="font-size: 0.75rem;">Tầng @room.Tang</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private bool isLoading = true;
+    private string filterStatus = "";
+    private List<Phong> rooms = new();
+
+    private int cleanCount => rooms.Count(r => (r.TrangThai == "Available" || r.TrangThai == "trong") && r.TrangThaiVeSinh != "Dirty");
+    private int cleaningNeededCount => rooms.Count(r => r.TrangThaiVeSinh == "Dirty" || r.TrangThai == "don_dep" || r.TrangThai == "chua_don");
+    private int occupiedCount => rooms.Count(r => r.TrangThai == "Occupied" || r.TrangThai == "dang_o");
+    private int maintenanceCount => rooms.Count(r => r.TrangThai == "Maintenance" || r.TrangThai == "sua_chua");
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        try
+        {
+            rooms = await Db.Phongs
+                .AsNoTracking()
+                .Include(p => p.MaLoaiPhongNavigation)
+                .OrderBy(p => p.SoPhong)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Lỗi nạp buồng phòng: " + ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private IEnumerable<Phong> FilteredRooms => rooms
+        .Where(r => string.IsNullOrWhiteSpace(filterStatus)
+            || (filterStatus == "Dirty" ? r.TrangThaiVeSinh == "Dirty" : r.TrangThai == filterStatus));
+
+    private async Task XacNhanSach(int roomId)
+    {
+        var room = await Db.Phongs.FindAsync(roomId);
+        if (room != null)
+        {
+            if (room.TrangThai != "Occupied" && room.TrangThai != "Reserved")
+                room.TrangThai = "Available";
+            room.TrangThaiVeSinh = "Clean";
+            await Db.SaveChangesAsync();
+            await LoadDataAsync();
+        }
+    }
+
+    private async Task ChuyenTrangThai(int roomId, string status)
+    {
+        var room = await Db.Phongs.FindAsync(roomId);
+        if (room != null)
+        {
+            if (status == "Dirty")
+                room.TrangThaiVeSinh = "Dirty";
+            else
+                room.TrangThai = status;
+            await Db.SaveChangesAsync();
+            await LoadDataAsync();
+        }
+    }
+}

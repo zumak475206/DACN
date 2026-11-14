@@ -1,0 +1,150 @@
+@page "/admin/accounts"
+@page "/admin"
+@rendermode InteractiveServer
+@inject DACNContext Db
+
+<PageTitle>Quản Lý Tài Khoản & Nhân Sự — TV1</PageTitle>
+
+<PageHeader Title="Quản Lý Tài Khoản Người Dùng & Nhân Sự"
+            Subtitle="Xem, tìm kiếm, khóa/mở khóa tài khoản nhân viên và khách hàng trong hệ thống"
+            Icon="bi bi-people-fill"
+            MemberTag="TV1 — TÀI KHOẢN & NHÂN SỰ"
+            MemberTagClass="member-tag-tv1">
+    <Actions>
+        <button class="hotel-btn hotel-btn-primary">
+            <i class="bi bi-person-plus-fill"></i> Thêm Tài Khoản Mới
+        </button>
+    </Actions>
+</PageHeader>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <StatCard Title="Tổng Người Dùng" Value="@users.Count.ToString()" Description="Admin, Nhân viên & Khách hàng" Icon="bi bi-people-fill" Variant="info" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Đang Hoạt Động" Value="@users.Count(u => u.TrangThai).ToString()" Description="Tài khoản chưa bị khóa" Icon="bi bi-person-check-fill" Variant="success" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Bị Khóa" Value="@users.Count(u => !u.TrangThai).ToString()" Description="Cần xem xét mở lại" Icon="bi bi-person-slash" Variant="danger" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Khách Hàng VIP" Value="@users.Count(u => u.TongDiem >= 3000).ToString()" Description="Điểm loyalty ≥ 3000 pts" Icon="bi bi-award-fill" Variant="accent" />
+    </div>
+</div>
+
+<div class="hotel-card">
+    <div class="hotel-card-header">
+        <div class="hotel-card-title">
+            <i class="bi bi-people-fill text-primary"></i>
+            <span>Danh Sách Người Dùng & Quản Trị Tài Khoản</span>
+        </div>
+        <div class="d-flex gap-2">
+            <input type="text" class="hotel-input" placeholder="Tìm kiếm theo họ tên, email..." @bind="searchUser" @bind:event="oninput" style="width: 250px;" />
+            <select class="hotel-select" @bind="filterUserType" style="width: 160px;">
+                <option value="">Tất cả vai trò</option>
+                <option value="QuanLy">Quản lý / Admin</option>
+                <option value="NhanVien">Nhân viên</option>
+                <option value="KhachHang">Khách hàng</option>
+            </select>
+        </div>
+    </div>
+    <div class="hotel-card-body p-0">
+        <div class="table-responsive">
+            <table class="hotel-table">
+                <thead>
+                    <tr>
+                        <th>Mã</th>
+                        <th>Họ và Tên</th>
+                        <th>Email</th>
+                        <th>Số Điện Thoại</th>
+                        <th>Phân Loại</th>
+                        <th>Điểm Loyalty</th>
+                        <th>Trạng Thái</th>
+                        <th class="text-end">Thao Tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in FilteredUsers)
+                    {
+                        <tr>
+                            <td class="fw-bold">#@u.MaId</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div style="width:32px;height:32px;border-radius:50%;background:#E2E8F0;display:flex;align-items:center;justify-content:center;font-weight:bold;color:var(--hotel-primary);font-size:0.8rem;">
+                                        @u.HoTen.Substring(0, Math.Min(2, u.HoTen.Length)).ToUpper()
+                                    </div>
+                                    <div>
+                                        <div class="fw-semibold">@u.HoTen</div>
+                                        <small class="text-muted">Đăng ký: @u.NgayTao.ToString("dd/MM/yyyy")</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><code>@u.Email</code></td>
+                            <td>@(string.IsNullOrWhiteSpace(u.SoDienThoai) ? "---" : u.SoDienThoai)</td>
+                            <td>
+                                @if (u.LoaiNguoiDung == "QuanLy" || u.LoaiNguoiDung == "Admin")
+                                {
+                                    <span class="hotel-badge" style="background:rgba(14,165,233,0.15);color:#0284C7;font-weight:600;">Quản Lý</span>
+                                }
+                                else if (u.LoaiNguoiDung == "NhanVien")
+                                {
+                                    <span class="hotel-badge" style="background:rgba(16,185,129,0.15);color:#059669;font-weight:600;">Nhân Viên</span>
+                                }
+                                else
+                                {
+                                    <span class="hotel-badge" style="background:rgba(245,158,11,0.15);color:#D97706;font-weight:600;">Khách Hàng</span>
+                                }
+                            </td>
+                            <td><span class="fw-bold" style="color:var(--hotel-accent-hover);">@u.TongDiem pts</span></td>
+                            <td>
+                                @if (u.TrangThai)
+                                {
+                                    <span class="hotel-badge hotel-badge-success"><i class="bi bi-check-circle me-1"></i>Hoạt động</span>
+                                }
+                                else
+                                {
+                                    <span class="hotel-badge hotel-badge-danger"><i class="bi bi-slash-circle me-1"></i>Bị khóa</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <button class="hotel-btn hotel-btn-outline py-1 px-2 text-primary" title="Đổi mật khẩu / Cấp lại">
+                                    <i class="bi bi-key-fill"></i>
+                                </button>
+                                <button class="hotel-btn hotel-btn-outline py-1 px-2 text-danger ms-1" title="Khóa / Mở khóa">
+                                    <i class="bi @(u.TrangThai ? "bi-lock-fill" : "bi-unlock-fill")"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string searchUser = "";
+    private string filterUserType = "";
+    private List<NguoiDung> users = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            users = await Db.NguoiDungs.AsNoTracking().OrderByDescending(u => u.NgayTao).Take(50).ToListAsync();
+        }
+        catch { }
+
+        if (!users.Any())
+            users = new List<NguoiDung>
+            {
+                new NguoiDung { MaId = 1, HoTen = "Trần Quản Lý", Email = "admin@grandhotel.vn", SoDienThoai = "0901234567", LoaiNguoiDung = "QuanLy", TrangThai = true, TongDiem = 1500, NgayTao = DateTime.Now.AddMonths(-6) },
+                new NguoiDung { MaId = 2, HoTen = "Nguyễn Lễ Tân", Email = "letan@grandhotel.vn", SoDienThoai = "0912345678", LoaiNguoiDung = "NhanVien", TrangThai = true, TongDiem = 0, NgayTao = DateTime.Now.AddMonths(-3) },
+                new NguoiDung { MaId = 3, HoTen = "Phạm Khách Vip", Email = "khachvip@gmail.com", SoDienThoai = "0934567890", LoaiNguoiDung = "KhachHang", TrangThai = true, TongDiem = 4800, NgayTao = DateTime.Now.AddMonths(-1) }
+            };
+    }
+
+    private IEnumerable<NguoiDung> FilteredUsers => users
+        .Where(u => (string.IsNullOrWhiteSpace(searchUser) || u.HoTen.Contains(searchUser, StringComparison.OrdinalIgnoreCase) || u.Email.Contains(searchUser, StringComparison.OrdinalIgnoreCase))
+                 && (string.IsNullOrWhiteSpace(filterUserType) || u.LoaiNguoiDung.Equals(filterUserType, StringComparison.OrdinalIgnoreCase)));
+}

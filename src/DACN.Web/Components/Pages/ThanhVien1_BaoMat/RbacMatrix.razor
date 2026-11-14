@@ -1,0 +1,119 @@
+@page "/admin/rbac"
+@rendermode InteractiveServer
+@inject DACNContext Db
+
+<PageTitle>Phân Quyền RBAC — TV1</PageTitle>
+
+<PageHeader Title="Phân Quyền Vai Trò (Role-Based Access Control)"
+            Subtitle="Quản lý vai trò hệ thống và thiết lập ma trận quyền hạn theo từng module nghiệp vụ"
+            Icon="bi bi-shield-lock-fill"
+            MemberTag="TV1 — PHÂN QUYỀN RBAC"
+            MemberTagClass="member-tag-tv1">
+    <Actions>
+        <button class="hotel-btn hotel-btn-primary">
+            <i class="bi bi-plus-lg"></i> Tạo Vai Trò Mới
+        </button>
+        <button class="hotel-btn hotel-btn-outline">
+            <i class="bi bi-floppy-fill"></i> Lưu Thay Đổi
+        </button>
+    </Actions>
+</PageHeader>
+
+<div class="row g-4">
+    <!-- Danh sách Roles -->
+    <div class="col-12 col-lg-4">
+        <div class="hotel-card h-100">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <i class="bi bi-person-badge-fill text-primary"></i>
+                    <span>Vai Trò Hệ Thống</span>
+                </div>
+                <span class="hotel-badge hotel-badge-info">@roles.Count vai trò</span>
+            </div>
+            <div class="hotel-card-body p-0">
+                <div class="list-group list-group-flush">
+                    @foreach (var r in roles)
+                    {
+                        <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3 @(selectedRoleId == r.MaId ? "bg-light border-start border-4 border-primary" : "")"
+                           @onclick="() => selectedRoleId = r.MaId">
+                            <div>
+                                <div class="fw-bold text-dark">@r.Ten</div>
+                                <small class="text-muted">@(string.IsNullOrEmpty(r.MoTa) ? "Chưa có mô tả" : r.MoTa)</small>
+                            </div>
+                            <span class="badge bg-secondary rounded-pill">@(r.NguoiDungs?.Count ?? 0) user</span>
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ma trận quyền hạn -->
+    <div class="col-12 col-lg-8">
+        <div class="hotel-card h-100">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <i class="bi bi-sliders" style="color: var(--hotel-accent);"></i>
+                    <span>Ma Trận Quyền Hạn — Vai trò #@selectedRoleId</span>
+                </div>
+            </div>
+            <div class="hotel-card-body">
+                <div class="row g-3">
+                    @foreach (var module in permissionModules)
+                    {
+                        <div class="col-12">
+                            <div class="p-3 rounded border" style="background: var(--hotel-bg-app);">
+                                <div class="fw-bold mb-2 @module.TitleClass"><i class="@module.Icon me-1"></i>@module.Name</div>
+                                <div class="d-flex flex-wrap gap-3">
+                                    @foreach (var perm in module.Permissions)
+                                    {
+                                        <label class="form-check-label">
+                                            <input type="checkbox" class="form-check-input me-1" checked="@perm.Checked" /> @perm.Label
+                                        </label>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="mt-4 text-end">
+                    <button class="hotel-btn hotel-btn-primary">
+                        <i class="bi bi-floppy-fill me-1"></i> Lưu Cấu Hình Phân Quyền
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int selectedRoleId = 1;
+    private List<VaiTro> roles = new();
+
+    private record PermItem(string Label, bool Checked = true);
+    private record PermModule(string Name, string Icon, string TitleClass, List<PermItem> Permissions);
+
+    private List<PermModule> permissionModules = new()
+    {
+        new PermModule("Module Tiền Sảnh & Đặt Phòng", "bi bi-shield-check", "text-primary", new() {
+            new("Xem Sơ Đồ Phòng"), new("Tạo / Hủy Đặt Phòng"), new("Check-in / Check-out"), new("Thu Tiền & Hóa Đơn") }),
+        new PermModule("Module Buồng Phòng & Tài Sản", "bi bi-door-open", "text-success", new() {
+            new("Cập Nhật Trạng Thái Phòng"), new("Phân Công Ca Dọn Dẹp"), new("Kiểm Kê & Báo Hư Hỏng") }),
+        new PermModule("Module Quản Trị Hệ Thống & Bảo Mật", "bi bi-gear-fill", "text-danger", new() {
+            new("Quản Lý Người Dùng"), new("Quản Trị Kho Voucher"), new("Xem Nhật Ký Audit Logs") })
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { roles = await Db.VaiTros.AsNoTracking().ToListAsync(); } catch { }
+        if (!roles.Any())
+            roles = new List<VaiTro>
+            {
+                new VaiTro { MaId = 1, Ten = "Administrator", MoTa = "Toàn quyền hệ thống" },
+                new VaiTro { MaId = 2, Ten = "Front Desk (Lễ Tân)", MoTa = "Đặt phòng, check-in/out, hóa đơn" },
+                new VaiTro { MaId = 3, Ten = "Housekeeping", MoTa = "Dọn phòng, kiểm kê tiện nghi" },
+                new VaiTro { MaId = 4, Ten = "Customer", MoTa = "Đặt phòng trực tuyến, tích điểm" }
+            };
+        selectedRoleId = roles.First().MaId;
+    }
+}

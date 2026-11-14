@@ -1,0 +1,115 @@
+@page "/admin/content"
+@rendermode InteractiveServer
+@inject DACNContext Db
+
+<PageTitle>Quản Trị Nội Dung Du Lịch — TV1</PageTitle>
+
+<PageHeader Title="Quản Trị Nội Dung & Điểm Tham Quan Địa Phương"
+            Subtitle="Quản lý danh mục địa điểm du lịch Đà Nẵng và bài viết blog — dữ liệu này cấp cho AI Chatbot (TV4)"
+            Icon="bi bi-newspaper"
+            MemberTag="TV1 — QUẢN TRỊ NỘI DUNG"
+            MemberTagClass="member-tag-tv1">
+    <Actions>
+        <button class="hotel-btn hotel-btn-primary">
+            <i class="bi bi-geo-alt-fill me-1"></i> Thêm Địa Điểm
+        </button>
+        <button class="hotel-btn hotel-btn-outline">
+            <i class="bi bi-pencil-square me-1"></i> Viết Bài Mới
+        </button>
+    </Actions>
+</PageHeader>
+
+<div class="row g-4">
+    <!-- Danh sách địa điểm tham quan -->
+    <div class="col-12 col-lg-8">
+        <div class="hotel-card">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <i class="bi bi-geo-alt-fill text-danger"></i>
+                    <span>Danh Mục Điểm Tham Quan Địa Phương</span>
+                </div>
+                <span class="hotel-badge hotel-badge-info">@attractions.Count địa điểm</span>
+            </div>
+            <div class="hotel-card-body p-0">
+                <table class="hotel-table">
+                    <thead>
+                        <tr>
+                            <th>Địa Danh</th>
+                            <th>Khoảng Cách</th>
+                            <th>Địa Chỉ</th>
+                            <th>Trạng Thái</th>
+                            <th class="text-end">Thao Tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in attractions)
+                        {
+                            <tr>
+                                <td class="fw-bold">@d.Ten</td>
+                                <td>@(d.KhoangCachKm.HasValue ? $"{d.KhoangCachKm} km" : "---")</td>
+                                <td class="text-truncate" style="max-width:220px;">@d.DiaChi</td>
+                                <td><span class="hotel-badge hotel-badge-success">Web & AI Active</span></td>
+                                <td class="text-end">
+                                    <button class="hotel-btn hotel-btn-outline py-1 px-2"><i class="bi bi-pencil"></i></button>
+                                    <button class="hotel-btn hotel-btn-outline py-1 px-2 text-danger ms-1"><i class="bi bi-trash"></i></button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bài viết Blog -->
+    <div class="col-12 col-lg-4">
+        <div class="hotel-card">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <i class="bi bi-newspaper text-info"></i>
+                    <span>Bài Viết Blog & Tin Tức</span>
+                </div>
+            </div>
+            <div class="hotel-card-body p-3 d-flex flex-column gap-2">
+                @foreach (var post in samplePosts)
+                {
+                    <div class="p-3 rounded border" style="background: var(--hotel-bg-app);">
+                        <div class="fw-bold text-dark" style="font-size:0.9rem;">@post.Title</div>
+                        <div class="d-flex justify-content-between mt-1">
+                            <small class="text-muted">@post.Date</small>
+                            <small class="text-primary">@post.Views lượt xem</small>
+                        </div>
+                    </div>
+                }
+                <button class="hotel-btn hotel-btn-outline w-100 mt-1">
+                    <i class="bi bi-plus-circle me-1"></i> Viết Bài Mới
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<DiaDiemThamQuan> attractions = new();
+
+    private record BlogPost(string Title, string Date, string Views);
+    private List<BlogPost> samplePosts = new()
+    {
+        new("Top 10 bãi biển đẹp nhất Đà Nẵng mùa hè 2026", "12/05/2026", "1.240"),
+        new("Lễ hội pháo hoa quốc tế DIFF 2026: Lịch trình & Giá vé", "02/06/2026", "3.510"),
+        new("Khám phá Bán đảo Sơn Trà — cẩm nang du lịch 2026", "18/06/2026", "890")
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { attractions = await Db.DiaDiemThamQuans.AsNoTracking().Take(20).ToListAsync(); } catch { }
+        if (!attractions.Any())
+            attractions = new List<DiaDiemThamQuan>
+            {
+                new DiaDiemThamQuan { MaId=1, Ten="Cầu Rồng Đà Nẵng", KhoangCachKm=1.8m, DiaChi="Nguyễn Văn Linh, Hải Châu, Đà Nẵng", DangHoatDong=true },
+                new DiaDiemThamQuan { MaId=2, Ten="Bãi Biển Mỹ Khê", KhoangCachKm=0.5m, DiaChi="Võ Nguyên Giáp, Sơn Trà, Đà Nẵng", DangHoatDong=true },
+                new DiaDiemThamQuan { MaId=3, Ten="Bán Đảo Sơn Trà & Chùa Linh Ứng", KhoangCachKm=8.5m, DiaChi="Hoàng Sa, Thọ Quang, Sơn Trà", DangHoatDong=true },
+                new DiaDiemThamQuan { MaId=4, Ten="Bà Nà Hills & Cầu Vàng", KhoangCachKm=28.0m, DiaChi="Hòa Ninh, Hòa Vang, Đà Nẵng", DangHoatDong=true }
+            };
+    }
+}

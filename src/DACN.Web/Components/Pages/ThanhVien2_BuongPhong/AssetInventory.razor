@@ -1,0 +1,103 @@
+@page "/housekeeping/assets"
+@rendermode InteractiveServer
+@inject DACNContext Db
+
+<PageTitle>Kiểm Kê Tiện Nghi & Tài Sản — TV2</PageTitle>
+
+<PageHeader Title="Kiểm Soát Tiện Nghi, Tài Sản Phòng & Đền Bù"
+            Subtitle="Đối chiếu danh mục tài sản Room_Inventory, tính đơn giá đền bù hư hỏng (price_if_lost) khi khách checkout"
+            Icon="bi bi-box-seam-fill"
+            MemberTag="TV2 — TÀI SẢN & TIỆN NGHI"
+            MemberTagClass="member-tag-tv2">
+    <Actions>
+        <button class="hotel-btn hotel-btn-primary">
+            <i class="bi bi-plus-circle me-1"></i> Thêm Tài Sản Khách Sạn
+        </button>
+        <button class="hotel-btn hotel-btn-outline">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i> Xuất Báo Cáo Kiểm Kê
+        </button>
+    </Actions>
+</PageHeader>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <StatCard Title="Tổng Danh Mục Tài Sản" Value="@assets.Count.ToString()" Description="Trang thiết bị chuẩn các phòng" Icon="bi bi-boxes" Variant="info" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Số Lượng Đầy Đủ" Value="100%" Description="Đã đối chiếu đầu ca trực" Icon="bi bi-check-circle" Variant="success" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Báo Hỏng / Mất Tuần Này" Value="2 vụ" Description="Đã xử lý bồi thường" Icon="bi bi-exclamation-octagon" Variant="warning" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Tổng Thu Đền Bù" Value="650.000 đ" Description="Cộng dồn vào hóa đơn khách" Icon="bi bi-cash-coin" Variant="accent" />
+    </div>
+</div>
+
+<div class="hotel-card mb-4">
+    <div class="hotel-card-header">
+        <div class="hotel-card-title">
+            <i class="bi bi-card-checklist text-success"></i>
+            <span>Bảng Định Giá & Tiện Nghi Phòng Tiêu Chuẩn (Room_Inventory)</span>
+        </div>
+        <input type="text" class="hotel-input" placeholder="Tìm kiếm tài sản..." @bind="searchAsset" @bind:event="oninput" style="width: 220px;" />
+    </div>
+    <div class="hotel-card-body p-0">
+        <div class="table-responsive">
+            <table class="hotel-table">
+                <thead>
+                    <tr>
+                        <th>Mã</th>
+                        <th>Tên Tài Sản / Tiện Nghi</th>
+                        <th>Loại Tiện Nghi</th>
+                        <th>Số Lượng / Phòng</th>
+                        <th>Đơn Giá Bồi Thường (price_if_lost)</th>
+                        <th>Trạng Thái Thiết Bị</th>
+                        <th class="text-end">Thao Tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in FilteredAssets)
+                    {
+                        <tr>
+                            <td><code>#TS-@item.Id.ToString("D3")</code></td>
+                            <td class="fw-bold">@item.Name</td>
+                            <td><span class="hotel-badge hotel-badge-info">@item.Category</span></td>
+                            <td>@item.QuantityPerRoom chiếc / phòng</td>
+                            <td class="fw-bold text-danger">@item.PriceIfLost.ToString("N0") đ</td>
+                            <td>
+                                <span class="hotel-badge hotel-badge-success"><i class="bi bi-check-circle me-1"></i> Tốt</span>
+                            </td>
+                            <td class="text-end">
+                                <button class="hotel-btn hotel-btn-outline py-1 px-2 text-primary"><i class="bi bi-pencil"></i></button>
+                                <button class="hotel-btn hotel-btn-outline py-1 px-2 text-danger ms-1"><i class="bi bi-slash-circle"></i> Báo Hỏng</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string searchAsset = "";
+
+    private record AssetItem(int Id, string Name, string Category, int QuantityPerRoom, decimal PriceIfLost);
+
+    private List<AssetItem> assets = new()
+    {
+        new(1, "Máy sấy tóc Philips 1200W", "Điện tử", 1, 450000),
+        new(2, "Ấm đun nước siêu tốc Lock&Lock 1.7L", "Điện tử", 1, 350000),
+        new(3, "Bộ khăn tắm cotton cao cấp 70x140", "Vải & Khăn", 2, 200000),
+        new(4, "Khăn mặt cotton mềm 34x80", "Vải & Khăn", 2, 70000),
+        new(5, "Áo choàng tắm sợi bông dệt tổ ong", "Vải & Khăn", 2, 350000),
+        new(6, "Điều khiển TV thông minh SmartTV", "Điện tử", 1, 250000),
+        new(7, "Điều khiển máy lạnh Daikin", "Điện tử", 1, 300000),
+        new(8, "Ly thủy tinh uống vang Ocean", "Thủy tinh", 2, 60000),
+        new(9, "Thìa & Ly sứ uống cafe cao cấp", "Gốm sứ", 2, 50000)
+    };
+
+    private IEnumerable<AssetItem> FilteredAssets => assets
+        .Where(a => string.IsNullOrWhiteSpace(searchAsset) || a.Name.Contains(searchAsset, StringComparison.OrdinalIgnoreCase) || a.Category.Contains(searchAsset, StringComparison.OrdinalIgnoreCase));
+}

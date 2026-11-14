@@ -1,0 +1,180 @@
+@page "/admin/dashboard"
+@page "/staff"
+@rendermode InteractiveServer
+@inject DACNContext Db
+
+<PageTitle>Trung Tâm Điều Hành Ca Trực — Staff Hub</PageTitle>
+
+<PageHeader Title="Tổng Quan Ca Trực Khách Sạn" 
+            Subtitle="Trung tâm điều phối thông minh kết nối 4 phân hệ nghiệp vụ dành cho Ban Quản Lý & Nhân Viên"
+            Icon="bi bi-grid-1x2-fill">
+    <Actions>
+        <button class="hotel-btn hotel-btn-outline" @onclick="LoadStatsAsync">
+            <i class="bi bi-arrow-clockwise"></i> Làm mới
+        </button>
+        <a href="frontdesk/bookings" class="hotel-btn hotel-btn-primary">
+            <i class="bi bi-plus-circle"></i> Đặt Phòng Nhanh
+        </a>
+    </Actions>
+</PageHeader>
+
+<!-- 4 Chỉ số nghiệp vụ nhanh đại diện cho 4 phân hệ -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+        <StatCard Title="Khách Đang Ở (Tiền Sảnh)" 
+                  Value="@($"{occupiedCount} / {rooms.Count}")" 
+                  Description="Công suất phòng: 75%" 
+                  Icon="bi bi-door-open-fill" 
+                  Variant="info" />
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <StatCard Title="Phòng Cần Dọn (Buồng Phòng)" 
+                  Value="@($"{cleaningCount} Phòng")" 
+                  Description="Đang phân công dọn dẹp" 
+                  Icon="bi bi-brush-fill" 
+                  Variant="warning" />
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <StatCard Title="Dự Báo Nhu Cầu AI (AI Core)" 
+                  Value="+32% Tăng" 
+                  Description="Cao điểm du lịch cuối tuần" 
+                  Icon="bi bi-cpu-fill" 
+                  Variant="ai" />
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <StatCard Title="Tài Khoản & RBAC (Bảo Mật)" 
+                  Value="8 Tài Khoản" 
+                  Description="Hệ thống bảo mật an toàn" 
+                  Icon="bi bi-shield-check" 
+                  Variant="success" />
+    </div>
+</div>
+
+<!-- 4 KHỐI PHÂN HỆ NGHIỆP VỤ CỦA 4 THÀNH VIÊN -->
+<div class="row g-4 mb-4">
+    <!-- Phân hệ 3: Tiền sảnh -->
+    <div class="col-12 col-lg-6">
+        <div class="hotel-card h-100">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <span class="member-tag member-tag-tv3">THÀNH VIÊN 3</span>
+                    <span>Tiền Sảnh, Đặt Phòng & Dịch Vụ</span>
+                </div>
+                <a href="frontdesk/bookings" class="hotel-btn hotel-btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
+                    Truy cập <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            <div class="hotel-card-body">
+                <p class="text-muted" style="font-size: 0.875rem;">
+                    Quản lý sơ đồ phòng khách sạn (Room Rack), quy trình Check-in, Check-out, gọi dịch vụ phòng và lập hóa đơn thanh toán.
+                </p>
+                <div class="d-flex gap-2">
+                    <a href="frontdesk/bookings" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-calendar-check me-1"></i> Sơ đồ phòng</a>
+                    <a href="frontdesk/checkin-out" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-box-arrow-in-right me-1"></i> Check-in/out</a>
+                    <a href="frontdesk/services-billing" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-receipt me-1"></i> Hóa đơn & Thu tiền</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phân hệ 2: Buồng phòng -->
+    <div class="col-12 col-lg-6">
+        <div class="hotel-card h-100">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <span class="member-tag member-tag-tv2">THÀNH VIÊN 2</span>
+                    <span>Buồng Phòng, Tiện Nghi & Vận Hành</span>
+                </div>
+                <a href="housekeeping/rooms" class="hotel-btn hotel-btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
+                    Truy cập <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            <div class="hotel-card-body">
+                <p class="text-muted" style="font-size: 0.875rem;">
+                    Theo dõi trực quan trạng thái buồng phòng, phân công ca dọn dẹp vệ sinh và kiểm soát tài sản Room Inventory đối chiếu đền bù.
+                </p>
+                <div class="d-flex gap-2">
+                    <a href="housekeeping/rooms" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-door-closed me-1"></i> Trạng thái phòng</a>
+                    <a href="housekeeping/tasks" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-brush me-1"></i> Phân công dọn</a>
+                    <a href="housekeeping/assets" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-box-seam me-1"></i> Tiện nghi & Hư hỏng</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phân hệ 4: AI & BI -->
+    <div class="col-12 col-lg-6">
+        <div class="hotel-card h-100">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <span class="member-tag member-tag-tv4">THÀNH VIÊN 4</span>
+                    <span>AI Core, Dự Báo & Báo Cáo BI</span>
+                </div>
+                <a href="ai-analytics/dashboard" class="hotel-btn hotel-btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
+                    Truy cập <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            <div class="hotel-card-body">
+                <p class="text-muted" style="font-size: 0.875rem;">
+                    AI Chatbot hỗ trợ tư vấn khách hàng tự động, mô hình Machine Learning dự báo nhu cầu đặt phòng và báo cáo BI doanh thu.
+                </p>
+                <div class="d-flex gap-2">
+                    <a href="ai-analytics/dashboard" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-pie-chart me-1"></i> Báo cáo BI</a>
+                    <a href="ai-analytics/chatbot" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-robot me-1"></i> AI Chatbot</a>
+                    <a href="ai-analytics/forecast" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-graph-up me-1"></i> Dự báo & Hủy phòng</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phân hệ 1: Bảo mật & RBAC -->
+    <div class="col-12 col-lg-6">
+        <div class="hotel-card h-100">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <span class="member-tag member-tag-tv1">THÀNH VIÊN 1</span>
+                    <span>Bảo Mật, Phân Quyền (RBAC) & Quản Trị</span>
+                </div>
+                <a href="admin/accounts" class="hotel-btn hotel-btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
+                    Truy cập <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            <div class="hotel-card-body">
+                <p class="text-muted" style="font-size: 0.875rem;">
+                    Quản trị danh sách người dùng, ma trận phân quyền vai trò (RBAC), kho Voucher ưu đãi và nhật ký kiểm toán hệ thống (Audit Logs).
+                </p>
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="admin/accounts" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-people me-1"></i> Tài khoản</a>
+                    <a href="admin/rbac" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-shield-lock me-1"></i> Phân quyền</a>
+                    <a href="admin/vouchers" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-ticket me-1"></i> Vouchers</a>
+                    <a href="admin/audit-logs" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-journal-text me-1"></i> Audit Logs</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Phong> rooms = new();
+    private int occupiedCount = 12;
+    private int cleaningCount = 3;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStatsAsync();
+    }
+
+    private async Task LoadStatsAsync()
+    {
+        try
+        {
+            rooms = await Db.Phongs.AsNoTracking().ToListAsync();
+            if (rooms.Any())
+            {
+                occupiedCount = rooms.Count(r => r.TrangThai == "dang_o");
+                cleaningCount = rooms.Count(r => r.TrangThai == "don_dep" || r.TrangThai == "chua_don");
+            }
+        }
+        catch { }
+    }
+}

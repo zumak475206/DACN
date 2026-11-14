@@ -1,0 +1,145 @@
+@page "/ai-analytics/forecast"
+@rendermode InteractiveServer
+@inject DACNContext Db
+
+<PageTitle>Dự Báo & Cảnh Báo Hủy Phòng AI — TV4</PageTitle>
+
+<PageHeader Title="AI Dự Báo Nhu Cầu Đặt Phòng & Cảnh Báo Hủy Phòng"
+            Subtitle="Mô hình Machine Learning phân tích xu hướng lấp đầy buồng phòng và phát hiện nguy cơ hủy đơn sớm"
+            Icon="bi bi-graph-up-arrow"
+            MemberTag="TV4 — DỰ BÁO AI & RỦI RO"
+            MemberTagClass="member-tag-tv4">
+    <Actions>
+        <button class="hotel-btn hotel-btn-ai">
+            <i class="bi bi-cpu me-1"></i> Chạy Lại Mô Hình AI
+        </button>
+        <button class="hotel-btn hotel-btn-outline">
+            <i class="bi bi-download me-1"></i> Xuất Báo Cáo Phân Tích
+        </button>
+    </Actions>
+</PageHeader>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <StatCard Title="Dự Báo Nhu Cầu Tuần Tới" Value="+32%" Description="Xu hướng tăng mạnh cuối tuần" Icon="bi bi-graph-up-arrow" Variant="ai" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Tỷ Lệ Hủy Phòng Dự Đoán" Value="8.4%" Description="Thấp hơn mức trung bình 15%" Icon="bi bi-shield-check" Variant="success" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Đơn Cảnh Báo Nguy Cơ Cao" Value="3 đơn" Description="Cần lễ tân liên hệ xác nhận" Icon="bi bi-exclamation-diamond-fill" Variant="warning" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Độ Chính Xác Mô Hình" Value="94.2%" Description="Đánh giá trên 500 đơn gần nhất" Icon="bi bi-bullseye" Variant="accent" />
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Cột trái: Dự báo nhu cầu theo từng loại phòng -->
+    <div class="col-12 col-lg-6">
+        <div class="hotel-card h-100">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <i class="bi bi-bar-chart-fill text-primary"></i>
+                    <span>Dự Báo Nhu Cầu Theo Loại Phòng (7 Ngày Tới)</span>
+                </div>
+                <span class="hotel-badge hotel-badge-info">Độ tin cậy 94%</span>
+            </div>
+            <div class="hotel-card-body">
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.9rem;">
+                        <span class="fw-semibold">Phòng Deluxe Hướng Biển (Sea View)</span>
+                        <span class="fw-bold text-success">92% Nhu cầu rất cao</span>
+                    </div>
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar bg-success" style="width: 92%"></div>
+                    </div>
+                    <small class="text-muted">Gợi ý AI: Có thể tăng giá thêm 10% cho 3 ngày cuối tuần.</small>
+                </div>
+
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.9rem;">
+                        <span class="fw-semibold">Phòng Suite Gia Đình</span>
+                        <span class="fw-bold text-primary">78% Nhu cầu tốt</span>
+                    </div>
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar bg-primary" style="width: 78%"></div>
+                    </div>
+                    <small class="text-muted">Gợi ý AI: Duy trì mức giá hiện tại, kèm ưu đãi bữa sáng buffet.</small>
+                </div>
+
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.9rem;">
+                        <span class="fw-semibold">Phòng Superior Giường Đôi</span>
+                        <span class="fw-bold text-info">65% Nhu cầu trung bình</span>
+                    </div>
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar bg-info" style="width: 65%"></div>
+                    </div>
+                    <small class="text-muted">Gợi ý AI: Phù hợp khách công tác ngày thường (Thứ 2 - Thứ 5).</small>
+                </div>
+
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.9rem;">
+                        <span class="fw-semibold">Phòng Standard Tiêu Chuẩn</span>
+                        <span class="fw-bold text-warning">50% Nhu cầu thấp</span>
+                    </div>
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar bg-warning" style="width: 50%"></div>
+                    </div>
+                    <small class="text-muted">Gợi ý AI: Đẩy voucher WELCOME2026 trên kênh online để kích cầu.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cột phải: Danh sách cảnh báo nguy cơ hủy phòng -->
+    <div class="col-12 col-lg-6">
+        <div class="hotel-card h-100">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <i class="bi bi-shield-exclamation text-danger"></i>
+                    <span>Cảnh Báo Nguy Cơ Hủy Đặt Phòng (AI Churn Risk)</span>
+                </div>
+                <span class="hotel-badge hotel-badge-danger">Ưu tiên xử lý</span>
+            </div>
+            <div class="hotel-card-body p-0">
+                <div class="list-group list-group-flush">
+                    @foreach (var risk in riskAlerts)
+                    {
+                        <div class="list-group-item p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div class="fw-bold text-dark">
+                                    Đơn #DP-@risk.BookingId.ToString("D4") — @risk.GuestName
+                                </div>
+                                <span class="hotel-badge @(risk.RiskScore >= 70 ? "hotel-badge-danger" : "hotel-badge-warning")">
+                                    @risk.RiskScore% Nguy cơ hủy
+                                </span>
+                            </div>
+                            <p class="text-muted small mb-2">
+                                <strong>Lý do AI phát hiện:</strong> @risk.Reason
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted"><i class="bi bi-clock me-1"></i> Ngày nhận phòng: @risk.CheckinDate</small>
+                                <button class="hotel-btn hotel-btn-outline py-1 px-2" style="font-size: 0.75rem;">
+                                    <i class="bi bi-telephone-outbound me-1"></i> Gọi Xác Nhận
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private record CancellationRisk(int BookingId, string GuestName, int RiskScore, string Reason, string CheckinDate);
+
+    private List<CancellationRisk> riskAlerts = new()
+    {
+        new(8, "Đặng Thị Bích", 76, "Đặt phòng trước 45 ngày nhưng chưa đặt cọc, thời gian lưu trú trùng thời tiết có cảnh báo mưa dông.", "25/11/2026"),
+        new(12, "Lê Hoàng Long", 68, "Khách đã từng hủy đơn 2 lần trước đó trên ứng dụng, liên lạc qua email chưa phản hồi.", "18/11/2026"),
+        new(15, "Võ Thành Nam", 54, "Thời gian đặt phòng ngắn hạn vào mùa cao điểm nhưng chưa thanh toán qua cổng điện tử.", "20/11/2026")
+    };
+}

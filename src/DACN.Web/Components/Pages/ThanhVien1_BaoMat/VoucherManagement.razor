@@ -1,0 +1,147 @@
+@page "/admin/vouchers"
+@rendermode InteractiveServer
+@inject DACNContext Db
+
+<PageTitle>Kho Voucher & Loyalty — TV1</PageTitle>
+
+<PageHeader Title="Kho Mã Khuyến Mãi (Vouchers) & Chính Sách Loyalty"
+            Subtitle="Tạo, quản lý và theo dõi mã giảm giá, cấu hình hạng hội viên tích điểm (Bạc, Vàng, Kim Cương)"
+            Icon="bi bi-ticket-perforated-fill"
+            MemberTag="TV1 — VOUCHER & LOYALTY"
+            MemberTagClass="member-tag-tv1">
+    <Actions>
+        <button class="hotel-btn hotel-btn-accent">
+            <i class="bi bi-plus-circle me-1"></i> Tạo Mã Voucher Mới
+        </button>
+        <button class="hotel-btn hotel-btn-outline">
+            <i class="bi bi-download"></i> Xuất Excel
+        </button>
+    </Actions>
+</PageHeader>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <StatCard Title="Tổng Voucher" Value="@vouchers.Count.ToString()" Description="Toàn bộ mã trong kho" Icon="bi bi-ticket-fill" Variant="info" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Đang Kích Hoạt" Value="@vouchers.Count(v => v.DangHoatDong).ToString()" Description="Khách hàng đang dùng được" Icon="bi bi-check-circle-fill" Variant="success" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Lượt Sử Dụng (Tổng)" Value="@vouchers.Sum(v => v.SoLanDaDung).ToString()" Description="Trên tất cả các mã" Icon="bi bi-graph-up" Variant="primary" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Hạng Hội Viên" Value="@loyaltyTiers.Count.ToString()" Description="Bạc, Vàng, Kim Cương" Icon="bi bi-award-fill" Variant="accent" />
+    </div>
+</div>
+
+<!-- Bảng danh sách Voucher -->
+<div class="hotel-card mb-4">
+    <div class="hotel-card-header">
+        <div class="hotel-card-title">
+            <i class="bi bi-ticket-perforated-fill text-warning"></i>
+            <span>Danh Sách Mã Giảm Giá</span>
+        </div>
+        <input type="text" class="hotel-input" placeholder="Tìm mã code..." @bind="searchVoucher" @bind:event="oninput" style="width: 200px;" />
+    </div>
+    <div class="hotel-card-body p-0">
+        <div class="table-responsive">
+            <table class="hotel-table">
+                <thead>
+                    <tr>
+                        <th>Mã Code</th>
+                        <th>Loại Giảm</th>
+                        <th>Mức Giảm</th>
+                        <th>Giá Trị Tối Thiểu</th>
+                        <th>Hiệu Lực</th>
+                        <th>Lượt Dùng / Giới Hạn</th>
+                        <th>Trạng Thái</th>
+                        <th class="text-end">Hành Động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var v in FilteredVouchers)
+                    {
+                        <tr>
+                            <td><span class="badge bg-light text-dark border px-2 py-1 font-monospace fw-bold" style="letter-spacing:1px;">@v.MaCode</span></td>
+                            <td>@(v.LoaiGiamGia == "PhanTram" ? "Phần Trăm (%)" : "Số Tiền Cố Định")</td>
+                            <td class="fw-bold text-success">@(v.LoaiGiamGia == "PhanTram" ? $"{v.GiaTriGiamGia}%" : $"{v.GiaTriGiamGia:N0} đ")</td>
+                            <td>@(v.GiaTriDatPhongToiThieu.HasValue ? $"{v.GiaTriDatPhongToiThieu.Value:N0} đ" : "Không giới hạn")</td>
+                            <td><small class="text-muted">@v.HieuLucTu.ToString("dd/MM/yy") → @v.HieuLucDen.ToString("dd/MM/yy")</small></td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1" style="height:6px;width:60px;">
+                                        <div class="progress-bar bg-info" style="width:@(v.GioiHanSuDung > 0 ? (v.SoLanDaDung * 100 / v.GioiHanSuDung) : 0)%"></div>
+                                    </div>
+                                    <small class="fw-semibold">@v.SoLanDaDung / @v.GioiHanSuDung</small>
+                                </div>
+                            </td>
+                            <td>
+                                @if (v.DangHoatDong) { <span class="hotel-badge hotel-badge-success">Đang mở</span> }
+                                else { <span class="hotel-badge hotel-badge-danger">Tạm dừng</span> }
+                            </td>
+                            <td class="text-end">
+                                <button class="hotel-btn hotel-btn-outline py-1 px-2 text-primary"><i class="bi bi-pencil-fill"></i></button>
+                                <button class="hotel-btn hotel-btn-outline py-1 px-2 text-danger ms-1"><i class="bi bi-trash"></i></button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Bảng Hạng Hội Viên Loyalty -->
+<div class="hotel-card">
+    <div class="hotel-card-header">
+        <div class="hotel-card-title">
+            <i class="bi bi-award-fill text-warning"></i>
+            <span>Cấu Hình Hạng Hội Viên (Loyalty Tiers)</span>
+        </div>
+    </div>
+    <div class="hotel-card-body">
+        <div class="row g-3">
+            @foreach (var tier in loyaltyTiers)
+            {
+                <div class="col-12 col-md-4">
+                    <div class="p-3 rounded border text-center" style="background: var(--hotel-bg-app);">
+                        <div class="fs-2 mb-1">@tier.Icon</div>
+                        <div class="fw-bold fs-6">@tier.Name</div>
+                        <div class="text-muted small">Từ @tier.MinPoints.ToString("N0") điểm</div>
+                        <div class="mt-2">
+                            <span class="hotel-badge hotel-badge-success">Giảm @tier.Discount% toàn bộ dịch vụ</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string searchVoucher = "";
+    private List<MaGiamGium> vouchers = new();
+
+    private record LoyaltyTier(string Icon, string Name, int MinPoints, int Discount);
+    private List<LoyaltyTier> loyaltyTiers = new()
+    {
+        new("🥈", "Hạng Bạc (Silver)", 500, 5),
+        new("🥇", "Hạng Vàng (Gold)", 2000, 10),
+        new("💎", "Hạng Kim Cương (Diamond)", 5000, 15)
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { vouchers = await Db.MaGiamGia.AsNoTracking().OrderByDescending(v => v.NgayTao).ToListAsync(); } catch { }
+        if (!vouchers.Any())
+            vouchers = new List<MaGiamGium>
+            {
+                new MaGiamGium { MaId=1, MaCode="WELCOME2026", LoaiGiamGia="PhanTram", GiaTriGiamGia=15, GiaTriDatPhongToiThieu=1000000, HieuLucTu=DateTime.Today, HieuLucDen=DateTime.Today.AddMonths(2), GioiHanSuDung=200, SoLanDaDung=48, DangHoatDong=true },
+                new MaGiamGium { MaId=2, MaCode="SUMMERLUXURY", LoaiGiamGia="SoTien", GiaTriGiamGia=300000, GiaTriDatPhongToiThieu=2500000, HieuLucTu=DateTime.Today, HieuLucDen=DateTime.Today.AddMonths(3), GioiHanSuDung=100, SoLanDaDung=19, DangHoatDong=true },
+                new MaGiamGium { MaId=3, MaCode="VIPMEMBER20", LoaiGiamGia="PhanTram", GiaTriGiamGia=20, GiaTriDatPhongToiThieu=1500000, HieuLucTu=DateTime.Today, HieuLucDen=DateTime.Today.AddYears(1), GioiHanSuDung=50, SoLanDaDung=12, DangHoatDong=false }
+            };
+    }
+
+    private IEnumerable<MaGiamGium> FilteredVouchers => vouchers
+        .Where(v => string.IsNullOrWhiteSpace(searchVoucher) || v.MaCode.Contains(searchVoucher, StringComparison.OrdinalIgnoreCase));
+}

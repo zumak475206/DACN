@@ -1,0 +1,129 @@
+@page "/ai-analytics/dashboard"
+@page "/ai-analytics/bi"
+@rendermode InteractiveServer
+@inject DACNContext Db
+
+<PageTitle>Báo Cáo Phân Tích Dữ Liệu BI — TV4</PageTitle>
+
+<PageHeader Title="Báo Cáo Phân Tích Thông Minh (Business Intelligence - BI)"
+            Subtitle="Trực quan hóa doanh thu, chi phí vận hành, công suất phòng và lợi nhuận tổng thể khách sạn"
+            Icon="bi bi-pie-chart-fill"
+            MemberTag="TV4 — BÁO CÁO BI & TÀI CHÍNH"
+            MemberTagClass="member-tag-tv4">
+    <Actions>
+        <button class="hotel-btn hotel-btn-primary">
+            <i class="bi bi-file-earmark-pdf me-1"></i> Xuất Báo Cáo PDF
+        </button>
+        <button class="hotel-btn hotel-btn-outline">
+            <i class="bi bi-file-earmark-excel me-1"></i> Xuất Dữ Liệu Excel
+        </button>
+    </Actions>
+</PageHeader>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <StatCard Title="Doanh Thu Tháng Này" Value="425.000.000 đ" Description="+18% so với cùng kỳ tháng trước" Icon="bi bi-currency-dollar" Variant="success" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Chi Phí Vận Hành" Value="145.000.000 đ" Description="Nhân sự, hóa chất, điện nước" Icon="bi bi-credit-card-2-back" Variant="warning" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Lợi Nhuận Ròng" Value="280.000.000 đ" Description="Biên lợi nhuận 65.8%" Icon="bi bi-graph-up-arrow" Variant="primary" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Công Suất Phòng (Occupancy)" Value="84.5%" Description="RevPAR: 850.000 đ / phòng" Icon="bi bi-door-open-fill" Variant="accent" />
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Phân tích cơ cấu doanh thu -->
+    <div class="col-12 col-lg-7">
+        <div class="hotel-card h-100">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <i class="bi bi-bar-chart-line-fill text-primary"></i>
+                    <span>Cơ Cấu Nguồn Doanh Thu Khách Sạn</span>
+                </div>
+                <span class="hotel-badge hotel-badge-success">Tháng hiện tại</span>
+            </div>
+            <div class="hotel-card-body">
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.9rem;">
+                        <span class="fw-semibold">1. Doanh Thu Tiền Thuê Buồng Phòng</span>
+                        <span class="fw-bold text-primary">315.000.000 đ (74.1%)</span>
+                    </div>
+                    <div class="progress" style="height: 12px;">
+                        <div class="progress-bar bg-primary" style="width: 74.1%"></div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.9rem;">
+                        <span class="fw-semibold">2. Ẩm Thực & Nhà Hàng Buffet</span>
+                        <span class="fw-bold text-success">58.000.000 đ (13.6%)</span>
+                    </div>
+                    <div class="progress" style="height: 12px;">
+                        <div class="progress-bar bg-success" style="width: 13.6%"></div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.9rem;">
+                        <span class="fw-semibold">3. Dịch Vụ Spa & Chăm Sóc Sức Khỏe</span>
+                        <span class="fw-bold text-info">32.000.000 đ (7.5%)</span>
+                    </div>
+                    <div class="progress" style="height: 12px;">
+                        <div class="progress-bar bg-info" style="width: 7.5%"></div>
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.9rem;">
+                        <span class="fw-semibold">4. Đưa Đón Sân Bay, Tour & Minibar</span>
+                        <span class="fw-bold text-accent">20.000.000 đ (4.8%)</span>
+                    </div>
+                    <div class="progress" style="height: 12px;">
+                        <div class="progress-bar" style="width: 4.8%; background: var(--hotel-accent);"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tóm tắt chỉ số khách hàng & Kênh đặt -->
+    <div class="col-12 col-lg-5">
+        <div class="hotel-card h-100">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <i class="bi bi-funnel-fill text-warning"></i>
+                    <span>Tỷ Trọng Kênh Đặt Phòng</span>
+                </div>
+            </div>
+            <div class="hotel-card-body">
+                <div class="p-3 rounded border mb-3" style="background: var(--hotel-bg-app);">
+                    <div class="d-flex justify-content-between">
+                        <span class="fw-bold"><i class="bi bi-globe me-1 text-primary"></i> Website Trực Tuyến</span>
+                        <span class="fw-bold text-primary">48%</span>
+                    </div>
+                    <small class="text-muted">Kênh có biên lợi nhuận cao nhất (không mất phí OTA)</small>
+                </div>
+
+                <div class="p-3 rounded border mb-3" style="background: var(--hotel-bg-app);">
+                    <div class="d-flex justify-content-between">
+                        <span class="fw-bold"><i class="bi bi-airplane me-1 text-info"></i> Đại Lý OTA (Booking, Agoda)</span>
+                        <span class="fw-bold text-info">34%</span>
+                    </div>
+                    <small class="text-muted">Chủ yếu là khách du lịch quốc tế và các tỉnh xa</small>
+                </div>
+
+                <div class="p-3 rounded border" style="background: var(--hotel-bg-app);">
+                    <div class="d-flex justify-content-between">
+                        <span class="fw-bold"><i class="bi bi-person-walking me-1 text-success"></i> Khách Vãng Lai (Walk-in)</span>
+                        <span class="fw-bold text-success">18%</span>
+                    </div>
+                    <small class="text-muted">Khách đến trực tiếp quầy Lễ tân của TV3</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

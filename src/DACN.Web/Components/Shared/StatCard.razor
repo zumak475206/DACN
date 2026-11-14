@@ -1,0 +1,43 @@
+<div class="hotel-stat-card">
+    <div class="stat-icon-wrapper" style="background-color: @GetBgColor(); color: @GetColor();">
+        <i class="@Icon"></i>
+    </div>
+    <div class="stat-content">
+        <p class="stat-title">@Title</p>
+        <h3 class="stat-number">@Value</h3>
+        @if (!string.IsNullOrEmpty(Description))
+        {
+            <p class="stat-desc">@Description</p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Value { get; set; } = "0";
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string Icon { get; set; } = "bi bi-graph-up";
+    [Parameter] public string Variant { get; set; } = "primary";
+
+    private string GetBgColor() => Variant.ToLower() switch
+    {
+        "success" => "var(--hotel-success-bg)",
+        "warning" => "var(--hotel-warning-bg)",
+        "danger"  => "var(--hotel-danger-bg)",
+        "info"    => "var(--hotel-info-bg)",
+        "ai"      => "var(--hotel-ai-bg)",
+        "accent"  => "var(--hotel-accent-light)",
+        _         => "var(--hotel-primary-light)"
+    };
+
+    private string GetColor() => Variant.ToLower() switch
+    {
+        "success" => "var(--hotel-success)",
+        "warning" => "var(--hotel-warning)",
+        "danger"  => "var(--hotel-danger)",
+        "info"    => "var(--hotel-info)",
+        "ai"      => "var(--hotel-ai)",
+        "accent"  => "var(--hotel-accent)",
+        _         => "var(--hotel-primary)"
+    };
+}

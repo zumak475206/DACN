@@ -1,0 +1,151 @@
+﻿@inject UserSessionService Session
+@inject NavigationManager Nav
+@implements IDisposable
+
+<div class="hotel-sidebar-header">
+    <div class="hotel-brand-logo">
+        <i class="bi bi-building"></i>
+    </div>
+    <div class="hotel-brand-text">
+        <h5>GRAND HOTEL</h5>
+        <small>Smart Staff Portal</small>
+    </div>
+</div>
+
+<div class="hotel-sidebar-body">
+    <!-- Nút trở về Trang Khách Hàng -->
+    <a href="" class="hotel-nav-link text-warning mb-2" style="background: rgba(221, 161, 94, 0.15); border-left: 3px solid var(--hotel-accent);">
+        <i class="bi bi-arrow-left-circle-fill text-warning"></i>
+        <span>Về Web Khách Hàng</span>
+    </a>
+
+    <!-- Menu Tổng Quan Ca Trực -->
+    <div class="hotel-nav-section-title">Trung Tâm Điều Hành</div>
+    <NavLink class="hotel-nav-link" href="admin/dashboard" Match="NavLinkMatch.All">
+        <i class="bi bi-grid-1x2-fill"></i>
+        <span>Tổng Quan Ca Trực</span>
+    </NavLink>
+
+    <!-- THÀNH VIÊN 3: TIỀN SẢNH (FRONT-DESK) -->
+    @if (Session.CanAccessFrontDesk())
+    {
+        <div class="hotel-nav-section-title d-flex justify-content-between align-items-center mt-2">
+            <span>Phân Hệ Tiền Sảnh</span>
+            <span class="member-tag member-tag-tv3">TV 3</span>
+        </div>
+        <NavLink class="hotel-nav-link" href="frontdesk/bookings">
+            <i class="bi bi-calendar-check-fill"></i>
+            <span>Sơ Đồ & Đặt Phòng</span>
+        </NavLink>
+        <NavLink class="hotel-nav-link" href="frontdesk/checkin-out">
+            <i class="bi bi-box-arrow-in-right"></i>
+            <span>Check-in / Check-out</span>
+        </NavLink>
+        <NavLink class="hotel-nav-link" href="frontdesk/services-billing">
+            <i class="bi bi-receipt-cutoff"></i>
+            <span>Dịch Vụ & Hóa Đơn</span>
+        </NavLink>
+    }
+
+    <!-- THÀNH VIÊN 2: BUỒNG PHÒNG & VẬN HÀNH (HOUSEKEEPING) -->
+    @if (Session.CanAccessHousekeeping())
+    {
+        <div class="hotel-nav-section-title d-flex justify-content-between align-items-center mt-2">
+            <span>Buồng Phòng & Vận Hành</span>
+            <span class="member-tag member-tag-tv2">TV 2</span>
+        </div>
+        <NavLink class="hotel-nav-link" href="housekeeping/rooms">
+            <i class="bi bi-door-closed-fill"></i>
+            <span>Trạng Thái Buồng Phòng</span>
+        </NavLink>
+        <NavLink class="hotel-nav-link" href="housekeeping/tasks">
+            <i class="bi bi-brush-fill"></i>
+            <span>Nhật Ký Dọn Phòng</span>
+        </NavLink>
+        <NavLink class="hotel-nav-link" href="housekeeping/assets">
+            <i class="bi bi-box-seam-fill"></i>
+            <span>Tiện Nghi & Hư Hỏng</span>
+        </NavLink>
+    }
+
+    <!-- THÀNH VIÊN 4: AI CORE & BÁO CÁO (AI & BI) -->
+    @if (Session.CanAccessAiBi())
+    {
+        <div class="hotel-nav-section-title d-flex justify-content-between align-items-center mt-2">
+            <span>Trí Tuệ Nhân Tạo & BI</span>
+            <span class="member-tag member-tag-tv4">TV 4</span>
+        </div>
+        <NavLink class="hotel-nav-link" href="ai-analytics/dashboard">
+            <i class="bi bi-cpu-fill"></i>
+            <span>Báo Cáo Phân Tích (BI)</span>
+        </NavLink>
+        <NavLink class="hotel-nav-link" href="ai-analytics/chatbot">
+            <i class="bi bi-chat-dots-fill"></i>
+            <span>AI Chatbot Trợ Lý</span>
+        </NavLink>
+        <NavLink class="hotel-nav-link" href="ai-analytics/forecast">
+            <i class="bi bi-graph-up-arrow"></i>
+            <span>Dự Báo & Cảnh Báo Hủy</span>
+        </NavLink>
+    }
+
+    <!-- THÀNH VIÊN 1: BẢO MẬT & PHÂN QUYỀN (RBAC) -->
+    @if (Session.CanAccessAdmin())
+    {
+        <div class="hotel-nav-section-title d-flex justify-content-between align-items-center mt-2">
+            <span>Bảo Mật & Quản Trị</span>
+            <span class="member-tag member-tag-tv1">TV 1</span>
+        </div>
+        <NavLink class="hotel-nav-link" href="admin/accounts">
+            <i class="bi bi-person-badge-fill"></i>
+            <span>Quản Lý Tài Khoản</span>
+        </NavLink>
+        <NavLink class="hotel-nav-link" href="admin/rbac">
+            <i class="bi bi-shield-lock-fill"></i>
+            <span>Phân Quyền (RBAC)</span>
+        </NavLink>
+        <NavLink class="hotel-nav-link" href="admin/vouchers">
+            <i class="bi bi-ticket-perforated-fill"></i>
+            <span>Kho Voucher & Ưu Đãi</span>
+        </NavLink>
+        <NavLink class="hotel-nav-link" href="admin/content">
+            <i class="bi bi-newspaper"></i>
+            <span>Quản Trị Nội Dung</span>
+        </NavLink>
+        <NavLink class="hotel-nav-link" href="admin/audit-logs">
+            <i class="bi bi-journal-text"></i>
+            <span>Nhật Ký Kiểm Toán</span>
+        </NavLink>
+    }
+</div>
+
+<div class="hotel-sidebar-footer">
+    <div class="d-flex align-items-center gap-2">
+        <div style="width: 34px; height: 34px; border-radius: 50%; background: var(--hotel-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.85rem;">
+            @Session.CurrentUser.HoTen.Substring(0, Math.Min(2, Session.CurrentUser.HoTen.Length)).ToUpper()
+        </div>
+        <div class="flex-grow-1 overflow-hidden">
+            <div style="font-size: 0.85rem; font-weight: 600; color: white; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
+                @Session.CurrentUser.HoTen
+            </div>
+            <div style="font-size: 0.72rem; color: #94A3B8; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
+                @Session.CurrentUser.RoleDisplayName
+            </div>
+        </div>
+        <a href="login" title="Đổi ca / Đăng xuất" class="text-white-50 hover-text-white" style="font-size: 1.1rem;">
+            <i class="bi bi-box-arrow-right"></i>
+        </a>
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Session.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        Session.OnChange -= StateHasChanged;
+    }
+}

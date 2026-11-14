@@ -1,0 +1,161 @@
+@page "/ai-analytics/chatbot"
+@rendermode InteractiveServer
+@inject DACNContext Db
+
+<PageTitle>AI Chatbot Tư Vấn Du Lịch — TV4</PageTitle>
+
+<PageHeader Title="AI Chatbot Tư Vấn Khách Hàng & Gợi Ý Điểm Đến"
+            Subtitle="Trợ lý ảo AI tư vấn loại phòng, bảng giá dịch vụ và gợi ý tour, điểm tham quan Đà Nẵng theo mùa"
+            Icon="bi bi-chat-dots-fill"
+            MemberTag="TV4 — AI CHATBOT"
+            MemberTagClass="member-tag-tv4">
+    <Actions>
+        <button class="hotel-btn hotel-btn-ai" @onclick="ClearChat">
+            <i class="bi bi-arrow-counterclockwise me-1"></i> Làm Mới Phiên Chat
+        </button>
+        <a href="/ai-analytics/forecast" class="hotel-btn hotel-btn-outline">
+            <i class="bi bi-graph-up me-1"></i> Xem Dự Báo AI
+        </a>
+    </Actions>
+</PageHeader>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <StatCard Title="Phiên Chat Hôm Nay" Value="142 phiên" Description="Tương tác tự động 24/7" Icon="bi bi-chat-heart-fill" Variant="ai" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Thời Gian Phản Hồi" Value="0.8s" Description="Độ trễ xử lý Gemini Core" Icon="bi bi-lightning-charge-fill" Variant="accent" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Độ Hài Lòng Khách" Value="94%" Description="Khảo sát sau phiên chat" Icon="bi bi-emoji-smile-fill" Variant="success" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Chuyển Đổi Thành Đơn" Value="28%" Description="Đặt phòng ngay sau khi hỏi" Icon="bi bi-cart-check-fill" Variant="info" />
+    </div>
+</div>
+
+<div class="hotel-card">
+    <div class="hotel-card-header">
+        <div class="hotel-card-title">
+            <i class="bi bi-robot" style="color: var(--hotel-ai);"></i>
+            <span>Hộp Thoại Trợ Lý AI Khách Sạn (Gemini AI Active)</span>
+        </div>
+        <span class="hotel-badge hotel-badge-ai">Model: Gemini 2.5 Flash</span>
+    </div>
+    <div class="hotel-card-body d-flex flex-column" style="min-height: 450px;">
+        <!-- Vùng tin nhắn chat -->
+        <div class="flex-grow-1 overflow-auto p-3 rounded mb-3" style="background: var(--hotel-bg-app); border: 1px solid var(--hotel-border); max-height: 400px;">
+            <div class="d-flex mb-3">
+                <div class="me-2" style="width: 34px; height: 34px; border-radius: 50%; background: var(--hotel-ai); color: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <i class="bi bi-robot"></i>
+                </div>
+                <div class="p-3 rounded shadow-sm" style="background: white; max-width: 80%; font-size: 0.9rem; border: 1px solid var(--hotel-border);">
+                    👋 Xin chào! Tôi là Trợ lý AI của <strong>Grand Hotel Da Nang</strong>.<br />
+                    Tôi có thể giúp bạn:
+                    <ul class="mb-1 mt-1 ps-3">
+                        <li>Tra cứu loại phòng và chính sách ưu đãi giá mới nhất</li>
+                        <li>Gợi ý các điểm vui chơi, lễ hội pháo hoa DIFF theo mùa</li>
+                        <li>Hỗ trợ thủ tục đặt cọc, check-in và dịch vụ xe đưa đón</li>
+                    </ul>
+                    Bạn đang quan tâm đến nội dung nào hôm nay?
+                </div>
+            </div>
+
+            @foreach (var msg in chatMessages)
+            {
+                <div class="d-flex @(msg.IsUser ? "justify-content-end" : "") mb-3">
+                    @if (!msg.IsUser)
+                    {
+                        <div class="me-2" style="width: 34px; height: 34px; border-radius: 50%; background: var(--hotel-ai); color: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i class="bi bi-robot"></i>
+                        </div>
+                    }
+                    <div class="p-3 rounded shadow-sm" style="background: @(msg.IsUser ? "var(--hotel-primary)" : "white"); color: @(msg.IsUser ? "white" : "var(--hotel-text)"); max-width: 80%; font-size: 0.9rem; border: 1px solid @(msg.IsUser ? "transparent" : "var(--hotel-border)");">
+                        @msg.Text
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Các câu hỏi gợi ý nhanh -->
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <button class="hotel-btn hotel-btn-outline py-1 px-2" style="font-size: 0.8rem;" @onclick='() => AskQuick("Khách sạn có những loại phòng nào và giá bao nhiêu?")'>
+                💡 Các loại phòng & bảng giá?
+            </button>
+            <button class="hotel-btn hotel-btn-outline py-1 px-2" style="font-size: 0.8rem;" @onclick='() => AskQuick("Mùa này ở Đà Nẵng đi chơi những đâu đẹp?")'>
+                🏖️ Địa điểm du lịch theo mùa?
+            </button>
+            <button class="hotel-btn hotel-btn-outline py-1 px-2" style="font-size: 0.8rem;" @onclick='() => AskQuick("Khách sạn có ưu đãi voucher giảm giá nào không?")'>
+                🎟️ Mã giảm giá khuyến mãi?
+            </button>
+        </div>
+
+        <!-- Ô nhập câu hỏi -->
+        <div class="input-group">
+            <input type="text" class="form-control hotel-input" placeholder="Nhập câu hỏi cho AI..." 
+                   @bind="currentInput" @bind:event="oninput" @onkeydown="HandleKeyDown" />
+            <button class="hotel-btn hotel-btn-ai px-4" @onclick="SendMessage">
+                <i class="bi bi-send-fill me-1"></i> Gửi
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string currentInput = "";
+    private List<ChatMessage> chatMessages = new();
+
+    private record ChatMessage
+    {
+        public string Text { get; set; } = "";
+        public bool IsUser { get; set; }
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            SendMessage();
+        }
+    }
+
+    private void AskQuick(string question)
+    {
+        currentInput = question;
+        SendMessage();
+    }
+
+    private void SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(currentInput)) return;
+
+        chatMessages.Add(new ChatMessage { Text = currentInput, IsUser = true });
+        var query = currentInput.ToLower();
+        currentInput = "";
+
+        string reply;
+        if (query.Contains("giá") || query.Contains("phòng") || query.Contains("loại phòng"))
+        {
+            reply = "Grand Hotel hiện có 5 loại phòng: Standard (500.000đ/đêm), Superior (750.000đ/đêm), Deluxe Sea View (1.000.000đ/đêm), Suite Gia đình (1.500.000đ/đêm) và Penthouse VIP. Khách sạn đang có mã ưu đãi WELCOME2026 giảm 15% cho quý khách!";
+        }
+        else if (query.Contains("chơi") || query.Contains("địa điểm") || query.Contains("tour") || query.Contains("mùa"))
+        {
+            reply = "Mùa này tại Đà Nẵng rất đẹp! Chúng tôi gợi ý bạn ghé thăm Bãi biển Mỹ Khê (cách 500m), check-in Cầu Rồng phun lửa cuối tuần (cách 1.8km), và tour Bà Nà Hills - Cầu Vàng. Khách sạn có quầy hỗ trợ book vé cáp treo với chiết khấu 5%!";
+        }
+        else if (query.Contains("mã") || query.Contains("voucher") || query.Contains("khuyến mãi"))
+        {
+            reply = "Hiện có 2 mã ưu đãi cực hot: Mã 'WELCOME2026' (giảm 15% đơn từ 1 triệu) và mã 'SUMMERLUXURY' (giảm thẳng 300.000đ cho đơn từ 2.5 triệu). Bạn có thể áp dụng ngay khi đặt phòng trực tuyến!";
+        }
+        else
+        {
+            reply = "Cảm ơn bạn đã liên hệ! Tôi đã chuyển thông tin này cho bộ phận Lễ tân để chuẩn bị chu đáo nhất cho chuyến lưu trú của bạn tại Grand Hotel.";
+        }
+
+        chatMessages.Add(new ChatMessage { Text = reply, IsUser = false });
+    }
+
+    private void ClearChat()
+    {
+        chatMessages.Clear();
+    }
+}

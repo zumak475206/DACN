@@ -1,0 +1,156 @@
+@page "/login"
+@layout CustomerLayout
+@rendermode InteractiveServer
+@inject UserSessionService Session
+@inject NavigationManager Nav
+
+<PageTitle>Đăng Nhập Hệ Thống — Grand Hotel</PageTitle>
+
+<div class="container my-5 py-3">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-10 col-lg-8">
+            <div class="card shadow-lg border-0 rounded-4 overflow-hidden">
+                <div class="row g-0">
+                    <!-- Cột trái: Đăng nhập form chuẩn -->
+                    <div class="col-12 col-md-6 p-4 p-md-5">
+                        <div class="text-center mb-4">
+                            <div style="width: 48px; height: 48px; border-radius: 10px; background: var(--hotel-primary); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 1.5rem;" class="mb-2">
+                                <i class="bi bi-shield-lock-fill"></i>
+                            </div>
+                            <h4 class="fw-bold text-dark">Đăng Nhập</h4>
+                            <p class="text-muted small">Cổng truy cập dành cho Khách hàng & Nhân viên</p>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(loginMessage))
+                        {
+                            <div class="alert @(isSuccess ? "alert-success" : "alert-danger") py-2 small mb-3">
+                                <i class="bi @(isSuccess ? "bi-check-circle" : "bi-exclamation-triangle") me-1"></i> @loginMessage
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Địa chỉ Email</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-envelope"></i></span>
+                                <input type="email" class="form-control hotel-input" placeholder="name@grandhotel.vn" @bind="emailInput" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Mật khẩu</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-key"></i></span>
+                                <input type="password" class="form-control hotel-input" placeholder="••••••••" @bind="passwordInput" />
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-4 small">
+                            <label class="form-check-label"><input type="checkbox" class="form-check-input me-1" checked /> Ghi nhớ</label>
+                            <a href="javascript:void(0)" class="text-decoration-none text-primary">Quên mật khẩu?</a>
+                        </div>
+
+                        <button class="hotel-btn hotel-btn-primary w-100 py-2 fs-6 mb-3" @onclick="HandleLogin">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Đăng Nhập
+                        </button>
+
+                        <div class="text-center small text-muted">
+                            Chưa có tài khoản? <a href="javascript:void(0)" class="text-primary fw-bold text-decoration-none" @onclick='() => QuickLogin("Customer")'>Đăng ký ngay</a>
+                        </div>
+                    </div>
+
+                    <!-- Cột phải: Chọn vai trò đăng nhập nhanh cho đồ án -->
+                    <div class="col-12 col-md-6 p-4 p-md-5 d-flex flex-column justify-content-center" style="background: var(--hotel-bg-app); border-left: 1px solid var(--hotel-border);">
+                        <div class="mb-3">
+                            <span class="badge bg-primary px-2 py-1 mb-1">KIỂM THỬ ĐỒ ÁN (RBAC)</span>
+                            <h5 class="fw-bold text-dark">Đăng Nhập Nhanh Theo Vai Trò</h5>
+                            <p class="text-muted small mb-3">Bấm vào vai trò tương ứng để hệ thống tự động phân quyền giao diện:</p>
+                        </div>
+
+                        <div class="d-flex flex-column gap-2">
+                            <!-- 1. Khách Hàng -->
+                            <button class="btn btn-outline-secondary text-start p-2 d-flex align-items-center justify-content-between bg-white" @onclick='() => QuickLogin("Customer")'>
+                                <div>
+                                    <div class="fw-bold text-dark small"><i class="bi bi-person-fill text-warning me-2"></i> Khách Hàng (Customer)</div>
+                                    <div class="text-muted" style="font-size: 0.7rem;">Đặt phòng, lịch sử đặt, chatbot tư vấn</div>
+                                </div>
+                                <span class="badge bg-light text-dark border">Vào Portal Khách</span>
+                            </button>
+
+                            <!-- 2. Lễ Tân -->
+                            <button class="btn btn-outline-secondary text-start p-2 d-flex align-items-center justify-content-between bg-white" @onclick='() => QuickLogin("FrontDesk")'>
+                                <div>
+                                    <div class="fw-bold text-dark small"><i class="bi bi-bell-fill text-primary me-2"></i> Lễ Tân (Front-Desk — TV3)</div>
+                                    <div class="text-muted" style="font-size: 0.7rem;">Sơ đồ phòng, Check-in/out, Hóa đơn thu tiền</div>
+                                </div>
+                                <span class="badge bg-light text-primary border">Phân Hệ TV3</span>
+                            </button>
+
+                            <!-- 3. Buồng Phòng -->
+                            <button class="btn btn-outline-secondary text-start p-2 d-flex align-items-center justify-content-between bg-white" @onclick='() => QuickLogin("Housekeeping")'>
+                                <div>
+                                    <div class="fw-bold text-dark small"><i class="bi bi-brush-fill text-success me-2"></i> Buồng Phòng (Housekeeping — TV2)</div>
+                                    <div class="text-muted" style="font-size: 0.7rem;">Trạng thái buồng, ca dọn dẹp, kiểm kê tài sản</div>
+                                </div>
+                                <span class="badge bg-light text-success border">Phân Hệ TV2</span>
+                            </button>
+
+                            <!-- 4. Quản Lý / BI -->
+                            <button class="btn btn-outline-secondary text-start p-2 d-flex align-items-center justify-content-between bg-white" @onclick='() => QuickLogin("Manager")'>
+                                <div>
+                                    <div class="fw-bold text-dark small"><i class="bi bi-pie-chart-fill text-info me-2"></i> Quản Lý (BI & AI — TV4)</div>
+                                    <div class="text-muted" style="font-size: 0.7rem;">Dự báo nhu cầu, cảnh báo hủy, báo cáo doanh thu</div>
+                                </div>
+                                <span class="badge bg-light text-info border">Phân Hệ TV4</span>
+                            </button>
+
+                            <!-- 5. Admin -->
+                            <button class="btn btn-outline-secondary text-start p-2 d-flex align-items-center justify-content-between bg-white" @onclick='() => QuickLogin("Admin")'>
+                                <div>
+                                    <div class="fw-bold text-dark small"><i class="bi bi-shield-lock-fill text-danger me-2"></i> Tổng Quản Trị (Admin — TV1)</div>
+                                    <div class="text-muted" style="font-size: 0.7rem;">Toàn quyền RBAC, tài khoản, voucher, audit logs</div>
+                                </div>
+                                <span class="badge bg-light text-danger border">Phân Hệ TV1</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string emailInput = "admin@grandhotel.vn";
+    private string passwordInput = "Admin@123456";
+    private string loginMessage = "";
+    private bool isSuccess = false;
+
+    private void HandleLogin()
+    {
+        if (string.IsNullOrWhiteSpace(emailInput))
+        {
+            loginMessage = "Vui lòng nhập email đăng nhập.";
+            isSuccess = false;
+            return;
+        }
+
+        if (emailInput.Contains("admin")) QuickLogin("Admin");
+        else if (emailInput.Contains("letan")) QuickLogin("FrontDesk");
+        else if (emailInput.Contains("buongphong")) QuickLogin("Housekeeping");
+        else if (emailInput.Contains("quanly")) QuickLogin("Manager");
+        else QuickLogin("Customer");
+    }
+
+    private void QuickLogin(string role)
+    {
+        Session.SwitchRole(role);
+        isSuccess = true;
+        loginMessage = $"Đăng nhập thành công với vai trò: {Session.CurrentUser.RoleDisplayName}!";
+
+        if (role == "Customer") Nav.NavigateTo("/");
+        else if (role == "FrontDesk") Nav.NavigateTo("/frontdesk/bookings");
+        else if (role == "Housekeeping") Nav.NavigateTo("/housekeeping/rooms");
+        else if (role == "Manager") Nav.NavigateTo("/ai-analytics/dashboard");
+        else Nav.NavigateTo("/admin/accounts");
+    }
+}

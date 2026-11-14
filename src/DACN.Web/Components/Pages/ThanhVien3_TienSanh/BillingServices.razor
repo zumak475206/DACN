@@ -1,0 +1,181 @@
+@page "/frontdesk/services-billing"
+@rendermode InteractiveServer
+@inject DACNContext Db
+
+<PageTitle>Dịch Vụ & Hóa Đơn — TV3</PageTitle>
+
+<PageHeader Title="Quản Lý Dịch Vụ, Lập Hóa Đơn & Thu Ngân"
+            Subtitle="Ghi dịch vụ buồng phòng (minibar, ăn uống, spa), áp dụng voucher và thanh toán qua VNPay/MoMo/Tiền mặt"
+            Icon="bi bi-receipt-cutoff"
+            MemberTag="TV3 — DỊCH VỤ & HÓA ĐƠN"
+            MemberTagClass="member-tag-tv3">
+    <Actions>
+        <button class="hotel-btn hotel-btn-accent">
+            <i class="bi bi-cart-plus me-1"></i> Ghi Dịch Vụ Mới
+        </button>
+        <button class="hotel-btn hotel-btn-primary">
+            <i class="bi bi-credit-card me-1"></i> Thanh Toán Nhanh
+        </button>
+    </Actions>
+</PageHeader>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <StatCard Title="Hóa Đơn Đã Thu Ca" Value="14.850.000 đ" Description="8 đơn đã tất toán" Icon="bi bi-cash-stack" Variant="success" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Chờ Khách Thanh Toán" Value="@invoicesPendingCount.ToString()" Description="Phòng sắp trả trong ngày" Icon="bi bi-clock-history" Variant="warning" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Dịch Vụ Đã Gọi Hôm Nay" Value="19 lần" Description="Ăn uống, minibar, giặt ủi" Icon="bi bi-cup-hot-fill" Variant="info" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Thanh Toán Không Tiền Mặt" Value="75%" Description="Cổng VNPay & Chuyển khoản" Icon="bi bi-qr-code" Variant="primary" />
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Danh sách hóa đơn -->
+    <div class="col-12 col-lg-8">
+        <div class="hotel-card">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <i class="bi bi-receipt text-primary"></i>
+                    <span>Danh Sách Hóa Đơn Phòng</span>
+                </div>
+                <input type="text" class="hotel-input" placeholder="Tìm theo mã đơn, mã hóa đơn..." @bind="searchInvoice" @bind:event="oninput" style="width: 220px;" />
+            </div>
+            <div class="hotel-card-body p-0">
+                <div class="table-responsive">
+                    <table class="hotel-table">
+                        <thead>
+                            <tr>
+                                <th>Mã Hóa Đơn</th>
+                                <th>Mã Đơn Đặt</th>
+                                <th>Tiền Phòng</th>
+                                <th>Tiền Dịch Vụ</th>
+                                <th>Tổng Thanh Toán</th>
+                                <th>Trạng Thái</th>
+                                <th class="text-end">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var inv in FilteredInvoices)
+                            {
+                                <tr>
+                                    <td><strong>#HD-@inv.MaId.ToString("D4")</strong></td>
+                                    <td><code>#DP-@inv.MaDatPhong.ToString("D4")</code></td>
+                                    <td>@inv.TongTienPhong.ToString("N0") đ</td>
+                                    <td>@inv.TongTienDichVu.ToString("N0") đ</td>
+                                    <td class="fw-bold text-primary">@inv.TongThanhToan.ToString("N0") đ</td>
+                                    <td><StatusBadge Status="@inv.TrangThai" /></td>
+                                    <td class="text-end">
+                                        <button class="hotel-btn hotel-btn-outline py-1 px-2 text-primary" title="In biên lai">
+                                            <i class="bi bi-printer"></i>
+                                        </button>
+                                        @if (inv.TrangThai != "da_thanh_toan")
+                                        {
+                                            <button class="hotel-btn hotel-btn-accent py-1 px-2 ms-1" title="Thu tiền" @onclick="() => ThuTien(inv.MaId)">
+                                                <i class="bi bi-check-circle"></i> Thu Tiền
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel Gọi Dịch Vụ Nhanh Vào Phòng -->
+    <div class="col-12 col-lg-4">
+        <div class="hotel-card h-100">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <i class="bi bi-bell-fill text-warning"></i>
+                    <span>Gọi Dịch Vụ Theo Phòng</span>
+                </div>
+            </div>
+            <div class="hotel-card-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Chọn Phòng Đang Lưu Trú:</label>
+                    <select class="hotel-select w-100">
+                        <option>Phòng 201 — Deluxe Sea View (Nguyễn Văn A)</option>
+                        <option>Phòng 305 — Suite Family (Trần Thị B)</option>
+                        <option>Phòng 402 — Standard (Lê Hoàng C)</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Dịch Vụ Yêu Cầu:</label>
+                    <select class="hotel-select w-100">
+                        <option>Bữa Sáng Buffet Quốc Tế (200.000 đ/người)</option>
+                        <option>Giặt Ủi Lấy Ngay Siêu Tốc (120.000 đ/kg)</option>
+                        <option>Gói Massage & Spa Thư Giãn 60p (450.000 đ)</option>
+                        <option>Nước Khoáng & Nước Ngọt Minibar (25.000 đ/lon)</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Số Lượng:</label>
+                    <input type="number" class="hotel-input w-100" value="1" min="1" max="10" />
+                </div>
+
+                <button class="hotel-btn hotel-btn-accent w-100 mt-2">
+                    <i class="bi bi-plus-lg me-1"></i> Thêm Vào Hóa Đơn Phòng
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string searchInvoice = "";
+    private List<HoaDon> invoices = new();
+
+    private int invoicesPendingCount => invoices.Count(i => i.TrangThai != "da_thanh_toan");
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            invoices = await Db.HoaDons
+                .AsNoTracking()
+                .OrderByDescending(h => h.NgayTao)
+                .Take(20)
+                .ToListAsync();
+        }
+        catch { }
+
+        if (!invoices.Any())
+        {
+            invoices = new List<HoaDon>
+            {
+                new HoaDon { MaId = 1, MaDatPhong = 1, TongTienPhong = 2000000, TongTienDichVu = 450000, TongThanhToan = 2450000, TrangThai = "da_thanh_toan", NgayTao = DateTime.Now.AddDays(-1) },
+                new HoaDon { MaId = 2, MaDatPhong = 2, TongTienPhong = 1500000, TongTienDichVu = 120000, TongThanhToan = 1620000, TrangThai = "cho_thanh_toan", NgayTao = DateTime.Now.AddHours(-3) },
+                new HoaDon { MaId = 3, MaDatPhong = 3, TongTienPhong = 3000000, TongTienDichVu = 600000, TongThanhToan = 3600000, TrangThai = "cho_thanh_toan", NgayTao = DateTime.Now.AddHours(-1) }
+            };
+        }
+    }
+
+    private IEnumerable<HoaDon> FilteredInvoices => invoices
+        .Where(i => string.IsNullOrWhiteSpace(searchInvoice) || i.MaId.ToString().Contains(searchInvoice) || i.MaDatPhong.ToString().Contains(searchInvoice));
+
+    private async Task ThuTien(int invoiceId)
+    {
+        var inv = await Db.HoaDons.FindAsync(invoiceId);
+        if (inv != null)
+        {
+            inv.TrangThai = "da_thanh_toan";
+            await Db.SaveChangesAsync();
+            await LoadDataAsync();
+        }
+    }
+}

@@ -1,0 +1,98 @@
+﻿@inherits LayoutComponentBase
+@inject UserSessionService Session
+@inject NavigationManager Nav
+@implements IDisposable
+
+<div class="hotel-layout-container">
+    <!-- Thanh điều hướng cố định bên trái (Sidebar) -->
+    <aside class="hotel-sidebar">
+        <NavMenu />
+    </aside>
+
+    <!-- Khung chính bên phải (Main Content Wrapper) -->
+    <div class="hotel-main-wrapper">
+        <!-- Thanh công cụ trên cùng (Topbar) -->
+        <header class="hotel-topbar">
+            <div class="hotel-topbar-left">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="hotel-badge hotel-badge-success">
+                        <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i>
+                        Hệ thống Trực tuyến
+                    </span>
+                    <span class="text-muted d-none d-md-inline" style="font-size: 0.85rem;">
+                        | Khách sạn Grand Hotel Da Nang
+                    </span>
+                    <a href="" class="badge bg-warning text-dark text-decoration-none ms-2 py-1 px-2" style="font-size: 0.75rem;">
+                        <i class="bi bi-globe me-1"></i> Xem Web Khách Hàng
+                    </a>
+                </div>
+            </div>
+
+            <div class="hotel-topbar-right">
+                <!-- Dropdown đổi vai trò nhanh trên Topbar -->
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle py-1 px-2" type="button" data-bs-toggle="dropdown" style="font-size: 0.8rem;">
+                        <i class="bi bi-person-gear me-1"></i> Role: <strong>@Session.CurrentUser.Role</strong>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size: 0.85rem;">
+                        <li><h6 class="dropdown-header">Chuyển vai trò thử nghiệm</h6></li>
+                        <li><a class="dropdown-item" href="javascript:void(0)" @onclick='() => ChangeRole("Admin")'><i class="bi bi-shield-lock me-2 text-danger"></i> Tổng Quản Trị (Admin)</a></li>
+                        <li><a class="dropdown-item" href="javascript:void(0)" @onclick='() => ChangeRole("Manager")'><i class="bi bi-pie-chart me-2 text-info"></i> Quản Lý (BI / Manager)</a></li>
+                        <li><a class="dropdown-item" href="javascript:void(0)" @onclick='() => ChangeRole("FrontDesk")'><i class="bi bi-bell me-2 text-primary"></i> Lễ Tân (Front-Desk)</a></li>
+                        <li><a class="dropdown-item" href="javascript:void(0)" @onclick='() => ChangeRole("Housekeeping")'><i class="bi bi-brush me-2 text-success"></i> Buồng Phòng (Housekeeping)</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="javascript:void(0)" @onclick='() => ChangeRole("Customer")'><i class="bi bi-person me-2 text-warning"></i> Chuyển sang Khách Hàng</a></li>
+                    </ul>
+                </div>
+
+                <a href="swagger" target="_blank" class="hotel-btn hotel-btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+                    <i class="bi bi-code-slash"></i>
+                    <span>Swagger API</span>
+                </a>
+
+                <div class="d-flex align-items-center gap-2 ps-2 border-start">
+                    <div style="text-align: right; line-height: 1.2;">
+                        <span style="font-size: 0.85rem; font-weight: 700; color: var(--hotel-text);">@Session.CurrentUser.HoTen</span>
+                        <div style="font-size: 0.72rem; color: var(--hotel-text-muted);">@Session.CurrentUser.Email</div>
+                    </div>
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: #E2E8F0; color: var(--hotel-primary); display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                        @Session.CurrentUser.HoTen.Substring(0, Math.Min(2, Session.CurrentUser.HoTen.Length)).ToUpper()
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Vùng hiển thị trang nội dung động -->
+        <main class="hotel-page-body">
+            @Body
+        </main>
+    </div>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Đã xảy ra sự cố không mong muốn trong phiên làm việc.
+    <a href="." class="reload">Tải lại trang</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Session.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        Session.OnChange -= StateHasChanged;
+    }
+
+    private void ChangeRole(string role)
+    {
+        Session.SwitchRole(role);
+        if (role == "Customer") Nav.NavigateTo("/");
+        else if (role == "FrontDesk") Nav.NavigateTo("/frontdesk/bookings");
+        else if (role == "Housekeeping") Nav.NavigateTo("/housekeeping/rooms");
+        else if (role == "Manager") Nav.NavigateTo("/ai-analytics/dashboard");
+        else if (role == "Admin") Nav.NavigateTo("/admin/accounts");
+    }
+}

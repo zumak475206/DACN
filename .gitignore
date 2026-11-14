@@ -1,0 +1,27 @@
+## Visual Studio / .NET Core / MSBuild
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+*.log
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Sensitive & Environment files
+.env
+.env.*
+!.env.example
+appsettings.Production.json
+appsettings.*.local.json
+
+## Rider & VS Code
+.idea/
+.vscode/
+*.swp
+*~
+
+## OS generated files
+.DS_Store
+Thumbs.db

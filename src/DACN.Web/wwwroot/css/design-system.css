@@ -1,0 +1,619 @@
+/**
+ * DACN HOTEL MANAGEMENT — DESIGN SYSTEM
+ * Màu sắc chủ đạo: Maritime Teal & Warm Sand (Dịu mắt, gần gũi, chuyên nghiệp cho ca trực dài)
+ * Font: Plus Jakarta Sans / Inter / System Sans
+ */
+
+:root {
+    /* ─── 1. MÀU SẮC CHỦ ĐẠO & THƯƠNG HIỆU ───────────────────────────────────── */
+    --hotel-primary: #1E5F74;           /* Maritime Teal - Màu chủ đạo trầm, dịu mắt */
+    --hotel-primary-hover: #164758;
+    --hotel-primary-light: #EBF4F6;     /* Nền xanh nhạt êm ái cho active tab & icon */
+    --hotel-primary-dark: #0D2833;      /* Nền thanh sidebar điều hướng */
+    
+    --hotel-accent: #DDA15E;            /* Warm Sand / Cát ấm - Tạo cảm giác hiếu khách, gần gũi */
+    --hotel-accent-hover: #C58843;
+    --hotel-accent-light: #FDF8F0;
+    
+    /* ─── 2. NỀN & BỀ MẶT (SURFACE) ─────────────────────────────────────────── */
+    --hotel-bg-app: #F8FAFC;            /* Nền ứng dụng Slate nhạt, không dùng trắng gắt gây mỏi mắt */
+    --hotel-bg-surface: #FFFFFF;        /* Nền thẻ nội dung Card / Table */
+    --hotel-bg-muted: #F1F5F9;          /* Nền header bảng, ô input vô hiệu hóa */
+    --hotel-border: #E2E8F0;            /* Viền xám dịu nhẹ chuẩn WCAG */
+    --hotel-border-light: #EDF2F7;
+    
+    /* ─── 3. CHỮ & ĐỘ TƯƠNG PHẢN (TYPOGRAPHY) ────────────────────────────────── */
+    --hotel-text-main: #1E293B;         /* Xanh đen than đá sắc nét, không dùng đen tuyệt đối #000 */
+    --hotel-text-secondary: #475569;    /* Chữ phụ, mô tả ngắn */
+    --hotel-text-muted: #94A3B8;        /* Chữ placeholder, metadata, timestamp */
+    --hotel-text-white: #FFFFFF;
+    
+    /* ─── 4. MÀU NGHIỆP VỤ & TRẠNG THÁI (SEMANTIC COLORS) ───────────────────── */
+    --hotel-success: #10B981;           /* Xanh lá: Phòng trống sạch sẽ, Đã thanh toán, Hoàn tất */
+    --hotel-success-bg: #ECFDF5;
+    --hotel-success-border: #A7F3D0;
+    
+    --hotel-warning: #F59E0B;           /* Vàng cam: Buồng chờ dọn, Đang chờ xử lý, Tiền cọc */
+    --hotel-warning-bg: #FFFBEB;
+    --hotel-warning-border: #FDE68A;
+    
+    --hotel-danger: #EF4444;            /* Đỏ san hô: Phòng hỏng sửa chữa, Hủy đơn, Cảnh báo */
+    --hotel-danger-bg: #FEF2F2;
+    --hotel-danger-border: #FECACA;
+    
+    --hotel-info: #3B82F6;              /* Xanh dương: Khách đang lưu trú (Occupied), Tin nhắn */
+    --hotel-info-bg: #EFF6FF;
+    --hotel-info-border: #BFDBFE;
+    
+    --hotel-ai: #8B5CF6;                /* Tím dịu: Phân hệ AI, Dự báo, Trợ lý thông minh */
+    --hotel-ai-bg: #F5F3FF;
+    --hotel-ai-border: #DDD6FE;
+
+    /* ─── 5. PHÂN BỔ MÀU NHẬN DIỆN 4 PHÂN HỆ THÀNH VIÊN ────────────────────── */
+    --module-tv1: #0EA5E9;              /* TV1: Bảo mật, RBAC, Tài khoản (Sky Blue) */
+    --module-tv2: #10B981;              /* TV2: Buồng phòng, Tiện nghi, Vận hành (Emerald) */
+    --module-tv3: #F59E0B;              /* TV3: Tiền sảnh, Đặt phòng, Thanh toán (Amber) */
+    --module-tv4: #8B5CF6;              /* TV4: AI Core, Dự báo, Chatbot & BI (Purple) */
+
+    /* ─── 6. BÁN KÍNH BO GÓC & ĐỔ BÓNG (ELEVATION) ─────────────────────────── */
+    --hotel-radius-sm: 6px;
+    --hotel-radius-md: 10px;
+    --hotel-radius-lg: 14px;
+    --hotel-radius-pill: 9999px;
+    
+    --hotel-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+    --hotel-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    --hotel-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+    
+    /* ─── 7. FONT CHUẨN ─────────────────────────────────────────────────────── */
+    --hotel-font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ─── GLOBAL RESET & TYPOGRAPHY ─────────────────────────────────────────────── */
+body {
+    font-family: var(--hotel-font-family);
+    background-color: var(--hotel-bg-app);
+    color: var(--hotel-text-main);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--hotel-text-main);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+a {
+    color: var(--hotel-primary);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+a:hover {
+    color: var(--hotel-primary-hover);
+}
+
+/* ─── CẤU TRÚC KHUNG LAYOUT TỔNG THỂ ────────────────────────────────────────── */
+.hotel-layout-container {
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+}
+
+/* Sidebar bên trái */
+.hotel-sidebar {
+    width: 270px;
+    background-color: var(--hotel-primary-dark);
+    color: #E2E8F0;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    z-index: 1000;
+    overflow-y: auto;
+}
+
+.hotel-sidebar-header {
+    padding: 1.25rem 1.25rem 1rem 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.hotel-brand-logo {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--hotel-primary), var(--hotel-accent));
+    border-radius: var(--hotel-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+    font-weight: bold;
+    box-shadow: var(--hotel-shadow-sm);
+}
+
+.hotel-brand-text h5 {
+    color: #FFFFFF;
+    margin: 0;
+    font-size: 1.05rem;
+    line-height: 1.2;
+}
+.hotel-brand-text small {
+    color: #94A3B8;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.hotel-sidebar-body {
+    flex: 1;
+    padding: 1rem 0.75rem;
+}
+
+.hotel-nav-section-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748B;
+    padding: 0.75rem 0.75rem 0.35rem 0.75rem;
+    font-weight: 700;
+}
+
+.hotel-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.85rem;
+    border-radius: var(--hotel-radius-md);
+    color: #CBD5E1;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    margin-bottom: 2px;
+}
+
+.hotel-nav-link:hover {
+    color: #FFFFFF;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.hotel-nav-link.active {
+    color: #FFFFFF;
+    background-color: var(--hotel-primary);
+    font-weight: 600;
+    box-shadow: 0 2px 6px rgba(30, 95, 116, 0.4);
+}
+
+.hotel-nav-link i {
+    font-size: 1.15rem;
+    min-width: 1.25rem;
+}
+
+.hotel-sidebar-footer {
+    padding: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: rgba(0, 0, 0, 0.15);
+}
+
+/* Khu vực nội dung bên phải */
+.hotel-main-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* Topbar phía trên */
+.hotel-topbar {
+    height: 64px;
+    background-color: var(--hotel-bg-surface);
+    border-bottom: 1px solid var(--hotel-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.75rem;
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    box-shadow: var(--hotel-shadow-sm);
+}
+
+.hotel-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.hotel-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.hotel-page-body {
+    flex: 1;
+    padding: 1.75rem;
+    max-width: 1600px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+/* ─── REUSABLE COMPONENTS ───────────────────────────────────────────────────── */
+
+/* 1. Page Header Chuẩn */
+.hotel-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.hotel-page-header h2 {
+    font-size: 1.5rem;
+    margin: 0;
+    color: var(--hotel-text-main);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.hotel-page-header p {
+    color: var(--hotel-text-secondary);
+    margin: 0.25rem 0 0 0;
+    font-size: 0.9rem;
+}
+
+/* 2. Thẻ Card Tiêu Chuẩn */
+.hotel-card {
+    background-color: var(--hotel-bg-surface);
+    border: 1px solid var(--hotel-border);
+    border-radius: var(--hotel-radius-lg);
+    box-shadow: var(--hotel-shadow-sm);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+
+.hotel-card:hover {
+    box-shadow: var(--hotel-shadow-md);
+}
+
+.hotel-card-header {
+    padding: 1.15rem 1.5rem;
+    background-color: var(--hotel-bg-surface);
+    border-bottom: 1px solid var(--hotel-border-light);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.hotel-card-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--hotel-text-main);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.hotel-card-body {
+    padding: 1.5rem;
+}
+
+.hotel-card-footer {
+    padding: 0.85rem 1.5rem;
+    background-color: var(--hotel-bg-muted);
+    border-top: 1px solid var(--hotel-border-light);
+}
+
+/* 3. Thẻ Thống Kê (Stat Card) */
+.hotel-stat-card {
+    background-color: var(--hotel-bg-surface);
+    border: 1px solid var(--hotel-border);
+    border-radius: var(--hotel-radius-lg);
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: var(--hotel-shadow-sm);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hotel-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--hotel-shadow-md);
+}
+
+.stat-icon-wrapper {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--hotel-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+}
+
+.stat-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.stat-title {
+    font-size: 0.8rem;
+    color: var(--hotel-text-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin: 0;
+}
+
+.stat-number {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--hotel-text-main);
+    line-height: 1.2;
+    margin: 0.2rem 0;
+}
+
+.stat-desc {
+    font-size: 0.8rem;
+    color: var(--hotel-text-muted);
+    margin: 0;
+}
+
+/* 4. Hệ Thống Nút Bấm (Button System) */
+.hotel-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1.15rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border-radius: var(--hotel-radius-md);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.hotel-btn-primary {
+    background-color: var(--hotel-primary);
+    color: #FFFFFF;
+}
+.hotel-btn-primary:hover {
+    background-color: var(--hotel-primary-hover);
+    color: #FFFFFF;
+    box-shadow: 0 4px 10px rgba(30, 95, 116, 0.25);
+}
+
+.hotel-btn-accent {
+    background-color: var(--hotel-accent);
+    color: #FFFFFF;
+}
+.hotel-btn-accent:hover {
+    background-color: var(--hotel-accent-hover);
+    color: #FFFFFF;
+}
+
+.hotel-btn-outline {
+    background-color: transparent;
+    border-color: var(--hotel-border);
+    color: var(--hotel-text-main);
+}
+.hotel-btn-outline:hover {
+    background-color: var(--hotel-bg-muted);
+    border-color: var(--hotel-text-muted);
+}
+
+.hotel-btn-success {
+    background-color: var(--hotel-success);
+    color: white;
+}
+.hotel-btn-success:hover {
+    background-color: #059669;
+    color: white;
+}
+
+.hotel-btn-ai {
+    background: linear-gradient(135deg, var(--hotel-ai), #6D28D9);
+    color: white;
+}
+.hotel-btn-ai:hover {
+    opacity: 0.92;
+    color: white;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+/* 5. Hệ Thống Huy Hiệu (Badges) */
+.hotel-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.65rem;
+    border-radius: var(--hotel-radius-pill);
+    font-size: 0.775rem;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.hotel-badge-success {
+    background-color: var(--hotel-success-bg);
+    color: #065F46;
+    border: 1px solid var(--hotel-success-border);
+}
+
+.hotel-badge-warning {
+    background-color: var(--hotel-warning-bg);
+    color: #92400E;
+    border: 1px solid var(--hotel-warning-border);
+}
+
+.hotel-badge-danger {
+    background-color: var(--hotel-danger-bg);
+    color: #991B1B;
+    border: 1px solid var(--hotel-danger-border);
+}
+
+.hotel-badge-info {
+    background-color: var(--hotel-info-bg);
+    color: #1E40AF;
+    border: 1px solid var(--hotel-info-border);
+}
+
+.hotel-badge-ai {
+    background-color: var(--hotel-ai-bg);
+    color: #5B21B6;
+    border: 1px solid var(--hotel-ai-border);
+}
+
+.hotel-badge-slate {
+    background-color: var(--hotel-bg-muted);
+    color: var(--hotel-text-secondary);
+    border: 1px solid var(--hotel-border);
+}
+
+/* Badge nhận diện thành viên phụ trách */
+.member-tag {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+.member-tag-tv1 { background-color: #E0F2FE; color: #0369A1; border: 1px solid #BAE6FD; }
+.member-tag-tv2 { background-color: #D1FAE5; color: #047857; border: 1px solid #A7F3D0; }
+.member-tag-tv3 { background-color: #FEF3C7; color: #B45309; border: 1px solid #FDE68A; }
+.member-tag-tv4 { background-color: #EDE9FE; color: #6D28D9; border: 1px solid #DDD6FE; }
+
+/* 6. Bảng Dữ Liệu (Hotel Tables) */
+.hotel-table-container {
+    background-color: var(--hotel-bg-surface);
+    border: 1px solid var(--hotel-border);
+    border-radius: var(--hotel-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--hotel-shadow-sm);
+}
+
+.hotel-table {
+    width: 100%;
+    margin-bottom: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.hotel-table thead th {
+    background-color: var(--hotel-bg-muted);
+    color: var(--hotel-text-secondary);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.85rem 1.15rem;
+    border-bottom: 1px solid var(--hotel-border);
+    border-top: none;
+}
+
+.hotel-table tbody td {
+    padding: 1rem 1.15rem;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--hotel-border-light);
+    font-size: 0.9rem;
+    color: var(--hotel-text-main);
+}
+
+.hotel-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.hotel-table tbody tr:hover td {
+    background-color: rgba(30, 95, 116, 0.02);
+}
+
+/* 7. Form Controls Thân Thiện */
+.hotel-form-group {
+    margin-bottom: 1.25rem;
+}
+
+.hotel-form-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--hotel-text-main);
+    margin-bottom: 0.4rem;
+}
+
+.hotel-input, .hotel-select, .hotel-textarea {
+    width: 100%;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.9rem;
+    color: var(--hotel-text-main);
+    background-color: var(--hotel-bg-surface);
+    border: 1px solid var(--hotel-border);
+    border-radius: var(--hotel-radius-md);
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.hotel-input:focus, .hotel-select:focus, .hotel-textarea:focus {
+    border-color: var(--hotel-primary);
+    outline: 0;
+    box-shadow: 0 0 0 3px rgba(30, 95, 116, 0.15);
+}
+
+/* 8. Sơ Đồ Phòng Khách Sạn (Room Grid Box) */
+.room-box {
+    border: 1px solid var(--hotel-border);
+    border-radius: var(--hotel-radius-md);
+    padding: 0.85rem;
+    background: var(--hotel-bg-surface);
+    transition: all 0.2s ease;
+    cursor: pointer;
+    position: relative;
+}
+
+.room-box:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--hotel-shadow-md);
+}
+
+.room-box-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
+}
+
+.room-box-number {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.room-box-type {
+    font-size: 0.8rem;
+    color: var(--hotel-text-secondary);
+}
+
+.room-status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.room-status-indicator.trong, .room-status-indicator.Available { background-color: var(--hotel-success); }
+.room-status-indicator.dang_o, .room-status-indicator.Occupied, .room-status-indicator.Reserved { background-color: var(--hotel-info); }
+.room-status-indicator.don_dep, .room-status-indicator.Dirty, .room-status-indicator.Inspecting { background-color: var(--hotel-warning); }
+.room-status-indicator.sua_chua, .room-status-indicator.Maintenance { background-color: var(--hotel-danger); }
