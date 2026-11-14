@@ -27,12 +27,12 @@ Mỗi thành viên làm việc trên **thư mục giao diện (`.razor`) và Con
 
 ### Bước 2: Clone dự án về máy
 ```bash
-git clone <URL_GITHUB_CUA_NHOM>
+git clone https://github.com/zumak475206/DACN.git
 cd DACN
 ```
 
 ### Bước 3: Khởi tạo Cơ sở dữ liệu (`DACN`)
-1. Mở **SQL Server Management Studio (SSMS)**, tạo database tên là `DACN` và chạy script tạo bảng + dữ liệu mẫu (`database_script.sql`) của nhóm.
+1. Mở **SQL Server Management Studio (SSMS)** → bấm `Ctrl + O` mở file `database/DACN_Full.sql` trong dự án → nhấn **`F5` (Execute)** để tự động tạo database `DACN`, toàn bộ 31 bảng và dữ liệu mẫu.
 2. Kiểm tra chuỗi kết nối trong `src/DACN.Web/appsettings.Development.json`:
    ```json
    "ConnectionStrings": {
