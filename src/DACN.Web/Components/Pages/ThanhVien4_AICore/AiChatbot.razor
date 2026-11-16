@@ -1,161 +1,208 @@
 @page "/ai-analytics/chatbot"
-@rendermode InteractiveServer
 @inject DACNContext Db
+@inject GoiYDuLichService AiService
+@inject UserSessionService Session
 
-<PageTitle>AI Chatbot Tư Vấn Du Lịch — TV4</PageTitle>
+<PageTitle>AI Travel Advisor & Chatbot — TV4</PageTitle>
 
-<PageHeader Title="AI Chatbot Tư Vấn Khách Hàng & Gợi Ý Điểm Đến"
-            Subtitle="Trợ lý ảo AI tư vấn loại phòng, bảng giá dịch vụ và gợi ý tour, điểm tham quan Đà Nẵng theo mùa"
-            Icon="bi bi-chat-dots-fill"
-            MemberTag="TV4 — AI CHATBOT"
+<PageHeader Title="Trợ Lý AI Tư Vấn Du Lịch Theo Ngân Sách, Gu & Mùa"
+            Subtitle="Hệ thống Hybrid RAG: Trích xuất ý định (Ngân sách / Tháng / Gu sống ảo - thư giãn) + Chấm điểm DB + Gemini API"
+            Icon="bi bi-robot"
+            MemberTag="TV4 — AI TRAVEL ADVISOR"
             MemberTagClass="member-tag-tv4">
-    <Actions>
-        <button class="hotel-btn hotel-btn-ai" @onclick="ClearChat">
-            <i class="bi bi-arrow-counterclockwise me-1"></i> Làm Mới Phiên Chat
-        </button>
-        <a href="/ai-analytics/forecast" class="hotel-btn hotel-btn-outline">
-            <i class="bi bi-graph-up me-1"></i> Xem Dự Báo AI
-        </a>
-    </Actions>
 </PageHeader>
 
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <StatCard Title="Phiên Chat Hôm Nay" Value="142 phiên" Description="Tương tác tự động 24/7" Icon="bi bi-chat-heart-fill" Variant="ai" />
-    </div>
-    <div class="col-6 col-md-3">
-        <StatCard Title="Thời Gian Phản Hồi" Value="0.8s" Description="Độ trễ xử lý Gemini Core" Icon="bi bi-lightning-charge-fill" Variant="accent" />
-    </div>
-    <div class="col-6 col-md-3">
-        <StatCard Title="Độ Hài Lòng Khách" Value="94%" Description="Khảo sát sau phiên chat" Icon="bi bi-emoji-smile-fill" Variant="success" />
-    </div>
-    <div class="col-6 col-md-3">
-        <StatCard Title="Chuyển Đổi Thành Đơn" Value="28%" Description="Đặt phòng ngay sau khi hỏi" Icon="bi bi-cart-check-fill" Variant="info" />
-    </div>
-</div>
-
-<div class="hotel-card">
-    <div class="hotel-card-header">
-        <div class="hotel-card-title">
-            <i class="bi bi-robot" style="color: var(--hotel-ai);"></i>
-            <span>Hộp Thoại Trợ Lý AI Khách Sạn (Gemini AI Active)</span>
-        </div>
-        <span class="hotel-badge hotel-badge-ai">Model: Gemini 2.5 Flash</span>
-    </div>
-    <div class="hotel-card-body d-flex flex-column" style="min-height: 450px;">
-        <!-- Vùng tin nhắn chat -->
-        <div class="flex-grow-1 overflow-auto p-3 rounded mb-3" style="background: var(--hotel-bg-app); border: 1px solid var(--hotel-border); max-height: 400px;">
-            <div class="d-flex mb-3">
-                <div class="me-2" style="width: 34px; height: 34px; border-radius: 50%; background: var(--hotel-ai); color: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                    <i class="bi bi-robot"></i>
+<div class="row g-4">
+    <!-- Cột trái: Khung Chat thử nghiệm trực tiếp với AI Engine -->
+    <div class="col-12 col-lg-7">
+        <div class="hotel-card h-100 d-flex flex-column">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <i class="bi bi-stars" style="color: #8B5CF6;"></i>
+                    <span>Bảng Điều Khiển & Test Trực Tiếp AI Advisor</span>
                 </div>
-                <div class="p-3 rounded shadow-sm" style="background: white; max-width: 80%; font-size: 0.9rem; border: 1px solid var(--hotel-border);">
-                    👋 Xin chào! Tôi là Trợ lý AI của <strong>Grand Hotel Da Nang</strong>.<br />
-                    Tôi có thể giúp bạn:
-                    <ul class="mb-1 mt-1 ps-3">
-                        <li>Tra cứu loại phòng và chính sách ưu đãi giá mới nhất</li>
-                        <li>Gợi ý các điểm vui chơi, lễ hội pháo hoa DIFF theo mùa</li>
-                        <li>Hỗ trợ thủ tục đặt cọc, check-in và dịch vụ xe đưa đón</li>
-                    </ul>
-                    Bạn đang quan tâm đến nội dung nào hôm nay?
-                </div>
+                <span class="badge bg-dark font-monospace">Phiên: @(currentSessionToken ?? "Mới")</span>
             </div>
 
-            @foreach (var msg in chatMessages)
-            {
-                <div class="d-flex @(msg.IsUser ? "justify-content-end" : "") mb-3">
-                    @if (!msg.IsUser)
-                    {
-                        <div class="me-2" style="width: 34px; height: 34px; border-radius: 50%; background: var(--hotel-ai); color: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <i class="bi bi-robot"></i>
-                        </div>
-                    }
-                    <div class="p-3 rounded shadow-sm" style="background: @(msg.IsUser ? "var(--hotel-primary)" : "white"); color: @(msg.IsUser ? "white" : "var(--hotel-text)"); max-width: 80%; font-size: 0.9rem; border: 1px solid @(msg.IsUser ? "transparent" : "var(--hotel-border)");">
-                        @msg.Text
-                    </div>
+            <div class="hotel-card-body flex-grow-1" style="max-height: 460px; overflow-y: auto; background: #F8FAFC;">
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <button class="btn btn-sm btn-outline-primary rounded-pill" @onclick='() => AskQuickAsync("Tháng 6 có 3 triệu muốn đi đâu check-in sống ảo đẹp nhất?")'>
+                        📸 Tháng 6 có 3tr đi đâu sống ảo?
+                    </button>
+                    <button class="btn btn-sm btn-outline-success rounded-pill" @onclick='() => AskQuickAsync("Cuối năm có 4 triệu muốn đi nghỉ dưỡng thư giãn chữa lành")'>
+                        🌿 Cuối năm 4tr nghỉ dưỡng chữa lành
+                    </button>
+                    <button class="btn btn-sm btn-outline-warning text-dark rounded-pill" @onclick='() => AskQuickAsync("Khách sạn đang có mã voucher giảm giá nào còn lượt?")'>
+                        🎁 Hỏi mã Voucher đang mở
+                    </button>
                 </div>
-            }
-        </div>
 
-        <!-- Các câu hỏi gợi ý nhanh -->
-        <div class="d-flex flex-wrap gap-2 mb-3">
-            <button class="hotel-btn hotel-btn-outline py-1 px-2" style="font-size: 0.8rem;" @onclick='() => AskQuick("Khách sạn có những loại phòng nào và giá bao nhiêu?")'>
-                💡 Các loại phòng & bảng giá?
-            </button>
-            <button class="hotel-btn hotel-btn-outline py-1 px-2" style="font-size: 0.8rem;" @onclick='() => AskQuick("Mùa này ở Đà Nẵng đi chơi những đâu đẹp?")'>
-                🏖️ Địa điểm du lịch theo mùa?
-            </button>
-            <button class="hotel-btn hotel-btn-outline py-1 px-2" style="font-size: 0.8rem;" @onclick='() => AskQuick("Khách sạn có ưu đãi voucher giảm giá nào không?")'>
-                🎟️ Mã giảm giá khuyến mãi?
-            </button>
-        </div>
+                @foreach (var msg in chatHistory)
+                {
+                    <div class="mb-3 d-flex @(msg.IsUser ? "justify-content-end" : "justify-content-start")">
+                        <div class="p-3 rounded-3 shadow-sm" style="max-width: 88%; background: @(msg.IsUser ? "#003B95" : "#FFFFFF"); color: @(msg.IsUser ? "#FFFFFF" : "#1E293B"); border: 1px solid #E2E8F0;">
+                            <div class="small mb-1 fw-bold d-flex justify-content-between gap-3">
+                                <span>@(msg.IsUser ? "Khách hàng" : $"BookingStay.AI ({msg.EngineSource})")</span>
+                                <span class="opacity-75">@msg.Time.ToString("HH:mm")</span>
+                            </div>
+                            <div class="small">@msg.Text</div>
 
-        <!-- Ô nhập câu hỏi -->
-        <div class="input-group">
-            <input type="text" class="form-control hotel-input" placeholder="Nhập câu hỏi cho AI..." 
-                   @bind="currentInput" @bind:event="oninput" @onkeydown="HandleKeyDown" />
-            <button class="hotel-btn hotel-btn-ai px-4" @onclick="SendMessage">
-                <i class="bi bi-send-fill me-1"></i> Gửi
-            </button>
+                            @if (!msg.IsUser && msg.Intent != null)
+                            {
+                                <div class="mt-2 pt-2 border-top d-flex flex-wrap gap-1">
+                                    <span class="badge bg-light text-dark border">Chủ đề: @msg.Intent.ChuDe</span>
+                                    @if (msg.Intent.NganSach.HasValue)
+                                    {
+                                        <span class="badge bg-warning text-dark">Ngân sách: @msg.Intent.NganSach.Value.ToString("N0")đ</span>
+                                    }
+                                    @if (msg.Intent.ThangDi.HasValue)
+                                    {
+                                        <span class="badge bg-info text-dark">Tháng: @msg.Intent.ThangDi.Value</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(msg.Intent.PhongCach))
+                                    {
+                                        <span class="badge bg-primary">Gu: @msg.Intent.PhongCach</span>
+                                    }
+                                </div>
+                            }
+
+                            @if (msg.Suggestions.Any())
+                            {
+                                <div class="mt-2 d-flex flex-column gap-2">
+                                    @foreach (var s in msg.Suggestions)
+                                    {
+                                        <div class="p-2 rounded border bg-light text-dark small">
+                                            <div class="d-flex justify-content-between">
+                                                <strong>@s.TieuDe (@s.DiemDen)</strong>
+                                                <span class="badge bg-success">@s.PhanTramPhuHop% Match</span>
+                                            </div>
+                                            <div class="text-muted" style="font-size: 0.75rem;">
+                                                🌤️ @s.ThoiDiemDepNhat (@s.ThoiTietDuKien) | 🛏️ Phòng: <strong>@s.HangPhongPhuHop</strong> (@s.GiaPhongMoiDem?.ToString("N0")đ/đêm)
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="p-3 border-top bg-white">
+                <div class="input-group">
+                    <input class="form-control hotel-input"
+                           placeholder="Nhập câu hỏi tư vấn (VD: Tháng 7 có 2tr5 đi đâu biển đẹp sống ảo?)..."
+                           @bind="userQuestion"
+                           @onkeyup="HandleKeyUpAsync" />
+                    <button class="hotel-btn hotel-btn-primary" disabled="@isSending" @onclick="SendMessageAsync">
+                        <i class="bi bi-send-fill me-1"></i> @(isSending ? "Đang phân tích..." : "Gửi AI")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cột phải: Danh sách Phiên Chat đã lưu trong bảng PhienChat_AI & TinNhanChat_AI -->
+    <div class="col-12 col-lg-5">
+        <div class="hotel-card h-100">
+            <div class="hotel-card-header">
+                <div class="hotel-card-title">
+                    <i class="bi bi-clock-history text-primary"></i>
+                    <span>Nhật Ký Phiên Chat (`PhienChat_AI`: @sessions.Count)</span>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="hotel-table">
+                    <thead>
+                        <tr>
+                            <th>Mã Phiên</th>
+                            <th>Khách Hàng</th>
+                            <th>Số Tin</th>
+                            <th>Thời Gian</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in sessions)
+                        {
+                            <tr>
+                                <td><span class="badge bg-light text-dark border font-monospace">@s.MaPhienChat</span></td>
+                                <td>@(s.MaNguoiDungNavigation?.HoTen ?? "Khách vãng lai")</td>
+                                <td><span class="hotel-badge hotel-badge-info">@s.TinNhanChatAis.Count tin</span></td>
+                                <td class="small text-muted">@s.ThoiGianBatDau.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
 @code {
-    private string currentInput = "";
-    private List<ChatMessage> chatMessages = new();
+    private record ChatBubble(bool IsUser, string Text, DateTime Time, string EngineSource, TrichXuatYChinhResult? Intent, List<GoiYKetQuaDto> Suggestions);
 
-    private record ChatMessage
+    private List<ChatBubble> chatHistory = new();
+    private List<PhienChatAi> sessions = new();
+    private string userQuestion = "";
+    private string? currentSessionToken;
+    private bool isSending = false;
+
+    protected override async Task OnInitializedAsync()
     {
-        public string Text { get; set; } = "";
-        public bool IsUser { get; set; }
+        chatHistory.Add(new ChatBubble(
+            false,
+            "Xin chào! Hãy cho mình biết Ngân sách dự kiến, Tháng đi và Gu trải nghiệm (Check-in sống ảo / Nghỉ dưỡng chữa lành / Ẩm thực) để AI chấm điểm điểm đến & hạng phòng phù hợp nhất!",
+            DateTime.Now,
+            "System",
+            null,
+            new()));
+
+        await LoadSessionsAsync();
     }
 
-    private void HandleKeyDown(KeyboardEventArgs e)
+    private async Task LoadSessionsAsync()
+    {
+        sessions = await Db.PhienChatAis
+            .AsNoTracking()
+            .Include(s => s.MaNguoiDungNavigation)
+            .Include(s => s.TinNhanChatAis)
+            .OrderByDescending(s => s.ThoiGianBatDau)
+            .Take(15)
+            .ToListAsync();
+    }
+
+    private async Task AskQuickAsync(string q)
+    {
+        userQuestion = q;
+        await SendMessageAsync();
+    }
+
+    private async Task HandleKeyUpAsync(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
-        {
-            SendMessage();
-        }
+            await SendMessageAsync();
     }
 
-    private void AskQuick(string question)
+    private async Task SendMessageAsync()
     {
-        currentInput = question;
-        SendMessage();
-    }
+        if (string.IsNullOrWhiteSpace(userQuestion) || isSending) return;
 
-    private void SendMessage()
-    {
-        if (string.IsNullOrWhiteSpace(currentInput)) return;
+        var q = userQuestion.Trim();
+        userQuestion = "";
+        isSending = true;
 
-        chatMessages.Add(new ChatMessage { Text = currentInput, IsUser = true });
-        var query = currentInput.ToLower();
-        currentInput = "";
+        chatHistory.Add(new ChatBubble(true, q, DateTime.Now, "User", null, new()));
 
-        string reply;
-        if (query.Contains("giá") || query.Contains("phòng") || query.Contains("loại phòng"))
+        try
         {
-            reply = "Grand Hotel hiện có 5 loại phòng: Standard (500.000đ/đêm), Superior (750.000đ/đêm), Deluxe Sea View (1.000.000đ/đêm), Suite Gia đình (1.500.000đ/đêm) và Penthouse VIP. Khách sạn đang có mã ưu đãi WELCOME2026 giảm 15% cho quý khách!";
+            var res = await AiService.ChatAsync(q, currentSessionToken, Session.CurrentUser.Id);
+            currentSessionToken = res.MaPhienChat;
+            chatHistory.Add(new ChatBubble(false, res.CauTraLoi, DateTime.Now, res.NguonTraLoi, res.YChinh, res.GoiYKemTheo));
+            await LoadSessionsAsync();
         }
-        else if (query.Contains("chơi") || query.Contains("địa điểm") || query.Contains("tour") || query.Contains("mùa"))
+        finally
         {
-            reply = "Mùa này tại Đà Nẵng rất đẹp! Chúng tôi gợi ý bạn ghé thăm Bãi biển Mỹ Khê (cách 500m), check-in Cầu Rồng phun lửa cuối tuần (cách 1.8km), và tour Bà Nà Hills - Cầu Vàng. Khách sạn có quầy hỗ trợ book vé cáp treo với chiết khấu 5%!";
+            isSending = false;
         }
-        else if (query.Contains("mã") || query.Contains("voucher") || query.Contains("khuyến mãi"))
-        {
-            reply = "Hiện có 2 mã ưu đãi cực hot: Mã 'WELCOME2026' (giảm 15% đơn từ 1 triệu) và mã 'SUMMERLUXURY' (giảm thẳng 300.000đ cho đơn từ 2.5 triệu). Bạn có thể áp dụng ngay khi đặt phòng trực tuyến!";
-        }
-        else
-        {
-            reply = "Cảm ơn bạn đã liên hệ! Tôi đã chuyển thông tin này cho bộ phận Lễ tân để chuẩn bị chu đáo nhất cho chuyến lưu trú của bạn tại Grand Hotel.";
-        }
-
-        chatMessages.Add(new ChatMessage { Text = reply, IsUser = false });
-    }
-
-    private void ClearChat()
-    {
-        chatMessages.Clear();
     }
 }

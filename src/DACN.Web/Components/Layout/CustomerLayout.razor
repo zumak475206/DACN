@@ -1,38 +1,24 @@
 @inherits LayoutComponentBase
 @inject UserSessionService Session
+@inject GoiYDuLichService AiService
 @inject NavigationManager Nav
+@inject IWebHostEnvironment Env
 @implements IDisposable
 
 <div class="customer-portal-wrapper">
     <!-- 1. HEADER PHONG CÁCH BOOKING.COM & AI TRAVEL -->
     <header class="customer-header sticky-top" style="background: #003B95; color: white;">
         <div class="container">
-            <!-- Top bar: Tiền tệ VND, Quốc gia, Chuyển đổi vai trò kiểm thử đồ án -->
+            <!-- Top bar: Tiền tệ VND, Quốc gia, Thông tin liên hệ -->
             <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-color: rgba(255,255,255,0.15) !important; font-size: 0.82rem;">
                 <div class="d-flex align-items-center gap-3">
                     <span class="fw-semibold"><i class="bi bi-globe-asia-australia me-1 text-warning"></i> Hệ thống Đặt phòng & Trợ lý Du lịch AI Toàn Quốc</span>
                     <span class="badge bg-white text-dark fw-bold px-2 py-1">VND 🇻🇳</span>
                 </div>
 
-                <!-- Giả lập phân quyền & Chuyển vai trò test đồ án -->
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-warning text-dark d-none d-sm-inline">
-                        <i class="bi bi-person-badge me-1"></i> Đang xem: <strong>@Session.CurrentUser.RoleDisplayName</strong>
-                    </span>
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-outline-light dropdown-toggle py-0 px-2" type="button" data-bs-toggle="dropdown" style="font-size: 0.75rem;">
-                            Đổi vai trò test (TV1-TV4)
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow" style="font-size: 0.85rem;">
-                            <li><h6 class="dropdown-header">Chọn vai trò kiểm thử</h6></li>
-                            <li><a class="dropdown-item" href="javascript:void(0)" @onclick='() => SwitchRole("Customer")'><i class="bi bi-person me-2 text-primary"></i> Khách Hàng (Cổng Booking)</a></li>
-                            <li><a class="dropdown-item" href="javascript:void(0)" @onclick='() => SwitchRole("FrontDesk")'><i class="bi bi-bell me-2 text-warning"></i> Lễ Tân (TV3 — Tiền sảnh)</a></li>
-                            <li><a class="dropdown-item" href="javascript:void(0)" @onclick='() => SwitchRole("Housekeeping")'><i class="bi bi-brush me-2 text-success"></i> Buồng Phòng (TV2 — Vận hành)</a></li>
-                            <li><a class="dropdown-item" href="javascript:void(0)" @onclick='() => SwitchRole("Manager")'><i class="bi bi-pie-chart me-2 text-info"></i> Quản Lý (TV4 — AI & BI)</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="javascript:void(0)" @onclick='() => SwitchRole("Admin")'><i class="bi bi-shield-lock me-2 text-danger"></i> Tổng Quản Trị (TV1 — Admin)</a></li>
-                        </ul>
-                    </div>
+                <div class="d-none d-md-flex align-items-center gap-3 text-light opacity-90">
+                    <span><i class="bi bi-telephone-fill text-warning me-1"></i> Hotline: <strong>1900 6868</strong></span>
+                    <span><i class="bi bi-headset text-warning me-1"></i> Hỗ trợ khách hàng 24/7</span>
                 </div>
             </div>
 
@@ -83,34 +69,77 @@
                     </ul>
 
                     <div class="d-flex align-items-center gap-2 mt-3 mt-lg-0">
-                        @if (Session.CurrentUser.Role != "Customer")
-                        {
-                            <a href="admin/dashboard" class="btn btn-warning fw-bold py-1 px-3 text-dark" style="font-size: 0.85rem; border-radius: 6px;" title="Chuyển đến màn hình làm việc nhân viên">
-                                <i class="bi bi-speedometer2 me-1"></i> Cổng Quản Trị (Staff)
-                            </a>
-                        }
-
                         @if (Session.CurrentUser.IsLoggedIn)
                         {
-                            <div class="dropdown">
-                                <button class="btn btn-light border-0 dropdown-toggle py-1 px-3 d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" style="border-radius: 6px;">
-                                    <div style="width: 26px; height: 26px; border-radius: 50%; background: #003B95; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold;">
+                            @if (Session.CurrentUser.Role != "Customer")
+                            {
+                                <button type="button" @onclick="GoToStaffDashboard" class="btn btn-warning fw-bold py-1 px-3 text-dark d-flex align-items-center gap-1 shadow-sm" style="font-size: 0.84rem; border-radius: 999px;">
+                                    <i class="bi bi-speedometer2"></i>
+                                    <span>Quản Trị Hệ Thống</span>
+                                </button>
+                            }
+
+                            <div class="position-relative">
+                                <button class="btn btn-light border-0 py-1 px-3 d-flex align-items-center gap-2 shadow-sm"
+                                        type="button"
+                                        @onclick="ToggleUserMenu"
+                                        style="border-radius: 999px;">
+                                    <div style="width: 28px; height: 28px; border-radius: 50%; background: #003B95; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold;">
                                         @Session.CurrentUser.HoTen.Substring(0, Math.Min(2, Session.CurrentUser.HoTen.Length)).ToUpper()
                                     </div>
-                                    <span class="small fw-semibold text-dark">@Session.CurrentUser.HoTen</span>
+                                    <span class="small fw-bold text-dark">@Session.CurrentUser.HoTen</span>
+                                    <span class="badge @(Session.CurrentUser.Role == "Customer" ? "bg-primary" : "bg-warning text-dark") rounded-pill" style="font-size: 0.68rem;">
+                                        @Session.CurrentUser.RoleShortBadge
+                                    </span>
+                                    <i class="bi @(isUserMenuOpen ? "bi-chevron-up" : "bi-chevron-down") text-dark" style="font-size: 0.75rem;"></i>
                                 </button>
-                                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                                    <li><a class="dropdown-item" href="my-bookings"><i class="bi bi-clock-history me-2"></i> Đơn Đặt Phòng Của Tôi</a></li>
-                                    <li><a class="dropdown-item" href="login"><i class="bi bi-arrow-repeat me-2"></i> Đổi Tài Khoản / Vai Trò</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item text-danger" href="javascript:void(0)" @onclick="Logout"><i class="bi bi-box-arrow-right me-2"></i> Đăng Xuất</a></li>
-                                </ul>
+
+                                @if (isUserMenuOpen)
+                                {
+                                    <div class="position-fixed top-0 start-0 w-100 h-100" style="z-index: 1040;" @onclick="() => isUserMenuOpen = false"></div>
+                                    <ul class="dropdown-menu show shadow-lg border-0 mt-2" style="right: 0; left: auto; min-width: 250px; border-radius: 12px; z-index: 1050;">
+                                        <li class="px-3 py-2 border-bottom bg-light rounded-top">
+                                            <div class="fw-bold text-dark small">@Session.CurrentUser.HoTen</div>
+                                            <div class="text-muted" style="font-size: 0.75rem;">@Session.CurrentUser.Email</div>
+                                            <span class="badge bg-primary-subtle text-primary mt-1" style="font-size: 0.7rem;">@Session.CurrentUser.RoleDisplayName</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="dropdown-item py-2 d-flex align-items-center" @onclick="OpenProfileModal">
+                                                <i class="bi bi-person-vcard me-2 text-primary"></i> Thông Tin Tài Khoản
+                                            </button>
+                                        </li>
+                                        @if (Session.CurrentUser.Role != "Customer")
+                                        {
+                                            <li>
+                                                <button type="button" class="dropdown-item py-2 fw-semibold text-primary d-flex align-items-center" @onclick="GoToStaffDashboard">
+                                                    <i class="bi bi-speedometer2 me-2"></i> Vào Admin Dashboard
+                                                </button>
+                                            </li>
+                                        }
+                                        <li>
+                                            <button type="button" class="dropdown-item py-2 d-flex align-items-center" @onclick='() => NavigateAndClose("/my-bookings")'>
+                                                <i class="bi bi-clock-history me-2 text-secondary"></i> Đơn Đặt Phòng Của Tôi
+                                            </button>
+                                        </li>
+                                        <li><hr class="dropdown-divider my-1"></li>
+                                        <li>
+                                            <button type="button" class="dropdown-item py-2 text-danger fw-semibold d-flex align-items-center" @onclick="Logout">
+                                                <i class="bi bi-box-arrow-right me-2"></i> Đăng Xuất
+                                            </button>
+                                        </li>
+                                    </ul>
+                                }
                             </div>
                         }
                         else
                         {
-                            <a href="login" class="btn btn-light fw-bold text-primary py-1 px-3" style="font-size: 0.85rem;">
-                                Đăng nhập / Đăng ký
+                            <a href="register" class="btn btn-outline-light fw-bold py-1 px-3 d-flex align-items-center gap-1" style="font-size: 0.88rem; border-radius: 6px;">
+                                <i class="bi bi-person-plus"></i>
+                                <span>Đăng ký</span>
+                            </a>
+                            <a href="login" class="btn btn-light fw-bold text-primary py-1 px-3 d-flex align-items-center gap-2" style="font-size: 0.88rem; border-radius: 6px;">
+                                <i class="bi bi-person-circle"></i>
+                                <span>Đăng nhập</span>
                             </a>
                         }
                     </div>
@@ -162,16 +191,16 @@
                         <li><a href="rooms" class="text-decoration-none text-light opacity-75">Tìm kiếm chỗ nghỉ & Hạng phòng</a></li>
                         <li><a href="my-bookings" class="text-decoration-none text-light opacity-75">Quản lý đơn đặt phòng</a></li>
                         <li><a href="/#uu-dai" class="text-decoration-none text-light opacity-75">Kho Voucher ưu đãi theo mùa</a></li>
-                        <li><a href="login" class="text-decoration-none text-warning fw-bold">Chuyển đổi vai trò Demo (TV1-TV4)</a></li>
+                        <li><a href="login" class="text-decoration-none text-light opacity-75">Đăng nhập thành viên</a></li>
                     </ul>
                 </div>
 
                 <div class="col-12 col-md-3">
-                    <h6 class="text-white fw-bold mb-3">Phân Công Nhóm Đồ Án (DACN)</h6>
-                    <div class="small text-light opacity-75 mb-1"><i class="bi bi-shield-check text-info me-1"></i> <strong>TV1:</strong> Auth, RBAC, Voucher, Điểm đến</div>
-                    <div class="small text-light opacity-75 mb-1"><i class="bi bi-brush text-success me-1"></i> <strong>TV2:</strong> Buồng phòng, Tài sản, Chi phí</div>
-                    <div class="small text-light opacity-75 mb-1"><i class="bi bi-calendar-check text-warning me-1"></i> <strong>TV3:</strong> Đặt phòng, Lễ tân, Hóa đơn</div>
-                    <div class="small text-light opacity-75"><i class="bi bi-robot text-danger me-1"></i> <strong>TV4:</strong> AI Tư vấn du lịch, Dự báo & BI</div>
+                    <h6 class="text-white fw-bold mb-3">Liên Hệ & Hỗ Trợ</h6>
+                    <div class="small text-light opacity-75 mb-1"><i class="bi bi-geo-alt text-warning me-1"></i> Võ Nguyên Giáp, Mỹ Khê, Đà Nẵng</div>
+                    <div class="small text-light opacity-75 mb-1"><i class="bi bi-telephone text-info me-1"></i> Hotline: 1900 6868 (24/7)</div>
+                    <div class="small text-light opacity-75 mb-1"><i class="bi bi-envelope text-success me-1"></i> Email: support@bookingstay.ai</div>
+                    <div class="small text-light opacity-75"><i class="bi bi-shield-check text-warning me-1"></i> Bảo mật thanh toán & Đặt phòng tức thì</div>
                 </div>
             </div>
 
@@ -246,6 +275,61 @@
             <i class="bi @(isChatOpen ? "bi-x-lg" : "bi-stars") fs-4 text-white"></i>
         </button>
     </div>
+
+    @if (isProfileModalOpen && Session.CurrentUser.IsLoggedIn)
+    {
+        <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15, 23, 42, 0.6); z-index: 2100;">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
+                    <div class="modal-header text-white border-0 py-3 px-4" style="background: #003B95;">
+                        <h5 class="modal-title fw-bold mb-0"><i class="bi bi-person-vcard me-2 text-warning"></i> Thông Tin Tài Khoản</h5>
+                        <button type="button" class="btn-close btn-close-white" @onclick="() => isProfileModalOpen = false"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
+                            <div style="width: 56px; height: 56px; border-radius: 50%; background: #003B95; color: #FFB700; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: bold;">
+                                @Session.CurrentUser.HoTen.Substring(0, Math.Min(2, Session.CurrentUser.HoTen.Length)).ToUpper()
+                            </div>
+                            <div>
+                                <h5 class="fw-bold text-dark mb-0">@Session.CurrentUser.HoTen</h5>
+                                <div class="text-muted small">@Session.CurrentUser.Email</div>
+                                <span class="badge bg-primary mt-1">@Session.CurrentUser.RoleDisplayName</span>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 small">
+                            <div class="col-6">
+                                <div class="text-muted">Mã tài khoản</div>
+                                <div class="fw-bold text-dark">#@Session.CurrentUser.Id</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-muted">Trạng thái</div>
+                                <div class="fw-bold text-success"><i class="bi bi-check-circle-fill me-1"></i> Đang hoạt động</div>
+                            </div>
+                            <div class="col-12">
+                                <div class="text-muted">Quyền hạn hệ thống</div>
+                                <div class="fw-semibold text-dark">@Session.CurrentUser.Permissions.Count quyền được cấp</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 bg-light px-4 py-3 d-flex justify-content-between">
+                        <button type="button" class="btn btn-outline-danger btn-sm fw-bold" @onclick="Logout">
+                            <i class="bi bi-box-arrow-right me-1"></i> Đăng Xuất
+                        </button>
+                        <div class="d-flex gap-2">
+                            @if (Session.CurrentUser.Role != "Customer")
+                            {
+                                <button type="button" class="btn btn-primary btn-sm fw-bold" @onclick="GoToStaffDashboard">
+                                    <i class="bi bi-speedometer2 me-1"></i> Vào Admin Dashboard
+                                </button>
+                            }
+                            <button type="button" class="btn btn-secondary btn-sm" @onclick="() => isProfileModalOpen = false">Đóng</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 <style>
@@ -305,7 +389,10 @@
 
 @code {
     private bool isChatOpen = false;
+    private bool isUserMenuOpen = false;
+    private bool isProfileModalOpen = false;
     private string chatInput = "";
+    private string? chatSessionToken;
     private List<ChatMsg> chatList = new();
 
     private record ChatMsg(string Text, bool IsUser);
@@ -320,52 +407,67 @@
         Session.OnChange -= StateHasChanged;
     }
 
-    private void SwitchRole(string role)
+    private void ToggleUserMenu()
     {
-        Session.SwitchRole(role);
-        if (role == "Customer") Nav.NavigateTo("/");
-        else if (role == "FrontDesk") Nav.NavigateTo("/frontdesk/bookings");
-        else if (role == "Housekeeping") Nav.NavigateTo("/housekeeping/rooms");
-        else if (role == "Manager") Nav.NavigateTo("/ai-analytics/dashboard");
-        else if (role == "Admin") Nav.NavigateTo("/admin/accounts");
+        isUserMenuOpen = !isUserMenuOpen;
+    }
+
+    private void OpenProfileModal()
+    {
+        isUserMenuOpen = false;
+        isProfileModalOpen = true;
+    }
+
+    private void NavigateAndClose(string url)
+    {
+        isUserMenuOpen = false;
+        isProfileModalOpen = false;
+        Nav.NavigateTo(url);
+    }
+
+    private void GoToStaffDashboard()
+    {
+        isUserMenuOpen = false;
+        isProfileModalOpen = false;
+        Nav.NavigateTo(Session.GetDefaultStaffRoute());
     }
 
     private void Logout()
     {
+        isUserMenuOpen = false;
+        isProfileModalOpen = false;
         Session.Logout();
         Nav.NavigateTo("/");
     }
 
-    private void QuickAsk(string prompt)
+    private async Task QuickAsk(string prompt)
     {
         chatInput = prompt;
-        SendChatMessage();
+        await SendChatMessage();
     }
 
-    private void HandleChatKeyDown(KeyboardEventArgs e)
+    private async Task HandleChatKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter") SendChatMessage();
+        if (e.Key == "Enter") await SendChatMessage();
     }
 
-    // TODO [TV4 - AI Core]: Nối hàm SendChatMessage() này với endpoint POST /api/v1/ai/chat để lưu vào bảng PhienChat_AI & TinNhanChat_AI
-    private void SendChatMessage()
+    private async Task SendChatMessage()
     {
         if (string.IsNullOrWhiteSpace(chatInput)) return;
 
-        chatList.Add(new ChatMsg(chatInput, true));
-        var q = chatInput.ToLowerInvariant();
+        var question = chatInput.Trim();
+        chatList.Add(new ChatMsg(question, true));
         chatInput = "";
 
-        string res;
-        if (q.Contains("sống ảo") || q.Contains("2 triệu") || q.Contains("3 triệu"))
-            res = "✨ Với ngân sách ~2 triệu & thích check-in sống ảo: Bạn nên chọn Phòng Deluxe Sea View (1.000.000đ/đêm, ban công hướng biển đón bình minh) kết hợp check-in Cầu Vàng Bà Nà Hills, Bán đảo Sơn Trà và phố cổ Hội An! Áp mã WELCOME2026 giảm thêm 15%.";
-        else if (q.Contains("tháng này") || q.Contains("mùa") || q.Contains("thư giãn"))
-            res = "🌿 Thời điểm này thời tiết mát mẻ (24-28°C), rất hợp nghỉ dưỡng chữa lành tại Đà Nẵng - Hội An hoặc săn mây Đà Lạt. Độ phù hợp AI chấm: 98%!";
-        else if (q.Contains("voucher") || q.Contains("giảm giá"))
-            res = "🎁 Bạn có thể dùng mã WELCOME2026 (giảm 15% cho đơn từ 1 triệu) hoặc SUMMERLUXURY (giảm 300.000đ cho đơn từ 2.5 triệu) ngay khi đặt phòng nhé!";
-        else
-            res = "🤖 AI đã ghi nhận nhu cầu của bạn! Bạn có thể bấm chọn bộ lọc 'Ngân sách + Gu trải nghiệm' ngay trên Trang chủ để xem các điểm đến & phòng phù hợp nhất.";
-
-        chatList.Add(new ChatMsg(res, false));
+        try
+        {
+            var res = await AiService.ChatAsync(question, chatSessionToken, Session.CurrentUser.IsLoggedIn ? Session.CurrentUser.Id : null);
+            chatSessionToken = res.MaPhienChat;
+            chatList.Add(new ChatMsg(res.CauTraLoi, false));
+        }
+        catch
+        {
+            chatList.Add(new ChatMsg("🤖 AI đã ghi nhận nhu cầu của bạn! Bạn có thể chọn bộ lọc Ngân sách + Gu trải nghiệm ngay trên Trang chủ để xem gợi ý chi tiết.", false));
+        }
     }
 }

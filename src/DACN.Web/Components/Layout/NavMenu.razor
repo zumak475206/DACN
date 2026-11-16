@@ -132,9 +132,9 @@
                 @Session.CurrentUser.RoleDisplayName
             </div>
         </div>
-        <a href="login" title="Đổi ca / Đăng xuất" class="text-white-50 hover-text-white" style="font-size: 1.1rem;">
+        <button type="button" @onclick="Logout" title="Đăng xuất" class="btn btn-link p-0 text-white-50 hover-text-white" style="font-size: 1.1rem;">
             <i class="bi bi-box-arrow-right"></i>
-        </a>
+        </button>
     </div>
 </div>
 
@@ -147,5 +147,11 @@
     public void Dispose()
     {
         Session.OnChange -= StateHasChanged;
+    }
+
+    private void Logout()
+    {
+        Session.Logout();
+        Nav.NavigateTo("/login");
     }
 }

@@ -43,10 +43,9 @@ public static class ClaimsPrincipalExtensions
 
     public static bool HasPermission(this ClaimsPrincipal user, string permission)
     {
+        if (string.IsNullOrWhiteSpace(permission)) return false;
         if (user.IsAdmin()) return true;
-        var permissions = user.FindAll("permission").Select(c => c.Value);
-        if (permissions.Any(p => string.Equals(p, permission, StringComparison.OrdinalIgnoreCase)))
-            return true;
-        return user.IsStaffOrAdmin();
+        return user.FindAll("permission")
+            .Any(p => string.Equals(p.Value, permission, StringComparison.OrdinalIgnoreCase));
     }
 }

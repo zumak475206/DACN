@@ -28,9 +28,11 @@ if (string.IsNullOrWhiteSpace(connectionString))
 builder.Services.AddDbContext<DACNContext>(options =>
     options.UseSqlServer(connectionString));
 
-// Đăng ký dịch vụ Audit Log kiểm toán hệ thống
+// Đăng ký dịch vụ Audit Log kiểm toán hệ thống & AI Travel Advisor
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<IAuditService, AuditService>();
-builder.Services.AddScoped<UserSessionService>();
+builder.Services.AddScoped<GoiYDuLichService>();
+builder.Services.AddSingleton<UserSessionService>();
 
 // 2. CORS Policy (Cross-Origin Resource Sharing)
 builder.Services.AddCors(options =>
@@ -60,6 +62,20 @@ builder.Services.AddRateLimiter(options =>
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            });
+    });
+
+    // Chính sách giới hạn cho các endpoint công khai nhạy cảm (kiểm tra voucher, chat AI): 20 req/phút/IP
+    options.AddPolicy("public-strict", httpContext =>
+    {
+        var clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown_client";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"strict_{clientIp}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             });
@@ -185,6 +201,13 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<DACNContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    await SchemaMigrationRunner.EnsureLatestSchemaAsync(db, logger);
+}
 
 // Pipeline Middleware
 app.UseMiddleware<ExceptionMiddleware>();

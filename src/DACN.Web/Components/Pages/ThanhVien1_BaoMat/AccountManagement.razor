@@ -1,150 +1,222 @@
 @page "/admin/accounts"
 @page "/admin"
-@rendermode InteractiveServer
 @inject DACNContext Db
+@inject UserSessionService Session
+@inject IAuditService AuditService
 
-<PageTitle>Quản Lý Tài Khoản & Nhân Sự — TV1</PageTitle>
+<PageTitle>Quản Lý Tài Khoản — TV1</PageTitle>
 
-<PageHeader Title="Quản Lý Tài Khoản Người Dùng & Nhân Sự"
-            Subtitle="Xem, tìm kiếm, khóa/mở khóa tài khoản nhân viên và khách hàng trong hệ thống"
+<PageHeader Title="Quản Lý Tài Khoản Người Dùng"
+            Subtitle="Quản trị danh sách nhân sự, khách hàng, phân vai trò RBAC và khóa/mở khóa bảo mật"
             Icon="bi bi-people-fill"
-            MemberTag="TV1 — TÀI KHOẢN & NHÂN SỰ"
+            MemberTag="TV1 — QUẢN LÝ TÀI KHOẢN"
             MemberTagClass="member-tag-tv1">
-    <Actions>
-        <button class="hotel-btn hotel-btn-primary">
-            <i class="bi bi-person-plus-fill"></i> Thêm Tài Khoản Mới
-        </button>
-    </Actions>
 </PageHeader>
 
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert @(isError ? "alert-danger" : "alert-success") alert-dismissible fade show py-2 small mb-3">
+        <i class="bi @(isError ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill") me-1"></i> @statusMessage
+        <button type="button" class="btn-close py-2" @onclick="() => statusMessage = null"></button>
+    </div>
+}
+
+<!-- Thống kê nhanh -->
 <div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <StatCard Title="Tổng Người Dùng" Value="@users.Count.ToString()" Description="Admin, Nhân viên & Khách hàng" Icon="bi bi-people-fill" Variant="info" />
+    <div class="col-12 col-sm-6 col-xl-3">
+        <StatCard Label="Tổng Tài Khoản" Value="@users.Count.ToString()" Icon="bi bi-people-fill" Variant="primary" Subtext="Toàn hệ thống" />
     </div>
-    <div class="col-6 col-md-3">
-        <StatCard Title="Đang Hoạt Động" Value="@users.Count(u => u.TrangThai).ToString()" Description="Tài khoản chưa bị khóa" Icon="bi bi-person-check-fill" Variant="success" />
+    <div class="col-12 col-sm-6 col-xl-3">
+        <StatCard Label="Đang Hoạt Động" Value="@users.Count(u => u.TrangThai).ToString()" Icon="bi bi-person-check-fill" Variant="success" Subtext="Đủ quyền truy cập" />
     </div>
-    <div class="col-6 col-md-3">
-        <StatCard Title="Bị Khóa" Value="@users.Count(u => !u.TrangThai).ToString()" Description="Cần xem xét mở lại" Icon="bi bi-person-slash" Variant="danger" />
+    <div class="col-12 col-sm-6 col-xl-3">
+        <StatCard Label="Tài Khoản Nhân Sự" Value="@users.Count(u => u.LoaiNguoiDung == "staff").ToString()" Icon="bi bi-person-workspace" Variant="info" Subtext="Nội bộ khách sạn" />
     </div>
-    <div class="col-6 col-md-3">
-        <StatCard Title="Khách Hàng VIP" Value="@users.Count(u => u.TongDiem >= 3000).ToString()" Description="Điểm loyalty ≥ 3000 pts" Icon="bi bi-award-fill" Variant="accent" />
+    <div class="col-12 col-sm-6 col-xl-3">
+        <StatCard Label="Đã Khóa / Tạm Ngưng" Value="@users.Count(u => !u.TrangThai).ToString()" Icon="bi bi-person-Fill-lock" Variant="danger" Subtext="Đã thu hồi token" />
     </div>
 </div>
 
+<!-- Bộ lọc tìm kiếm -->
+<div class="hotel-card mb-4">
+    <div class="hotel-card-body py-3">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-5">
+                <input class="form-control hotel-input" placeholder="Tìm theo họ tên, email, số điện thoại..." @bind="searchKeyword" @bind:event="oninput" />
+            </div>
+            <div class="col-6 col-md-4">
+                <select class="form-select hotel-input" @bind="filterRoleId">
+                    <option value="0">-- Tất cả vai trò --</option>
+                    @foreach (var r in roles)
+                    {
+                        <option value="@r.MaId">@r.Ten</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-md-3">
+                <select class="form-select hotel-input" @bind="filterStatus">
+                    <option value="all">Tất cả trạng thái</option>
+                    <option value="active">Đang hoạt động</option>
+                    <option value="locked">Đã khóa</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bảng danh sách người dùng -->
 <div class="hotel-card">
     <div class="hotel-card-header">
         <div class="hotel-card-title">
-            <i class="bi bi-people-fill text-primary"></i>
-            <span>Danh Sách Người Dùng & Quản Trị Tài Khoản</span>
-        </div>
-        <div class="d-flex gap-2">
-            <input type="text" class="hotel-input" placeholder="Tìm kiếm theo họ tên, email..." @bind="searchUser" @bind:event="oninput" style="width: 250px;" />
-            <select class="hotel-select" @bind="filterUserType" style="width: 160px;">
-                <option value="">Tất cả vai trò</option>
-                <option value="QuanLy">Quản lý / Admin</option>
-                <option value="NhanVien">Nhân viên</option>
-                <option value="KhachHang">Khách hàng</option>
-            </select>
+            <i class="bi bi-table text-primary"></i>
+            <span>Danh Sách Tài Khoản (@FilteredUsers.Count() kết quả)</span>
         </div>
     </div>
-    <div class="hotel-card-body p-0">
-        <div class="table-responsive">
-            <table class="hotel-table">
-                <thead>
+    <div class="table-responsive">
+        <table class="hotel-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Họ và Tên</th>
+                    <th>Email / SĐT</th>
+                    <th>Loại</th>
+                    <th>Vai Trò (Đổi trực tiếp)</th>
+                    <th>Trạng Thái</th>
+                    <th class="text-end">Bảo Mật</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var u in FilteredUsers)
+                {
                     <tr>
-                        <th>Mã</th>
-                        <th>Họ và Tên</th>
-                        <th>Email</th>
-                        <th>Số Điện Thoại</th>
-                        <th>Phân Loại</th>
-                        <th>Điểm Loyalty</th>
-                        <th>Trạng Thái</th>
-                        <th class="text-end">Thao Tác</th>
+                        <td class="fw-bold">#@u.MaId</td>
+                        <td>
+                            <div class="fw-semibold text-dark">@u.HoTen</div>
+                            <small class="text-muted">Điểm tích lũy: @u.TongDiem</small>
+                        </td>
+                        <td>
+                            <div>@u.Email</div>
+                            <small class="text-muted">@(u.SoDienThoai ?? "Chưa cập nhật")</small>
+                        </td>
+                        <td>
+                            <span class="hotel-badge @(u.LoaiNguoiDung == "staff" ? "hotel-badge-info" : "hotel-badge-neutral")">
+                                @(u.LoaiNguoiDung == "staff" ? "Nhân sự" : "Khách hàng")
+                            </span>
+                        </td>
+                        <td style="min-width: 170px;">
+                            @if (Session.HasPermission(Quyen.ManageUsers))
+                            {
+                                <select class="form-select form-select-sm"
+                                        value="@u.MaVaiTro"
+                                        disabled="@(u.MaId == Session.CurrentUser.Id)"
+                                        @onchange='(e) => ChangeUserRoleAsync(u, int.Parse(e.Value?.ToString() ?? "6"))'>
+                                    @foreach (var r in roles)
+                                    {
+                                        <option value="@r.MaId">@r.Ten</option>
+                                    }
+                                </select>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">@(u.MaVaiTroNavigation?.Ten ?? "Customer")</span>
+                            }
+                        </td>
+                        <td>
+                            <StatusBadge Status="@(u.TrangThai ? "Active" : "Locked")" />
+                        </td>
+                        <td class="text-end">
+                            @if (Session.HasPermission(Quyen.ManageUsers) && u.MaId != Session.CurrentUser.Id)
+                            {
+                                <button class="btn btn-sm @(u.TrangThai ? "btn-outline-danger" : "btn-outline-success")"
+                                        @onclick="() => ToggleUserStatusAsync(u)">
+                                    <i class="bi @(u.TrangThai ? "bi-lock-fill" : "bi-unlock-fill") me-1"></i>
+                                    @(u.TrangThai ? "Khóa" : "Mở khóa")
+                                </button>
+                            }
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach (var u in FilteredUsers)
-                    {
-                        <tr>
-                            <td class="fw-bold">#@u.MaId</td>
-                            <td>
-                                <div class="d-flex align-items-center gap-2">
-                                    <div style="width:32px;height:32px;border-radius:50%;background:#E2E8F0;display:flex;align-items:center;justify-content:center;font-weight:bold;color:var(--hotel-primary);font-size:0.8rem;">
-                                        @u.HoTen.Substring(0, Math.Min(2, u.HoTen.Length)).ToUpper()
-                                    </div>
-                                    <div>
-                                        <div class="fw-semibold">@u.HoTen</div>
-                                        <small class="text-muted">Đăng ký: @u.NgayTao.ToString("dd/MM/yyyy")</small>
-                                    </div>
-                                </div>
-                            </td>
-                            <td><code>@u.Email</code></td>
-                            <td>@(string.IsNullOrWhiteSpace(u.SoDienThoai) ? "---" : u.SoDienThoai)</td>
-                            <td>
-                                @if (u.LoaiNguoiDung == "QuanLy" || u.LoaiNguoiDung == "Admin")
-                                {
-                                    <span class="hotel-badge" style="background:rgba(14,165,233,0.15);color:#0284C7;font-weight:600;">Quản Lý</span>
-                                }
-                                else if (u.LoaiNguoiDung == "NhanVien")
-                                {
-                                    <span class="hotel-badge" style="background:rgba(16,185,129,0.15);color:#059669;font-weight:600;">Nhân Viên</span>
-                                }
-                                else
-                                {
-                                    <span class="hotel-badge" style="background:rgba(245,158,11,0.15);color:#D97706;font-weight:600;">Khách Hàng</span>
-                                }
-                            </td>
-                            <td><span class="fw-bold" style="color:var(--hotel-accent-hover);">@u.TongDiem pts</span></td>
-                            <td>
-                                @if (u.TrangThai)
-                                {
-                                    <span class="hotel-badge hotel-badge-success"><i class="bi bi-check-circle me-1"></i>Hoạt động</span>
-                                }
-                                else
-                                {
-                                    <span class="hotel-badge hotel-badge-danger"><i class="bi bi-slash-circle me-1"></i>Bị khóa</span>
-                                }
-                            </td>
-                            <td class="text-end">
-                                <button class="hotel-btn hotel-btn-outline py-1 px-2 text-primary" title="Đổi mật khẩu / Cấp lại">
-                                    <i class="bi bi-key-fill"></i>
-                                </button>
-                                <button class="hotel-btn hotel-btn-outline py-1 px-2 text-danger ms-1" title="Khóa / Mở khóa">
-                                    <i class="bi @(u.TrangThai ? "bi-lock-fill" : "bi-unlock-fill")"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                }
+            </tbody>
+        </table>
     </div>
 </div>
 
 @code {
-    private string searchUser = "";
-    private string filterUserType = "";
     private List<NguoiDung> users = new();
+    private List<VaiTro> roles = new();
+    private string searchKeyword = "";
+    private int filterRoleId = 0;
+    private string filterStatus = "all";
+    private string? statusMessage;
+    private bool isError = false;
+
+    private IEnumerable<NguoiDung> FilteredUsers => users.Where(u =>
+        (string.IsNullOrWhiteSpace(searchKeyword) ||
+         u.HoTen.Contains(searchKeyword, StringComparison.OrdinalIgnoreCase) ||
+         u.Email.Contains(searchKeyword, StringComparison.OrdinalIgnoreCase) ||
+         (u.SoDienThoai != null && u.SoDienThoai.Contains(searchKeyword))) &&
+        (filterRoleId == 0 || u.MaVaiTro == filterRoleId) &&
+        (filterStatus == "all" || (filterStatus == "active" ? u.TrangThai : !u.TrangThai)));
 
     protected override async Task OnInitializedAsync()
     {
-        try
-        {
-            users = await Db.NguoiDungs.AsNoTracking().OrderByDescending(u => u.NgayTao).Take(50).ToListAsync();
-        }
-        catch { }
-
-        if (!users.Any())
-            users = new List<NguoiDung>
-            {
-                new NguoiDung { MaId = 1, HoTen = "Trần Quản Lý", Email = "admin@grandhotel.vn", SoDienThoai = "0901234567", LoaiNguoiDung = "QuanLy", TrangThai = true, TongDiem = 1500, NgayTao = DateTime.Now.AddMonths(-6) },
-                new NguoiDung { MaId = 2, HoTen = "Nguyễn Lễ Tân", Email = "letan@grandhotel.vn", SoDienThoai = "0912345678", LoaiNguoiDung = "NhanVien", TrangThai = true, TongDiem = 0, NgayTao = DateTime.Now.AddMonths(-3) },
-                new NguoiDung { MaId = 3, HoTen = "Phạm Khách Vip", Email = "khachvip@gmail.com", SoDienThoai = "0934567890", LoaiNguoiDung = "KhachHang", TrangThai = true, TongDiem = 4800, NgayTao = DateTime.Now.AddMonths(-1) }
-            };
+        await LoadDataAsync();
     }
 
-    private IEnumerable<NguoiDung> FilteredUsers => users
-        .Where(u => (string.IsNullOrWhiteSpace(searchUser) || u.HoTen.Contains(searchUser, StringComparison.OrdinalIgnoreCase) || u.Email.Contains(searchUser, StringComparison.OrdinalIgnoreCase))
-                 && (string.IsNullOrWhiteSpace(filterUserType) || u.LoaiNguoiDung.Equals(filterUserType, StringComparison.OrdinalIgnoreCase)));
+    private async Task LoadDataAsync()
+    {
+        roles = await Db.VaiTros.AsNoTracking().OrderBy(r => r.MaId).ToListAsync();
+        users = await Db.NguoiDungs
+            .AsNoTracking()
+            .Include(u => u.MaVaiTroNavigation)
+            .OrderBy(u => u.MaId)
+            .ToListAsync();
+    }
+
+    private async Task ChangeUserRoleAsync(NguoiDung target, int newRoleId)
+    {
+        if (!Session.HasPermission(Quyen.ManageUsers)) return;
+
+        var entity = await Db.NguoiDungs.Include(x => x.MaVaiTroNavigation).FirstOrDefaultAsync(x => x.MaId == target.MaId);
+        var role = await Db.VaiTros.FindAsync(newRoleId);
+        if (entity == null || role == null) return;
+
+        entity.MaVaiTro = role.MaId;
+        var isCustomer = role.Ten.Equals("Customer", StringComparison.OrdinalIgnoreCase);
+        entity.LoaiNguoiDung = isCustomer ? "customer" : "staff";
+
+        await Db.SaveChangesAsync();
+        await AuditService.GhiNhanAsync("CAP_NHAT_VAI_TRO_NGUOI_DUNG", "NguoiDung", entity.MaId.ToString(), $"Đổi vai trò của '{entity.HoTen}' sang '{role.Ten}'", Session.CurrentUser.Id, Session.CurrentUser.Email, "127.0.0.1", true);
+
+        await LoadDataAsync();
+        isError = false;
+        statusMessage = $"Đã cập nhật vai trò của '{entity.HoTen}' thành '{role.Ten}'.";
+    }
+
+    private async Task ToggleUserStatusAsync(NguoiDung target)
+    {
+        if (!Session.HasPermission(Quyen.ManageUsers)) return;
+
+        var entity = await Db.NguoiDungs.FindAsync(target.MaId);
+        if (entity == null) return;
+
+        entity.TrangThai = !entity.TrangThai;
+        if (!entity.TrangThai)
+        {
+            var tokens = await Db.RefreshTokens.Where(t => t.MaNguoiDung == entity.MaId && !t.DaThuHoi).ToListAsync();
+            foreach (var t in tokens)
+            {
+                t.DaThuHoi = true;
+                t.NgayThuHoi = DateTime.UtcNow;
+                t.LyDoThuHoi = "Khóa tài khoản từ trang Quản trị";
+            }
+        }
+
+        await Db.SaveChangesAsync();
+        await AuditService.GhiNhanAsync(entity.TrangThai ? "KICH_HOAT_TAI_KHOAN" : "VO_HIEU_HOA_TAI_KHOAN", "NguoiDung", entity.MaId.ToString(), $"{(entity.TrangThai ? "Mở khóa" : "Khóa")} tài khoản '{entity.Email}'", Session.CurrentUser.Id, Session.CurrentUser.Email, "127.0.0.1", true);
+
+        await LoadDataAsync();
+        isError = false;
+        statusMessage = $"Đã {(entity.TrangThai ? "kích hoạt lại" : "khóa và thu hồi phiên đăng nhập của")} tài khoản '{entity.HoTen}'.";
+    }
 }

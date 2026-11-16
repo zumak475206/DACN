@@ -310,6 +310,7 @@ public partial class DACNContext : DbContext
                 .HasColumnType("decimal(5, 2)")
                 .HasColumnName("KhoangCach_km");
             entity.Property(e => e.KinhDo).HasColumnType("decimal(11, 8)");
+            entity.Property(e => e.PhongCach).HasMaxLength(200);
             entity.Property(e => e.Ten).HasMaxLength(255);
             entity.Property(e => e.ViDo).HasColumnType("decimal(10, 8)");
         });
@@ -413,8 +414,7 @@ public partial class DACNContext : DbContext
                 .HasDefaultValue(500m)
                 .HasColumnType("decimal(5, 3)");
             entity.Property(e => e.LoaiThoiTiet)
-                .HasMaxLength(30)
-                .IsUnicode(false);
+                .HasMaxLength(50);
             entity.Property(e => e.LyDoGoiY).HasMaxLength(500);
             entity.Property(e => e.MuaDuLich)
                 .HasMaxLength(20)
@@ -456,6 +456,7 @@ public partial class DACNContext : DbContext
             entity.Property(e => e.NgayTao)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
+            entity.Property(e => e.PhongCach).HasMaxLength(200);
             entity.Property(e => e.TieuDe).HasMaxLength(255);
         });
 
@@ -559,6 +560,7 @@ public partial class DACNContext : DbContext
             entity.Property(e => e.GiaTriDatPhongToiThieu)
                 .HasDefaultValue(0m)
                 .HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.GiamToiDa).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.GiaTriGiamGia).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.GioiHanSuDung).HasDefaultValue(100);
             entity.Property(e => e.HieuLucDen).HasColumnType("datetime");

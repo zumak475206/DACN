@@ -31,6 +31,8 @@ public partial class GoiYtourAi
 
     public decimal? DiemDanhGiaTrungBinh { get; set; }
 
+    public string? PhongCach { get; set; }
+
     public bool DangHoatDong { get; set; }
 
     public DateTime NgayTao { get; set; }

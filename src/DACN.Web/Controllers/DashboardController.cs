@@ -19,9 +19,8 @@ public class DashboardController(DACNContext db) : ControllerBase
         if (!User.IsStaffOrAdmin())
             return Forbid();
 
-        var now = DateTime.UtcNow;
-        var dauThang = new DateTime(now.Year, now.Month, 1);
-        var homNay = now.Date;
+        var dauThang = GioVN.DauThang;
+        var homNay = GioVN.HomNay;
 
         var tongPhong = await db.Phongs.CountAsync();
         var phongCoKhach = await db.Phongs.CountAsync(p => p.TrangThai == "Occupied" || p.TrangThai == "co_khach");
@@ -45,19 +44,116 @@ public class DashboardController(DACNContext db) : ControllerBase
             .Take(10)
             .Select(d => new DatPhongMoiDto
             {
-                MaId = d.MaId, MaDatPhong = d.MaDatPhong,
-                TenKhach = d.TenKhach, TongTien = d.TongTien,
-                TrangThai = d.TrangThai, NgayTao = d.NgayTao
+                MaId = d.MaId,
+                MaDatPhong = d.MaDatPhong,
+                TenKhach = d.TenKhach,
+                TongTien = d.TongTien,
+                TrangThai = d.TrangThai,
+                NgayTao = d.NgayTao
             })
             .ToListAsync();
 
         return Ok(ApiResponse<DashboardAdminDto>.Ok(new DashboardAdminDto
         {
-            TongPhong = tongPhong, PhongDangCoKhach = phongCoKhach,
-            PhongTrong = phongTrong, PhongBaoDuong = phongBaoDuong,
-            DoanhThuThang = doanhThuThang, DoanhThuHomNay = doanhThuHomNay,
-            TongDatPhongHomNay = datPhongHomNay, DatPhongChoXacNhan = choXacNhan,
+            TongPhong = tongPhong,
+            PhongDangCoKhach = phongCoKhach,
+            PhongTrong = phongTrong,
+            PhongBaoDuong = phongBaoDuong,
+            DoanhThuThang = doanhThuThang,
+            DoanhThuHomNay = doanhThuHomNay,
+            TongDatPhongHomNay = datPhongHomNay,
+            DatPhongChoXacNhan = choXacNhan,
             DatPhongMoiNhat = datPhongMoiNhat
+        }));
+    }
+
+    [HttpGet("kpi")]
+    public async Task<ActionResult<ApiResponse<HotelBiKpiDto>>> Kpi([FromQuery] DateTime? tuNgay = null, [FromQuery] DateTime? denNgay = null)
+    {
+        if (!User.HasPermission(Quyen.ViewDashboard) && !User.IsStaffOrAdmin())
+            return Forbid();
+
+        var start = tuNgay ?? GioVN.HomNay.AddDays(-30);
+        var end = denNgay ?? GioVN.Now;
+        var daysInPeriod = Math.Max(1, (int)Math.Ceiling((end - start).TotalDays));
+
+        var tongPhong = Math.Max(1, await db.Phongs.CountAsync());
+        var phongCoKhach = await db.Phongs.CountAsync(p => p.TrangThai == "Occupied" || p.TrangThai == "co_khach" || p.TrangThai == "Reserved");
+
+        var bookingsInPeriod = await db.DatPhongs
+            .AsNoTracking()
+            .Include(d => d.ChiTietDatPhongs)
+                .ThenInclude(ct => ct.MaLoaiPhongNavigation)
+            .Where(d => d.NgayTao >= start && d.NgayTao <= end)
+            .ToListAsync();
+
+        var totalBookings = bookingsInPeriod.Count;
+        var cancelledBookings = bookingsInPeriod.Count(b => b.TrangThai == "Cancelled" || b.TrangThai == "da_huy");
+        var cancelRate = totalBookings > 0
+            ? Math.Round((decimal)cancelledBookings / totalBookings * 100m, 1)
+            : 0m;
+
+        var activeBookings = bookingsInPeriod
+            .Where(b => b.TrangThai != "Cancelled" && b.TrangThai != "da_huy")
+            .ToList();
+
+        var allDetails = activeBookings.SelectMany(b => b.ChiTietDatPhongs).ToList();
+        var totalRoomNightsSold = allDetails.Sum(ct => Math.Max(1, (int)Math.Ceiling((ct.NgayTraPhongDuKien - ct.NgayNhanPhongDuKien).TotalDays)));
+        var totalRoomRevenue = activeBookings.Sum(b => b.TongTien);
+
+        var occupancyPct = Math.Round((decimal)phongCoKhach / tongPhong * 100m, 1);
+        var adr = totalRoomNightsSold > 0
+            ? Math.Round(totalRoomRevenue / totalRoomNightsSold, 0)
+            : 850_000m;
+        var availableRoomNights = tongPhong * daysInPeriod;
+        var revPar = availableRoomNights > 0
+            ? Math.Round(totalRoomRevenue / availableRoomNights, 0)
+            : Math.Round(adr * occupancyPct / 100m, 0);
+
+        var startOnly = DateOnly.FromDateTime(start);
+        var endOnly = DateOnly.FromDateTime(end);
+        var chiPhiKy = await db.ChiPhiVanHanhs
+            .Where(c => c.NgayChi >= startOnly && c.NgayChi <= endOnly)
+            .SumAsync(c => (decimal?)c.SoTien) ?? 0m;
+
+        var avgRating = await db.DanhGia
+            .Where(d => d.DaDuyet)
+            .AverageAsync(d => (double?)d.DiemDanhGia) ?? 4.8;
+
+        var byChannel = activeBookings
+            .GroupBy(b => string.IsNullOrWhiteSpace(b.KenhDatPhong) ? "web" : b.KenhDatPhong)
+            .Select(g => new DoanhThuTheoKenhDto
+            {
+                Kenh = g.Key,
+                SoDon = g.Count(),
+                DoanhThu = g.Sum(x => x.TongTien)
+            })
+            .OrderByDescending(x => x.DoanhThu)
+            .ToList();
+
+        var byRoomType = allDetails
+            .GroupBy(ct => ct.MaLoaiPhongNavigation?.Ten ?? $"Hạng phòng #{ct.MaLoaiPhong}")
+            .Select(g => new DoanhThuTheoLoaiPhongDto
+            {
+                TenLoaiPhong = g.Key,
+                SoDemBan = g.Sum(ct => Math.Max(1, (int)Math.Ceiling((ct.NgayTraPhongDuKien - ct.NgayNhanPhongDuKien).TotalDays))),
+                DoanhThu = g.Sum(ct => ct.GiaMoiDem * Math.Max(1, (int)Math.Ceiling((ct.NgayTraPhongDuKien - ct.NgayNhanPhongDuKien).TotalDays)))
+            })
+            .OrderByDescending(x => x.DoanhThu)
+            .ToList();
+
+        return Ok(ApiResponse<HotelBiKpiDto>.Ok(new HotelBiKpiDto
+        {
+            CongSuatPhongPhanTram = occupancyPct,
+            AdrGiaTrungBinhDem = adr,
+            RevParDoanhThuTrenPhong = revPar,
+            TyLeHuyPhongPhanTram = cancelRate,
+            TongDoanhThuKy = totalRoomRevenue,
+            TongChiPhiVanHanhKy = chiPhiKy,
+            LoiNhuanRongKy = totalRoomRevenue - chiPhiKy,
+            DiemDanhGiaTrungBinh = Math.Round((decimal)avgRating, 2),
+            TheoKenhDat = byChannel,
+            TheoLoaiPhong = byRoomType
         }));
     }
 

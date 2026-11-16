@@ -15,7 +15,7 @@ public class NhatKyController(IAuditService auditService) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<ApiResponse<KetQuaPhanTrang<NhatKyHeThongDto>>>> DanhSach([FromQuery] NhatKyFilterRequest req)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.IsManagerOrAdmin() && !User.HasPermission(Quyen.ManageUsers))
             return Forbid();
 
         var (danhSach, tongSo) = await auditService.LayDanhSachAsync(req);

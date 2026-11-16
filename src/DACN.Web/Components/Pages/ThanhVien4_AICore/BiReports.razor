@@ -1,129 +1,227 @@
 @page "/ai-analytics/dashboard"
 @page "/ai-analytics/bi"
-@rendermode InteractiveServer
+@using DACN.Web.DTOs.Dashboard
 @inject DACNContext Db
+@inject UserSessionService Session
 
-<PageTitle>Báo Cáo Phân Tích Dữ Liệu BI — TV4</PageTitle>
+<PageTitle>Báo Cáo BI & KPI Khách Sạn — TV4</PageTitle>
 
-<PageHeader Title="Báo Cáo Phân Tích Thông Minh (Business Intelligence - BI)"
-            Subtitle="Trực quan hóa doanh thu, chi phí vận hành, công suất phòng và lợi nhuận tổng thể khách sạn"
+<PageHeader Title="Báo Cáo Quản Trị BI (Occupancy, ADR, RevPAR & Đánh Giá)"
+            Subtitle="Phân tích hiệu suất kinh doanh khách sạn theo chuẩn quốc tế: Công suất lấp đầy, ADR, RevPAR, Kênh đặt và Kiểm duyệt đánh giá"
             Icon="bi bi-pie-chart-fill"
-            MemberTag="TV4 — BÁO CÁO BI & TÀI CHÍNH"
+            MemberTag="TV4 — BUSINESS INTELLIGENCE"
             MemberTagClass="member-tag-tv4">
-    <Actions>
-        <button class="hotel-btn hotel-btn-primary">
-            <i class="bi bi-file-earmark-pdf me-1"></i> Xuất Báo Cáo PDF
-        </button>
-        <button class="hotel-btn hotel-btn-outline">
-            <i class="bi bi-file-earmark-excel me-1"></i> Xuất Dữ Liệu Excel
-        </button>
-    </Actions>
 </PageHeader>
 
+<!-- 4 Chỉ số KPI chuẩn khách sạn -->
 <div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <StatCard Title="Doanh Thu Tháng Này" Value="425.000.000 đ" Description="+18% so với cùng kỳ tháng trước" Icon="bi bi-currency-dollar" Variant="success" />
+    <div class="col-12 col-sm-6 col-xl-3">
+        <StatCard Label="Công Suất Phòng (Occupancy)" Value="@($"{occupancyPct:N1}%")" Icon="bi bi-building-check" Variant="primary" Subtext="@($"{occupiedRooms}/{totalRooms} phòng đang khai thác")" />
     </div>
-    <div class="col-6 col-md-3">
-        <StatCard Title="Chi Phí Vận Hành" Value="145.000.000 đ" Description="Nhân sự, hóa chất, điện nước" Icon="bi bi-credit-card-2-back" Variant="warning" />
+    <div class="col-12 col-sm-6 col-xl-3">
+        <StatCard Label="Giá TB Đêm (ADR)" Value="@($"{adr:N0} ₫")" Icon="bi bi-cash-stack" Variant="success" Subtext="Average Daily Rate" />
     </div>
-    <div class="col-6 col-md-3">
-        <StatCard Title="Lợi Nhuận Ròng" Value="280.000.000 đ" Description="Biên lợi nhuận 65.8%" Icon="bi bi-graph-up-arrow" Variant="primary" />
+    <div class="col-12 col-sm-6 col-xl-3">
+        <StatCard Label="Doanh Thu / Phòng (RevPAR)" Value="@($"{revPar:N0} ₫")" Icon="bi bi-graph-up" Variant="info" Subtext="Revenue Per Available Room" />
     </div>
-    <div class="col-6 col-md-3">
-        <StatCard Title="Công Suất Phòng (Occupancy)" Value="84.5%" Description="RevPAR: 850.000 đ / phòng" Icon="bi bi-door-open-fill" Variant="accent" />
+    <div class="col-12 col-sm-6 col-xl-3">
+        <StatCard Label="Lợi Nhuận Ròng Kỳ" Value="@($"{(totalRevenue - totalExpense):N0} ₫")" Icon="bi bi-wallet2" Variant="warning" Subtext="@($"Tỷ lệ hủy đơn: {cancelRate:N1}%")" />
     </div>
 </div>
 
 <div class="row g-4 mb-4">
-    <!-- Phân tích cơ cấu doanh thu -->
+    <!-- Doanh thu theo hạng phòng -->
     <div class="col-12 col-lg-7">
         <div class="hotel-card h-100">
             <div class="hotel-card-header">
                 <div class="hotel-card-title">
-                    <i class="bi bi-bar-chart-line-fill text-primary"></i>
-                    <span>Cơ Cấu Nguồn Doanh Thu Khách Sạn</span>
+                    <i class="bi bi-bar-chart-steps text-primary"></i>
+                    <span>Cơ Cấu Doanh Thu Theo Hạng Phòng</span>
                 </div>
-                <span class="hotel-badge hotel-badge-success">Tháng hiện tại</span>
             </div>
-            <div class="hotel-card-body">
-                <div class="mb-4">
-                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.9rem;">
-                        <span class="fw-semibold">1. Doanh Thu Tiền Thuê Buồng Phòng</span>
-                        <span class="fw-bold text-primary">315.000.000 đ (74.1%)</span>
-                    </div>
-                    <div class="progress" style="height: 12px;">
-                        <div class="progress-bar bg-primary" style="width: 74.1%"></div>
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.9rem;">
-                        <span class="fw-semibold">2. Ẩm Thực & Nhà Hàng Buffet</span>
-                        <span class="fw-bold text-success">58.000.000 đ (13.6%)</span>
-                    </div>
-                    <div class="progress" style="height: 12px;">
-                        <div class="progress-bar bg-success" style="width: 13.6%"></div>
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.9rem;">
-                        <span class="fw-semibold">3. Dịch Vụ Spa & Chăm Sóc Sức Khỏe</span>
-                        <span class="fw-bold text-info">32.000.000 đ (7.5%)</span>
-                    </div>
-                    <div class="progress" style="height: 12px;">
-                        <div class="progress-bar bg-info" style="width: 7.5%"></div>
-                    </div>
-                </div>
-
-                <div class="mb-2">
-                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.9rem;">
-                        <span class="fw-semibold">4. Đưa Đón Sân Bay, Tour & Minibar</span>
-                        <span class="fw-bold text-accent">20.000.000 đ (4.8%)</span>
-                    </div>
-                    <div class="progress" style="height: 12px;">
-                        <div class="progress-bar" style="width: 4.8%; background: var(--hotel-accent);"></div>
-                    </div>
-                </div>
+            <div class="table-responsive">
+                <table class="hotel-table">
+                    <thead>
+                        <tr>
+                            <th>Hạng Phòng</th>
+                            <th>Số Đêm Đã Bán</th>
+                            <th>Doanh Thu</th>
+                            <th>Tỷ Trọng</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in byRoomType)
+                        {
+                            var pct = totalRevenue > 0 ? Math.Round(item.DoanhThu / totalRevenue * 100m, 1) : 0m;
+                            <tr>
+                                <td class="fw-bold">@item.TenLoaiPhong</td>
+                                <td>@item.SoDemBan đêm</td>
+                                <td class="fw-semibold text-primary">@item.DoanhThu.ToString("N0") ₫</td>
+                                <td><span class="badge bg-light text-dark border">@pct%</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    <!-- Tóm tắt chỉ số khách hàng & Kênh đặt -->
+    <!-- Doanh thu theo kênh đặt phòng -->
     <div class="col-12 col-lg-5">
         <div class="hotel-card h-100">
             <div class="hotel-card-header">
                 <div class="hotel-card-title">
-                    <i class="bi bi-funnel-fill text-warning"></i>
-                    <span>Tỷ Trọng Kênh Đặt Phòng</span>
+                    <i class="bi bi-diagram-3-fill text-info"></i>
+                    <span>Phân Bổ Theo Kênh Đặt Phòng (`NguonDatPhong`)</span>
                 </div>
             </div>
-            <div class="hotel-card-body">
-                <div class="p-3 rounded border mb-3" style="background: var(--hotel-bg-app);">
-                    <div class="d-flex justify-content-between">
-                        <span class="fw-bold"><i class="bi bi-globe me-1 text-primary"></i> Website Trực Tuyến</span>
-                        <span class="fw-bold text-primary">48%</span>
-                    </div>
-                    <small class="text-muted">Kênh có biên lợi nhuận cao nhất (không mất phí OTA)</small>
-                </div>
-
-                <div class="p-3 rounded border mb-3" style="background: var(--hotel-bg-app);">
-                    <div class="d-flex justify-content-between">
-                        <span class="fw-bold"><i class="bi bi-airplane me-1 text-info"></i> Đại Lý OTA (Booking, Agoda)</span>
-                        <span class="fw-bold text-info">34%</span>
-                    </div>
-                    <small class="text-muted">Chủ yếu là khách du lịch quốc tế và các tỉnh xa</small>
-                </div>
-
-                <div class="p-3 rounded border" style="background: var(--hotel-bg-app);">
-                    <div class="d-flex justify-content-between">
-                        <span class="fw-bold"><i class="bi bi-person-walking me-1 text-success"></i> Khách Vãng Lai (Walk-in)</span>
-                        <span class="fw-bold text-success">18%</span>
-                    </div>
-                    <small class="text-muted">Khách đến trực tiếp quầy Lễ tân của TV3</small>
-                </div>
+            <div class="table-responsive">
+                <table class="hotel-table">
+                    <thead>
+                        <tr>
+                            <th>Kênh Đặt</th>
+                            <th>Số Đơn</th>
+                            <th class="text-end">Doanh Thu</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var ch in byChannel)
+                        {
+                            <tr>
+                                <td><span class="hotel-badge hotel-badge-info text-uppercase">@ch.Kenh</span></td>
+                                <td>@ch.SoDon đơn</td>
+                                <td class="text-end fw-bold">@ch.DoanhThu.ToString("N0") ₫</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Kiểm duyệt đánh giá khách hàng (ModerateReviews) -->
+<div class="hotel-card">
+    <div class="hotel-card-header">
+        <div class="hotel-card-title">
+            <i class="bi bi-star-fill text-warning"></i>
+            <span>Kiểm Duyệt Đánh Giá Khách Hàng (`DanhGia`: @reviews.Count)</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="hotel-table">
+            <thead>
+                <tr>
+                    <th>Khách Hàng</th>
+                    <th>Hạng Phòng</th>
+                    <th>Điểm Sao</th>
+                    <th>Nhận Xét</th>
+                    <th>Trạng Thái</th>
+                    <th class="text-end">Thao Tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in reviews)
+                {
+                    <tr>
+                        <td class="fw-semibold">@(r.MaNguoiDungNavigation?.HoTen ?? "Khách lưu trú")</td>
+                        <td>@(r.MaLoaiPhongNavigation?.Ten ?? $"Hạng #{r.MaLoaiPhong}")</td>
+                        <td class="text-warning fw-bold">@r.DiemDanhGia ★</td>
+                        <td class="small">@r.BinhLuan</td>
+                        <td>
+                            <span class="hotel-badge @(r.DaDuyet ? "hotel-badge-success" : "hotel-badge-warning")">
+                                @(r.DaDuyet ? "Đã hiển thị" : "Chờ duyệt")
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            @if (Session.HasPermission(Quyen.ModerateReviews) && !r.DaDuyet)
+                            {
+                                <button class="btn btn-sm btn-outline-success" @onclick="() => ApproveReviewAsync(r.MaId)">Duyệt</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private int totalRooms = 1;
+    private int occupiedRooms = 0;
+    private decimal occupancyPct = 0m;
+    private decimal adr = 0m;
+    private decimal revPar = 0m;
+    private decimal cancelRate = 0m;
+    private decimal totalRevenue = 0m;
+    private decimal totalExpense = 0m;
+
+    private List<DoanhThuTheoKenhDto> byChannel = new();
+    private List<DoanhThuTheoLoaiPhongDto> byRoomType = new();
+    private List<DanhGium> reviews = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBiDataAsync();
+    }
+
+    private async Task LoadBiDataAsync()
+    {
+        totalRooms = Math.Max(1, await Db.Phongs.CountAsync());
+        occupiedRooms = await Db.Phongs.CountAsync(p => p.TrangThai == "Occupied" || p.TrangThai == "Reserved");
+        occupancyPct = Math.Round((decimal)occupiedRooms / totalRooms * 100m, 1);
+
+        var allBookings = await Db.DatPhongs
+            .AsNoTracking()
+            .Include(b => b.ChiTietDatPhongs)
+                .ThenInclude(ct => ct.MaLoaiPhongNavigation)
+            .ToListAsync();
+
+        var cancelled = allBookings.Count(b => b.TrangThai == "Cancelled");
+        cancelRate = allBookings.Count > 0 ? Math.Round((decimal)cancelled / allBookings.Count * 100m, 1) : 0m;
+
+        var active = allBookings.Where(b => b.TrangThai != "Cancelled").ToList();
+        totalRevenue = active.Sum(b => b.TongTien);
+        totalExpense = await Db.ChiPhiVanHanhs.SumAsync(c => (decimal?)c.SoTien) ?? 0m;
+
+        var details = active.SelectMany(b => b.ChiTietDatPhongs).ToList();
+        var nights = details.Sum(ct => Math.Max(1, (int)Math.Ceiling((ct.NgayTraPhongDuKien - ct.NgayNhanPhongDuKien).TotalDays)));
+
+        adr = nights > 0 ? Math.Round(totalRevenue / nights, 0) : 850_000m;
+        revPar = Math.Round(adr * occupancyPct / 100m, 0);
+
+        byChannel = active
+            .GroupBy(b => string.IsNullOrWhiteSpace(b.KenhDatPhong) ? "web" : b.KenhDatPhong)
+            .Select(g => new DoanhThuTheoKenhDto { Kenh = g.Key, SoDon = g.Count(), DoanhThu = g.Sum(x => x.TongTien) })
+            .OrderByDescending(x => x.DoanhThu)
+            .ToList();
+
+        byRoomType = details
+            .GroupBy(ct => ct.MaLoaiPhongNavigation?.Ten ?? $"Hạng #{ct.MaLoaiPhong}")
+            .Select(g => new DoanhThuTheoLoaiPhongDto
+            {
+                TenLoaiPhong = g.Key,
+                SoDemBan = g.Sum(ct => Math.Max(1, (int)Math.Ceiling((ct.NgayTraPhongDuKien - ct.NgayNhanPhongDuKien).TotalDays))),
+                DoanhThu = g.Sum(ct => ct.GiaMoiDem * Math.Max(1, (int)Math.Ceiling((ct.NgayTraPhongDuKien - ct.NgayNhanPhongDuKien).TotalDays)))
+            })
+            .OrderByDescending(x => x.DoanhThu)
+            .ToList();
+
+        reviews = await Db.DanhGia
+            .AsNoTracking()
+            .Include(d => d.MaNguoiDungNavigation)
+            .Include(d => d.MaLoaiPhongNavigation)
+            .OrderByDescending(d => d.NgayTao)
+            .Take(10)
+            .ToListAsync();
+    }
+
+    private async Task ApproveReviewAsync(int id)
+    {
+        var item = await Db.DanhGia.FindAsync(id);
+        if (item == null) return;
+        item.DaDuyet = true;
+        await Db.SaveChangesAsync();
+        await LoadBiDataAsync();
+    }
+}

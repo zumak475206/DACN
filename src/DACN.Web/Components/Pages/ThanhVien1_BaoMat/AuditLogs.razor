@@ -1,113 +1,119 @@
 @page "/admin/audit-logs"
-@rendermode InteractiveServer
 @inject DACNContext Db
+@inject UserSessionService Session
 
-<PageTitle>Nhật Ký Kiểm Toán (Audit Logs) — TV1</PageTitle>
+<PageTitle>Nhật Ký Kiểm Toán Hệ Thống — TV1</PageTitle>
 
-<PageHeader Title="Giám Sát Hệ Thống — Nhật Ký Kiểm Toán (Audit Logs)"
-            Subtitle="Theo dõi mọi thao tác trong hệ thống: ai đăng nhập, ai thay đổi dữ liệu, khi nào và từ IP nào"
-            Icon="bi bi-journal-check"
+<PageHeader Title="Nhật Ký Kiểm Toán Hệ Thống (Audit Logs)"
+            Subtitle="Giám sát toàn bộ thao tác nhạy cảm: phân quyền RBAC, đăng nhập, phát hành voucher, đặt phòng và thanh toán"
+            Icon="bi bi-journal-code"
             MemberTag="TV1 — AUDIT LOGS"
             MemberTagClass="member-tag-tv1">
     <Actions>
-        <button class="hotel-btn hotel-btn-outline" @onclick="LoadDataAsync">
-            <i class="bi bi-arrow-clockwise"></i> Làm Mới
-        </button>
-        <button class="hotel-btn hotel-btn-outline">
-            <i class="bi bi-download"></i> Xuất Logs
+        <button class="hotel-btn hotel-btn-outline" @onclick="LoadLogsAsync">
+            <i class="bi bi-arrow-clockwise"></i> Làm Mới Nhật Ký
         </button>
     </Actions>
 </PageHeader>
 
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <StatCard Title="Tổng Log Hôm Nay" Value="@logs.Count(l => l.ThoiGian.Date == DateTime.Today).ToString()" Description="Thao tác trong ngày" Icon="bi bi-calendar-check" Variant="info" />
-    </div>
-    <div class="col-6 col-md-3">
-        <StatCard Title="Thành Công" Value="@logs.Count(l => l.ThanhCong).ToString()" Description="Thao tác hợp lệ" Icon="bi bi-check-circle-fill" Variant="success" />
-    </div>
-    <div class="col-6 col-md-3">
-        <StatCard Title="Thất Bại / Cảnh Báo" Value="@logs.Count(l => !l.ThanhCong).ToString()" Description="Cần kiểm tra ngay" Icon="bi bi-exclamation-triangle-fill" Variant="danger" />
-    </div>
-    <div class="col-6 col-md-3">
-        <StatCard Title="Tổng Logs (Hiển thị)" Value="@logs.Count.ToString()" Description="50 bản ghi gần nhất" Icon="bi bi-journal-text" Variant="warning" />
+<!-- Bộ lọc tìm kiếm -->
+<div class="hotel-card mb-4">
+    <div class="hotel-card-body py-3">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-5">
+                <input class="form-control hotel-input" placeholder="Tìm theo hành động, đối tượng, email, nội dung..." @bind="keyword" @bind:event="oninput" />
+            </div>
+            <div class="col-6 col-md-4">
+                <select class="form-select hotel-input" @bind="filterEntity">
+                    <option value="">-- Tất cả đối tượng --</option>
+                    <option value="Auth">Auth (Đăng nhập / Bảo mật)</option>
+                    <option value="VaiTro">VaiTro (Phân quyền RBAC)</option>
+                    <option value="NguoiDung">NguoiDung (Tài khoản)</option>
+                    <option value="MaGiamGia">MaGiamGia (Voucher)</option>
+                    <option value="DatPhong">DatPhong (Đặt phòng)</option>
+                    <option value="HoaDon">HoaDon (Hóa đơn)</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-3">
+                <select class="form-select hotel-input" @bind="filterResult">
+                    <option value="all">Tất cả kết quả</option>
+                    <option value="ok">Thành công</option>
+                    <option value="fail">Thất bại / Cảnh báo</option>
+                </select>
+            </div>
+        </div>
     </div>
 </div>
 
 <div class="hotel-card">
     <div class="hotel-card-header">
         <div class="hotel-card-title">
-            <i class="bi bi-journal-check text-warning"></i>
-            <span>Nhật Ký Hoạt Động Hệ Thống</span>
-        </div>
-        <div class="d-flex gap-2">
-            <input type="text" class="hotel-input" placeholder="Tìm email, hành động..." @bind="searchLog" @bind:event="oninput" style="width:240px;" />
-            <select class="hotel-select" @bind="filterStatus" style="width:140px;">
-                <option value="">Tất cả</option>
-                <option value="success">Thành công</option>
-                <option value="failed">Thất bại</option>
-            </select>
+            <i class="bi bi-shield-check text-success"></i>
+            <span>Lịch Sử Hoạt Động Hệ Thống (@FilteredLogs.Count() bản ghi)</span>
         </div>
     </div>
-    <div class="hotel-card-body p-0">
-        <div class="table-responsive">
-            <table class="hotel-table">
-                <thead>
+    <div class="table-responsive">
+        <table class="hotel-table">
+            <thead>
+                <tr>
+                    <th>Thời Gian</th>
+                    <th>Người Thực Hiện</th>
+                    <th>Hành Động</th>
+                    <th>Đối Tượng</th>
+                    <th>Chi Tiết Nội Dung</th>
+                    <th>IP</th>
+                    <th>Kết Quả</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var log in FilteredLogs)
+                {
                     <tr>
-                        <th>Thời Gian</th>
-                        <th>Tài Khoản</th>
-                        <th>Hành Động</th>
-                        <th>Đối Tượng</th>
-                        <th>Địa Chỉ IP</th>
-                        <th>Kết Quả</th>
-                        <th>Chi Tiết</th>
+                        <td class="small text-muted">@log.ThoiGian.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                        <td>
+                            <div class="fw-semibold">@(log.Email ?? $"User #{log.MaNguoiDung}")</div>
+                        </td>
+                        <td><span class="badge bg-dark font-monospace">@log.HanhDong</span></td>
+                        <td><span class="hotel-badge hotel-badge-info">@log.DoiTuong #@log.KhoaChinh</span></td>
+                        <td class="small">@log.NoiDung</td>
+                        <td class="small font-monospace text-muted">@(log.DiaChiIp ?? "127.0.0.1")</td>
+                        <td>
+                            <span class="hotel-badge @(log.ThanhCong ? "hotel-badge-success" : "hotel-badge-danger")">
+                                @(log.ThanhCong ? "Thành công" : "Cảnh báo")
+                            </span>
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach (var log in FilteredLogs)
-                    {
-                        <tr>
-                            <td><small class="font-monospace text-muted">@log.ThoiGian.ToString("dd/MM/yy HH:mm:ss")</small></td>
-                            <td><div class="fw-semibold">@(string.IsNullOrEmpty(log.Email) ? "Hệ thống" : log.Email)</div></td>
-                            <td><span class="badge bg-light text-dark border font-monospace">@log.HanhDong</span></td>
-                            <td><code>@log.DoiTuong</code></td>
-                            <td><small class="text-muted">@(log.DiaChiIp ?? "127.0.0.1")</small></td>
-                            <td>
-                                @if (log.ThanhCong) { <span class="hotel-badge hotel-badge-success">OK</span> }
-                                else { <span class="hotel-badge hotel-badge-danger">Lỗi</span> }
-                            </td>
-                            <td class="text-truncate" style="max-width:220px;" title="@log.NoiDung">
-                                <small class="text-muted">@log.NoiDung</small>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                }
+            </tbody>
+        </table>
     </div>
 </div>
 
 @code {
-    private string searchLog = "";
-    private string filterStatus = "";
     private List<NhatKyHeThong> logs = new();
-
-    protected override async Task OnInitializedAsync() => await LoadDataAsync();
-
-    private async Task LoadDataAsync()
-    {
-        try { logs = await Db.NhatKyHeThongs.AsNoTracking().OrderByDescending(l => l.ThoiGian).Take(50).ToListAsync(); } catch { }
-        if (!logs.Any())
-            logs = new List<NhatKyHeThong>
-            {
-                new NhatKyHeThong { MaId=101, Email="admin@grandhotel.vn", HanhDong="LOGIN", DoiTuong="AUTH", DiaChiIp="192.168.1.15", ThanhCong=true, NoiDung="Đăng nhập quản trị thành công", ThoiGian=DateTime.Now.AddMinutes(-12) },
-                new NhatKyHeThong { MaId=102, Email="letan@grandhotel.vn", HanhDong="CHECKIN", DoiTuong="DAT_PHONG", DiaChiIp="192.168.1.20", ThanhCong=true, NoiDung="Check-in khách Nguyễn Văn A — Phòng 301", ThoiGian=DateTime.Now.AddMinutes(-35) },
-                new NhatKyHeThong { MaId=103, Email="admin@grandhotel.vn", HanhDong="UPDATE_ROLE", DoiTuong="RBAC", DiaChiIp="192.168.1.15", ThanhCong=true, NoiDung="Cập nhật quyền hạn vai trò Front Desk", ThoiGian=DateTime.Now.AddHours(-2) },
-                new NhatKyHeThong { MaId=104, Email="unknown@badip.com", HanhDong="LOGIN_FAILED", DoiTuong="AUTH", DiaChiIp="45.12.89.23", ThanhCong=false, NoiDung="Nhập sai mật khẩu 3 lần liên tiếp — TẠM KHÓA IP", ThoiGian=DateTime.Now.AddHours(-5) }
-            };
-    }
+    private string keyword = "";
+    private string filterEntity = "";
+    private string filterResult = "all";
 
     private IEnumerable<NhatKyHeThong> FilteredLogs => logs.Where(l =>
-        (string.IsNullOrWhiteSpace(searchLog) || (l.Email != null && l.Email.Contains(searchLog, StringComparison.OrdinalIgnoreCase)) || l.HanhDong.Contains(searchLog, StringComparison.OrdinalIgnoreCase))
-        && (string.IsNullOrWhiteSpace(filterStatus) || (filterStatus == "success" && l.ThanhCong) || (filterStatus == "failed" && !l.ThanhCong)));
+        (string.IsNullOrWhiteSpace(keyword) ||
+         (l.HanhDong?.Contains(keyword, StringComparison.OrdinalIgnoreCase) ?? false) ||
+         (l.NoiDung?.Contains(keyword, StringComparison.OrdinalIgnoreCase) ?? false) ||
+         (l.Email?.Contains(keyword, StringComparison.OrdinalIgnoreCase) ?? false)) &&
+        (string.IsNullOrWhiteSpace(filterEntity) || string.Equals(l.DoiTuong, filterEntity, StringComparison.OrdinalIgnoreCase)) &&
+        (filterResult == "all" || (filterResult == "ok" ? l.ThanhCong : !l.ThanhCong)));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLogsAsync();
+    }
+
+    private async Task LoadLogsAsync()
+    {
+        logs = await Db.NhatKyHeThongs
+            .AsNoTracking()
+            .OrderByDescending(l => l.ThoiGian)
+            .Take(100)
+            .ToListAsync();
+    }
 }

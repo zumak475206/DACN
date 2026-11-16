@@ -21,16 +21,19 @@
     - `LoaiPhongController`: Tìm kiếm phòng trống theo thời gian & số người, CRUD loại phòng.
     - `DichVuController`: Danh mục dịch vụ, Đặt dịch vụ theo phòng (đồng bộ tự động vào Hóa đơn).
     - `HoaDonController`: Chi tiết hóa đơn, Xem theo đơn đặt phòng, Thanh toán hóa đơn.
-    - `DashboardController`: Thống kê tổng quan phòng, doanh thu theo ngày, biểu đồ trạng thái.
-    - `NguoiDungController`: Quản lý danh sách, Xem hồ sơ, Cập nhật hồ sơ, Kích hoạt/Vô hiệu hóa.
-    - `VoucherController`: Kiểm tra tính hợp lệ & giảm trừ của mã giảm giá, CRUD voucher.
-    - `DanhGiaController`: Đánh giá loại phòng, Duyệt đánh giá.
+    - `DashboardController`: Thống kê tổng quan phòng, doanh thu theo ngày, biểu đồ trạng thái, KPI khách sạn (`Occupancy %`, `ADR`, `RevPAR`, tỷ lệ hủy, doanh thu theo kênh/loại phòng).
+    - `NguoiDungController`: Quản lý danh sách (lọc theo từ khóa/vai trò/trạng thái), Xem/Cập nhật hồ sơ, Khóa/Mở khóa (thu hồi RefreshToken & bảo vệ Admin cuối cùng), Đổi vai trò RBAC.
+    - `VaiTroController`: Quản lý vai trò (`CRUD`) & cập nhật ma trận 18 quyền hạn (`QuyenHan`), ghi log diff quyền thêm/bớt.
+    - `VoucherController`: Danh sách công khai (`cong-khai`), Kiểm tra mã giảm giá (rate-limit `public-strict`, áp trần `GiamToiDa`), CRUD voucher (`ManageVouchers`).
+    - `NoiDungController`: CRUD Địa điểm tham quan (gắn nhãn `PhongCach` cho AI), Bài viết cẩm nang (tự động tạo slug ASCII không dấu `GioVN.TaoSlug`), Thông báo.
+    - `AiController`: Chatbot Hybrid RAG (`POST /api/v1/ai/chat`, lịch sử phiên chat), Bộ máy chấm điểm gợi ý du lịch theo Ngân sách + Tháng/Mùa + Gu trải nghiệm (`POST/GET /api/v1/ai/goi-y`, `mua-du-lich`, `tour`), Dự báo nhu cầu 14 ngày (`du-bao-nhu-cau/chay`), Chấm điểm rủi ro hủy đơn (`du-doan-huy-phong/chay`, `do-chinh-xac`).
+    - `DanhGiaController`: Đánh giá loại phòng, Duyệt/Xóa đánh giá (`ModerateReviews`).
     - `NhatKyController`: Xem nhật ký kiểm toán hệ thống (`GET /api/v1/nhat-ky-he-thong`).
     - `SystemController`: Health check kết nối Database & máy chủ (`GET /api/v1/system/health`).
   - `DTOs/`: Data Transfer Objects with Data Annotations validation.
   - `Middleware/`: `ExceptionMiddleware`, `SecurityHeadersMiddleware`.
-  - `Services/`: `IAuditService`, `AuditService`.
-  - `Common/`: `ClaimsPrincipalExtensions`, `ApiResponse<T>`, `KetQuaPhanTrang<T>`.
+  - `Services/`: `IAuditService`, `AuditService`, `GoiYDuLichService` (Scoring Engine + NLU Intent Extractor + Hybrid Gemini/Rule Chatbot + Forecasting & Churn Risk), `UserSessionService`.
+  - `Common/`: `ClaimsPrincipalExtensions` (strict `HasPermission`), `Quyen` (18 hằng số quyền), `GioVN`, `SchemaMigrationRunner`, `StatusMapper`, `ApiResponse<T>`, `KetQuaPhanTrang<T>`.
 - `tests/DACN.UnitTests`: 53 Unit tests (ClaimsPrincipalExtensions, ApiResponse, VoucherCalculation, AuditService).
 - `tests/DACN.IntegrationTests`: 40 Integration tests (WebApplicationFactory + InMemory DB + LiveDb tests on real SQL Server).
 - `tests/smoke_test.ps1`: Automated CLI Smoke tests for all public & protected API endpoints.

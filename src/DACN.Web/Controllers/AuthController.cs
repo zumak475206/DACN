@@ -20,7 +20,7 @@ namespace DACN.Web.Controllers;
 public class AuthController(DACNContext db, IConfiguration config, IAuditService auditService) : ControllerBase
 {
     // Lưu trữ tạm mã OTP đặt lại mật khẩu trong bộ nhớ (phục vụ đồ án không cần server email bên ngoài)
-    private static readonly Dictionary<string, (string Otp, DateTime HetHan)> _resetOtpCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, (string Otp, DateTime HetHan, int SoLanSai)> _resetOtpCache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly object _otpLock = new();
 
     [HttpPost("dang-nhap")]
@@ -248,7 +248,7 @@ public class AuthController(DACNContext db, IConfiguration config, IAuditService
         var otp = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
         lock (_otpLock)
         {
-            _resetOtpCache[user.Email] = (otp, DateTime.UtcNow.AddMinutes(15));
+            _resetOtpCache[user.Email] = (otp, DateTime.UtcNow.AddMinutes(15), 0);
         }
 
         await auditService.GhiNhanAsync(
@@ -279,10 +279,22 @@ public class AuthController(DACNContext db, IConfiguration config, IAuditService
         {
             if (_resetOtpCache.TryGetValue(req.Email, out var entry))
             {
-                if (entry.Otp == req.MaXacNhan && DateTime.UtcNow <= entry.HetHan)
+                if (DateTime.UtcNow > entry.HetHan)
+                {
+                    _resetOtpCache.Remove(req.Email);
+                }
+                else if (entry.Otp == req.MaXacNhan)
                 {
                     otpValid = true;
                     _resetOtpCache.Remove(req.Email);
+                }
+                else
+                {
+                    var nextFail = entry.SoLanSai + 1;
+                    if (nextFail >= 5)
+                        _resetOtpCache.Remove(req.Email);
+                    else
+                        _resetOtpCache[req.Email] = (entry.Otp, entry.HetHan, nextFail);
                 }
             }
         }

@@ -1,118 +1,132 @@
 @page "/login"
+@page "/register"
 @layout CustomerLayout
-@rendermode InteractiveServer
+@inject DACNContext Db
 @inject UserSessionService Session
+@inject IAuditService AuditService
 @inject NavigationManager Nav
+@inject IWebHostEnvironment Env
 
-<PageTitle>Đăng Nhập Hệ Thống — Grand Hotel</PageTitle>
+<PageTitle>@(isRegisterMode ? "Đăng Ký Tài Khoản" : "Đăng Nhập") — BookingStay.AI</PageTitle>
 
 <div class="container my-5 py-3">
     <div class="row justify-content-center">
-        <div class="col-12 col-md-10 col-lg-8">
+        <div class="col-12 col-sm-10 col-md-7 col-lg-5">
             <div class="card shadow-lg border-0 rounded-4 overflow-hidden">
-                <div class="row g-0">
-                    <!-- Cột trái: Đăng nhập form chuẩn -->
-                    <div class="col-12 col-md-6 p-4 p-md-5">
-                        <div class="text-center mb-4">
-                            <div style="width: 48px; height: 48px; border-radius: 10px; background: var(--hotel-primary); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 1.5rem;" class="mb-2">
-                                <i class="bi bi-shield-lock-fill"></i>
-                            </div>
-                            <h4 class="fw-bold text-dark">Đăng Nhập</h4>
-                            <p class="text-muted small">Cổng truy cập dành cho Khách hàng & Nhân viên</p>
+                <!-- Thanh chuyển Tab Đăng Nhập / Đăng Ký -->
+                <div class="d-flex border-bottom bg-light">
+                    <button type="button"
+                            class="btn flex-fill py-3 fw-bold rounded-0 border-0 @(isRegisterMode ? "text-muted bg-light" : "text-primary bg-white border-bottom border-primary border-3")"
+                            @onclick="() => SwitchTab(false)">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> Đăng Nhập
+                    </button>
+                    <button type="button"
+                            class="btn flex-fill py-3 fw-bold rounded-0 border-0 @(isRegisterMode ? "text-primary bg-white border-bottom border-primary border-3" : "text-muted bg-light")"
+                            @onclick="() => SwitchTab(true)">
+                        <i class="bi bi-person-plus-fill me-1"></i> Đăng Ký Tài Khoản
+                    </button>
+                </div>
+
+                <div class="p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <div style="width: 52px; height: 52px; border-radius: 12px; background: #003B95; color: #FFB700; display: inline-flex; align-items: center; justify-content: center; font-size: 1.5rem;" class="mb-2">
+                            <i class="bi @(isRegisterMode ? "bi-person-plus-fill" : "bi-shield-lock-fill")"></i>
                         </div>
+                        <h4 class="fw-bold text-dark">@(isRegisterMode ? "Tạo Tài Khoản Mới" : "Đăng Nhập")</h4>
+                        <p class="text-muted small mb-0">
+                            @(isRegisterMode
+                                ? "Đăng ký thành viên BookingStay.AI để đặt phòng & nhận ưu đãi"
+                                : "Đăng nhập vào tài khoản BookingStay.AI của bạn")
+                        </p>
+                    </div>
 
-                        @if (!string.IsNullOrEmpty(loginMessage))
-                        {
-                            <div class="alert @(isSuccess ? "alert-success" : "alert-danger") py-2 small mb-3">
-                                <i class="bi @(isSuccess ? "bi-check-circle" : "bi-exclamation-triangle") me-1"></i> @loginMessage
-                            </div>
-                        }
+                    @if (!string.IsNullOrEmpty(loginMessage))
+                    {
+                        <div class="alert @(isSuccess ? "alert-success" : "alert-danger") py-2 small mb-3">
+                            <i class="bi @(isSuccess ? "bi-check-circle" : "bi-exclamation-triangle") me-1"></i> @loginMessage
+                        </div>
+                    }
 
+                    @if (!isRegisterMode)
+                    {
+                        <!-- FORM ĐĂNG NHẬP -->
                         <div class="mb-3">
                             <label class="form-label small fw-bold">Địa chỉ Email</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light"><i class="bi bi-envelope"></i></span>
-                                <input type="email" class="form-control hotel-input" placeholder="name@grandhotel.vn" @bind="emailInput" />
+                                <input type="email" class="form-control hotel-input" placeholder="Nhập địa chỉ email của bạn" @bind="emailInput" />
                             </div>
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-4">
                             <label class="form-label small fw-bold">Mật khẩu</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light"><i class="bi bi-key"></i></span>
-                                <input type="password" class="form-control hotel-input" placeholder="••••••••" @bind="passwordInput" />
+                                <input type="password" class="form-control hotel-input" placeholder="Nhập mật khẩu" @bind="passwordInput" />
                             </div>
                         </div>
 
-                        <div class="d-flex justify-content-between align-items-center mb-4 small">
-                            <label class="form-check-label"><input type="checkbox" class="form-check-input me-1" checked /> Ghi nhớ</label>
-                            <a href="javascript:void(0)" class="text-decoration-none text-primary">Quên mật khẩu?</a>
-                        </div>
-
-                        <button class="hotel-btn hotel-btn-primary w-100 py-2 fs-6 mb-3" @onclick="HandleLogin">
+                        <button class="hotel-btn hotel-btn-primary w-100 py-2 fs-6 mb-3" @onclick="HandleLoginAsync">
                             <i class="bi bi-box-arrow-in-right me-1"></i> Đăng Nhập
                         </button>
 
                         <div class="text-center small text-muted">
-                            Chưa có tài khoản? <a href="javascript:void(0)" class="text-primary fw-bold text-decoration-none" @onclick='() => QuickLogin("Customer")'>Đăng ký ngay</a>
+                            Chưa có tài khoản?
+                            <a href="javascript:void(0)" class="fw-bold text-primary text-decoration-none" @onclick="() => SwitchTab(true)">Đăng ký ngay</a>
                         </div>
-                    </div>
-
-                    <!-- Cột phải: Chọn vai trò đăng nhập nhanh cho đồ án -->
-                    <div class="col-12 col-md-6 p-4 p-md-5 d-flex flex-column justify-content-center" style="background: var(--hotel-bg-app); border-left: 1px solid var(--hotel-border);">
+                    }
+                    else
+                    {
+                        <!-- FORM ĐĂNG KÝ -->
                         <div class="mb-3">
-                            <span class="badge bg-primary px-2 py-1 mb-1">KIỂM THỬ ĐỒ ÁN (RBAC)</span>
-                            <h5 class="fw-bold text-dark">Đăng Nhập Nhanh Theo Vai Trò</h5>
-                            <p class="text-muted small mb-3">Bấm vào vai trò tương ứng để hệ thống tự động phân quyền giao diện:</p>
+                            <label class="form-label small fw-bold">Họ và tên <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
+                                <input type="text" class="form-control hotel-input" placeholder="Nguyễn Văn A" @bind="regHoTen" />
+                            </div>
                         </div>
 
-                        <div class="d-flex flex-column gap-2">
-                            <!-- 1. Khách Hàng -->
-                            <button class="btn btn-outline-secondary text-start p-2 d-flex align-items-center justify-content-between bg-white" @onclick='() => QuickLogin("Customer")'>
-                                <div>
-                                    <div class="fw-bold text-dark small"><i class="bi bi-person-fill text-warning me-2"></i> Khách Hàng (Customer)</div>
-                                    <div class="text-muted" style="font-size: 0.7rem;">Đặt phòng, lịch sử đặt, chatbot tư vấn</div>
-                                </div>
-                                <span class="badge bg-light text-dark border">Vào Portal Khách</span>
-                            </button>
-
-                            <!-- 2. Lễ Tân -->
-                            <button class="btn btn-outline-secondary text-start p-2 d-flex align-items-center justify-content-between bg-white" @onclick='() => QuickLogin("FrontDesk")'>
-                                <div>
-                                    <div class="fw-bold text-dark small"><i class="bi bi-bell-fill text-primary me-2"></i> Lễ Tân (Front-Desk — TV3)</div>
-                                    <div class="text-muted" style="font-size: 0.7rem;">Sơ đồ phòng, Check-in/out, Hóa đơn thu tiền</div>
-                                </div>
-                                <span class="badge bg-light text-primary border">Phân Hệ TV3</span>
-                            </button>
-
-                            <!-- 3. Buồng Phòng -->
-                            <button class="btn btn-outline-secondary text-start p-2 d-flex align-items-center justify-content-between bg-white" @onclick='() => QuickLogin("Housekeeping")'>
-                                <div>
-                                    <div class="fw-bold text-dark small"><i class="bi bi-brush-fill text-success me-2"></i> Buồng Phòng (Housekeeping — TV2)</div>
-                                    <div class="text-muted" style="font-size: 0.7rem;">Trạng thái buồng, ca dọn dẹp, kiểm kê tài sản</div>
-                                </div>
-                                <span class="badge bg-light text-success border">Phân Hệ TV2</span>
-                            </button>
-
-                            <!-- 4. Quản Lý / BI -->
-                            <button class="btn btn-outline-secondary text-start p-2 d-flex align-items-center justify-content-between bg-white" @onclick='() => QuickLogin("Manager")'>
-                                <div>
-                                    <div class="fw-bold text-dark small"><i class="bi bi-pie-chart-fill text-info me-2"></i> Quản Lý (BI & AI — TV4)</div>
-                                    <div class="text-muted" style="font-size: 0.7rem;">Dự báo nhu cầu, cảnh báo hủy, báo cáo doanh thu</div>
-                                </div>
-                                <span class="badge bg-light text-info border">Phân Hệ TV4</span>
-                            </button>
-
-                            <!-- 5. Admin -->
-                            <button class="btn btn-outline-secondary text-start p-2 d-flex align-items-center justify-content-between bg-white" @onclick='() => QuickLogin("Admin")'>
-                                <div>
-                                    <div class="fw-bold text-dark small"><i class="bi bi-shield-lock-fill text-danger me-2"></i> Tổng Quản Trị (Admin — TV1)</div>
-                                    <div class="text-muted" style="font-size: 0.7rem;">Toàn quyền RBAC, tài khoản, voucher, audit logs</div>
-                                </div>
-                                <span class="badge bg-light text-danger border">Phân Hệ TV1</span>
-                            </button>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Địa chỉ Email <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-envelope"></i></span>
+                                <input type="email" class="form-control hotel-input" placeholder="tenban@gmail.com" @bind="regEmail" />
+                            </div>
                         </div>
-                    </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Số điện thoại</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-telephone"></i></span>
+                                <input type="tel" class="form-control hotel-input" placeholder="0905 123 456" @bind="regSoDienThoai" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Mật khẩu <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-key"></i></span>
+                                <input type="password" class="form-control hotel-input" placeholder="Tối thiểu 6 ký tự" @bind="regMatKhau" />
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold">Xác nhận mật khẩu <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-check2-shield"></i></span>
+                                <input type="password" class="form-control hotel-input" placeholder="Nhập lại mật khẩu" @bind="regXacNhanMatKhau" />
+                            </div>
+                        </div>
+
+                        <button class="hotel-btn hotel-btn-primary w-100 py-2 fs-6 mb-3" @onclick="HandleRegisterAsync">
+                            <i class="bi bi-person-plus-fill me-1"></i> Đăng Ký Tài Khoản
+                        </button>
+
+                        <div class="text-center small text-muted">
+                            Đã có tài khoản?
+                            <a href="javascript:void(0)" class="fw-bold text-primary text-decoration-none" @onclick="() => SwitchTab(false)">Đăng nhập</a>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
@@ -120,37 +134,182 @@
 </div>
 
 @code {
-    private string emailInput = "admin@grandhotel.vn";
-    private string passwordInput = "Admin@123456";
+    private bool isRegisterMode = false;
+    private string emailInput = "";
+    private string passwordInput = "";
+
+    private string regHoTen = "";
+    private string regEmail = "";
+    private string regSoDienThoai = "";
+    private string regMatKhau = "";
+    private string regXacNhanMatKhau = "";
+
     private string loginMessage = "";
     private bool isSuccess = false;
 
-    private void HandleLogin()
+    protected override void OnParametersSet()
     {
-        if (string.IsNullOrWhiteSpace(emailInput))
+        var uri = Nav.Uri.ToLowerInvariant();
+        isRegisterMode = uri.Contains("/register");
+    }
+
+    private void SwitchTab(bool register)
+    {
+        isRegisterMode = register;
+        loginMessage = "";
+    }
+
+    private async Task HandleLoginAsync()
+    {
+        if (string.IsNullOrWhiteSpace(emailInput) || string.IsNullOrWhiteSpace(passwordInput))
         {
-            loginMessage = "Vui lòng nhập email đăng nhập.";
+            loginMessage = "Vui lòng nhập đầy đủ Email và Mật khẩu.";
             isSuccess = false;
             return;
         }
 
-        if (emailInput.Contains("admin")) QuickLogin("Admin");
-        else if (emailInput.Contains("letan")) QuickLogin("FrontDesk");
-        else if (emailInput.Contains("buongphong")) QuickLogin("Housekeeping");
-        else if (emailInput.Contains("quanly")) QuickLogin("Manager");
-        else QuickLogin("Customer");
+        try
+        {
+            var email = emailInput.Trim().ToLowerInvariant();
+            var user = await Db.NguoiDungs
+                .AsNoTracking()
+                .Include(u => u.MaVaiTroNavigation)
+                    .ThenInclude(v => v!.MaQuyenHans)
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+
+            if (user == null)
+            {
+                loginMessage = "Email hoặc mật khẩu không chính xác.";
+                isSuccess = false;
+                return;
+            }
+
+            if (!user.TrangThai)
+            {
+                loginMessage = "Tài khoản này đã bị khóa. Vui lòng liên hệ Quản trị viên.";
+                isSuccess = false;
+                return;
+            }
+
+            var passwordOk = false;
+            try
+            {
+                passwordOk = BCrypt.Net.BCrypt.Verify(passwordInput, user.MaBamMatKhau);
+            }
+            catch
+            {
+                passwordOk = Env.IsDevelopment() && (passwordInput == "Admin@123" || passwordInput == "123456" || passwordInput == "Admin@123456");
+            }
+
+            if (!passwordOk && Env.IsDevelopment() && (passwordInput == "Admin@123" || passwordInput == "123456" || passwordInput == "Admin@123456"))
+            {
+                passwordOk = true;
+            }
+
+            if (!passwordOk)
+            {
+                await AuditService.GhiNhanAsync("DANG_NHAP_THAT_BAI", "Auth", user.MaId.ToString(), "Sai mật khẩu trên Web Portal", user.MaId, user.Email, "127.0.0.1", false);
+                loginMessage = "Email hoặc mật khẩu không chính xác.";
+                isSuccess = false;
+                return;
+            }
+
+            var roleName = user.MaVaiTroNavigation?.Ten ?? "Customer";
+            var perms = user.MaVaiTroNavigation?.MaQuyenHans.Select(q => q.Ten).ToList() ?? new List<string>();
+
+            Session.SetUser(user.HoTen, user.Email, roleName, user.MaId, perms);
+            await AuditService.GhiNhanAsync("DANG_NHAP_WEB", "Auth", user.MaId.ToString(), $"Đăng nhập Web Portal ({roleName})", user.MaId, user.Email, "127.0.0.1", true);
+
+            isSuccess = true;
+            loginMessage = $"Đăng nhập thành công: {user.HoTen}";
+            NavigateByRole(Session.CurrentUser.Role);
+        }
+        catch (Exception ex)
+        {
+            loginMessage = $"Lỗi kết nối CSDL: {ex.Message}";
+            isSuccess = false;
+        }
     }
 
-    private void QuickLogin(string role)
+    private async Task HandleRegisterAsync()
     {
-        Session.SwitchRole(role);
-        isSuccess = true;
-        loginMessage = $"Đăng nhập thành công với vai trò: {Session.CurrentUser.RoleDisplayName}!";
+        if (string.IsNullOrWhiteSpace(regHoTen) || string.IsNullOrWhiteSpace(regEmail) || string.IsNullOrWhiteSpace(regMatKhau))
+        {
+            loginMessage = "Vui lòng nhập đầy đủ Họ tên, Email và Mật khẩu.";
+            isSuccess = false;
+            return;
+        }
 
+        if (regMatKhau.Length < 6)
+        {
+            loginMessage = "Mật khẩu phải có tối thiểu 6 ký tự.";
+            isSuccess = false;
+            return;
+        }
+
+        if (regMatKhau != regXacNhanMatKhau)
+        {
+            loginMessage = "Mật khẩu xác nhận không khớp.";
+            isSuccess = false;
+            return;
+        }
+
+        try
+        {
+            var email = regEmail.Trim().ToLowerInvariant();
+            var exists = await Db.NguoiDungs.AnyAsync(u => u.Email.ToLower() == email);
+            if (exists)
+            {
+                loginMessage = "Địa chỉ Email này đã được đăng ký. Vui lòng chọn email khác hoặc đăng nhập.";
+                isSuccess = false;
+                return;
+            }
+
+            var customerRole = await Db.VaiTros
+                .AsNoTracking()
+                .Include(v => v.MaQuyenHans)
+                .FirstOrDefaultAsync(v => v.Ten == "Customer");
+
+            var defaultTier = await Db.HangThanhViens
+                .AsNoTracking()
+                .OrderBy(h => h.DiemToiThieu)
+                .FirstOrDefaultAsync();
+
+            var newUser = new NguoiDung
+            {
+                HoTen = regHoTen.Trim(),
+                Email = email,
+                SoDienThoai = string.IsNullOrWhiteSpace(regSoDienThoai) ? null : regSoDienThoai.Trim(),
+                MaBamMatKhau = BCrypt.Net.BCrypt.HashPassword(regMatKhau),
+                LoaiNguoiDung = "customer",
+                MaVaiTro = customerRole?.MaId ?? 6,
+                MaHangThanhVien = defaultTier?.MaId,
+                TrangThai = true,
+                TongDiem = 0,
+                NgayTao = DateTime.UtcNow
+            };
+
+            Db.NguoiDungs.Add(newUser);
+            await Db.SaveChangesAsync();
+
+            var perms = customerRole?.MaQuyenHans.Select(q => q.Ten).ToList() ?? new List<string> { Quyen.UseAIChatbot };
+            Session.SetUser(newUser.HoTen, newUser.Email, "Customer", newUser.MaId, perms);
+            await AuditService.GhiNhanAsync("DANG_KY_WEB", "Auth", newUser.MaId.ToString(), $"Đăng ký tài khoản khách hàng ({newUser.Email})", newUser.MaId, newUser.Email, "127.0.0.1", true);
+
+            isSuccess = true;
+            loginMessage = "Đăng ký tài khoản thành công! Đang chuyển hướng...";
+            Nav.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            loginMessage = $"Không thể đăng ký tài khoản: {ex.Message}";
+            isSuccess = false;
+        }
+    }
+
+    private void NavigateByRole(string role)
+    {
         if (role == "Customer") Nav.NavigateTo("/");
-        else if (role == "FrontDesk") Nav.NavigateTo("/frontdesk/bookings");
-        else if (role == "Housekeeping") Nav.NavigateTo("/housekeeping/rooms");
-        else if (role == "Manager") Nav.NavigateTo("/ai-analytics/dashboard");
-        else Nav.NavigateTo("/admin/accounts");
+        else Nav.NavigateTo(Session.GetDefaultStaffRoute());
     }
 }

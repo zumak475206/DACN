@@ -40,3 +40,31 @@ public class ThongKeDoanhThuDto
     public decimal DoanhThu { get; set; }
     public int SoDatPhong { get; set; }
 }
+
+public class HotelBiKpiDto
+{
+    public decimal CongSuatPhongPhanTram { get; set; }
+    public decimal AdrGiaTrungBinhDem { get; set; }
+    public decimal RevParDoanhThuTrenPhong { get; set; }
+    public decimal TyLeHuyPhongPhanTram { get; set; }
+    public decimal TongDoanhThuKy { get; set; }
+    public decimal TongChiPhiVanHanhKy { get; set; }
+    public decimal LoiNhuanRongKy { get; set; }
+    public decimal DiemDanhGiaTrungBinh { get; set; }
+    public List<DoanhThuTheoKenhDto> TheoKenhDat { get; set; } = [];
+    public List<DoanhThuTheoLoaiPhongDto> TheoLoaiPhong { get; set; } = [];
+}
+
+public class DoanhThuTheoKenhDto
+{
+    public string Kenh { get; set; } = string.Empty;
+    public int SoDon { get; set; }
+    public decimal DoanhThu { get; set; }
+}
+
+public class DoanhThuTheoLoaiPhongDto
+{
+    public string TenLoaiPhong { get; set; } = string.Empty;
+    public int SoDemBan { get; set; }
+    public decimal DoanhThu { get; set; }
+}

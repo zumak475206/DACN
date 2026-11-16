@@ -23,6 +23,8 @@ public partial class DiaDiemThamQuan
 
     public string? DuongDanAnh { get; set; }
 
+    public string? PhongCach { get; set; }
+
     public bool DangHoatDong { get; set; }
 
     public virtual ICollection<GoiYdiaDiemTheoMuaAi> GoiYdiaDiemTheoMuaAis { get; set; } = new List<GoiYdiaDiemTheoMuaAi>();

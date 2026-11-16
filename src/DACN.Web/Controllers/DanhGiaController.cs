@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using DACN.Infrastructure.Data;
 using DACN.Web.Common;
 using DACN.Web.DTOs.Common;
 using DACN.Web.DTOs.DanhGia;
+using DACN.Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +12,7 @@ namespace DACN.Web.Controllers;
 
 [Route("api/v1/danh-gia")]
 [ApiController]
-public class DanhGiaController(DACNContext db) : ControllerBase
+public class DanhGiaController(DACNContext db, IAuditService auditService) : ControllerBase
 {
     [AllowAnonymous]
     [HttpGet("loai-phong/{maLoaiPhong:int}")]
@@ -41,7 +43,7 @@ public class DanhGiaController(DACNContext db) : ControllerBase
     [HttpGet("cho-duyet")]
     public async Task<ActionResult<ApiResponse<List<DanhGiaDto>>>> ChoXetDuyet()
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ModerateReviews))
             return Forbid();
 
         var data = await db.DanhGia
@@ -54,8 +56,10 @@ public class DanhGiaController(DACNContext db) : ControllerBase
             {
                 MaId = d.MaId,
                 TenNguoiDung = d.MaNguoiDungNavigation != null ? d.MaNguoiDungNavigation.HoTen : "Khách hàng",
-                DiemDanhGia = d.DiemDanhGia, BinhLuan = d.BinhLuan,
-                DaDuyet = d.DaDuyet, NgayTao = d.NgayTao,
+                DiemDanhGia = d.DiemDanhGia,
+                BinhLuan = d.BinhLuan,
+                DaDuyet = d.DaDuyet,
+                NgayTao = d.NgayTao,
                 MaLoaiPhong = d.MaLoaiPhong,
                 TenLoaiPhong = d.MaLoaiPhongNavigation != null ? d.MaLoaiPhongNavigation.Ten : ""
             })
@@ -78,7 +82,6 @@ public class DanhGiaController(DACNContext db) : ControllerBase
         if (loaiPhong == null)
             return NotFound(ApiResponse<DanhGiaDto>.Fail("Không tìm thấy loại phòng."));
 
-        // Nếu có mã đặt phòng, xác minh xem đặt phòng này có thuộc về user không
         if (req.MaDatPhong.HasValue)
         {
             var datPhong = await db.DatPhongs.FindAsync(req.MaDatPhong.Value);
@@ -108,13 +111,24 @@ public class DanhGiaController(DACNContext db) : ControllerBase
     [HttpPut("{id:int}/duyet")]
     public async Task<ActionResult<ApiResponse<object>>> Duyet(int id)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ModerateReviews))
             return Forbid();
 
         var dg = await db.DanhGia.FindAsync(id);
         if (dg == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy đánh giá."));
         dg.DaDuyet = true;
         await db.SaveChangesAsync();
+
+        await auditService.GhiNhanAsync(
+            hanhDong: "DUYET_DANH_GIA",
+            doiTuong: "DanhGia",
+            khoaChinh: id.ToString(),
+            noiDung: $"Duyệt đánh giá #{id} ({dg.DiemDanhGia} sao)",
+            maNguoiDung: User.GetUserId(),
+            email: User.FindFirst(ClaimTypes.Email)?.Value,
+            diaChiIp: HttpContext.Connection.RemoteIpAddress?.ToString(),
+            thanhCong: true);
+
         return Ok(ApiResponse<object>.Ok(null!, "Duyệt đánh giá thành công."));
     }
 
@@ -122,13 +136,24 @@ public class DanhGiaController(DACNContext db) : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<ActionResult<ApiResponse<object>>> Xoa(int id)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ModerateReviews))
             return Forbid();
 
         var dg = await db.DanhGia.FindAsync(id);
         if (dg == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy đánh giá."));
         db.DanhGia.Remove(dg);
         await db.SaveChangesAsync();
+
+        await auditService.GhiNhanAsync(
+            hanhDong: "XOA_DANH_GIA",
+            doiTuong: "DanhGia",
+            khoaChinh: id.ToString(),
+            noiDung: $"Xóa đánh giá #{id}",
+            maNguoiDung: User.GetUserId(),
+            email: User.FindFirst(ClaimTypes.Email)?.Value,
+            diaChiIp: HttpContext.Connection.RemoteIpAddress?.ToString(),
+            thanhCong: true);
+
         return Ok(ApiResponse<object>.Ok(null!, "Đã xóa đánh giá."));
     }
 }

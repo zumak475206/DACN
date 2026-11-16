@@ -15,6 +15,8 @@ public partial class MaGiamGium
 
     public decimal? GiaTriDatPhongToiThieu { get; set; }
 
+    public decimal? GiamToiDa { get; set; }
+
     public DateTime HieuLucTu { get; set; }
 
     public DateTime HieuLucDen { get; set; }

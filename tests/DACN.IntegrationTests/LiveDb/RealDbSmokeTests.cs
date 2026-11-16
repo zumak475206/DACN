@@ -15,13 +15,21 @@ public class RealDbSmokeTests
 {
     private const string ConnectionString = "Server=.;Database=DACN;Trusted_Connection=True;TrustServerCertificate=True;";
 
+    private static bool _schemaMigrated;
+
     private static DACNContext CreateRealDbContext()
     {
         var options = new DbContextOptionsBuilder<DACNContext>()
             .UseSqlServer(ConnectionString)
             .Options;
 
-        return new DACNContext(options);
+        var ctx = new DACNContext(options);
+        if (!_schemaMigrated)
+        {
+            DACN.Web.Common.SchemaMigrationRunner.EnsureLatestSchemaAsync(ctx, NullLogger.Instance).GetAwaiter().GetResult();
+            _schemaMigrated = true;
+        }
+        return ctx;
     }
 
     [Fact]
