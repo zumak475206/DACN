@@ -1,36 +1,36 @@
-@page "/"
+﻿@page "/"
 @layout CustomerLayout
 @inject DACNContext Db
 @inject GoiYDuLichService AiService
 @inject UserSessionService Session
 @inject NavigationManager Nav
 
-<PageTitle>BookingStay.AI � �?t Ph?ng Kh�ch S?n & AI G?i ? Du L?ch �i Mu�n N�i</PageTitle>
+<PageTitle>BookingStay.AI — Đặt Phòng Khách Sạn & AI Gợi Ý Du Lịch Đi Muôn Nơi</PageTitle>
 
-<!-- 1. HERO BANNER PHONG C�CH BOOKING.COM -->
+<!-- 1. HERO BANNER PHONG CÁCH BOOKING.COM -->
 <section class="text-white position-relative" style="background: linear-gradient(180deg, #003B95 0%, #00224F 100%); padding: 48px 0 75px 0;">
     <div class="container">
         <div class="row align-items-center">
             <div class="col-12 col-lg-8">
                 <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill mb-3" style="background: rgba(255, 183, 0, 0.18); border: 1px solid #FFB700; color: #FFD166; font-size: 0.82rem; font-weight: 600;">
-                    <i class="bi bi-stars"></i> N?N T?NG BOOKING K?T H?P TR? L? AI DU L?CH TH�NG MINH
+                    <i class="bi bi-stars"></i> NỀN TẢNG BOOKING KẾT HỢP TRỢ LÝ AI DU LỊCH THÔNG MINH
                 </div>
                 <h1 class="display-5 fw-bold text-white mb-2" style="letter-spacing: -0.5px;">
-                    T?m ch? ngh? ti?p theo, <span style="color: #FFB700;">�i mu�n n�i c�ng AI</span>
+                    Tìm chỗ nghỉ tiếp theo, <span style="color: #FFB700;">đi muôn nơi cùng AI</span>
                 </h1>
                 <p class="lead text-light opacity-90 mb-0" style="font-size: 1.08rem; max-width: 680px;">
-                    Ch? c?n ch?n <strong>Ng�n s�ch</strong>, <strong>Gu s?ng ?o / Th� gi?n</strong> v� <strong>Th?i gian �i</strong> � H? th?ng s? t?m ngay �i?m �?n c� th?i ti?t �?p nh?t v� h?ng ph?ng v?a t�i ti?n c?a b?n.
+                    Chỉ cần chọn <strong>Ngân sách</strong>, <strong>Gu sống ảo / Thư giãn</strong> và <strong>Thời gian đi</strong> — Hệ thống sẽ tìm ngay điểm đến có thời tiết đẹp nhất và hạng phòng vừa túi tiền của bạn.
                 </p>
             </div>
             <div class="col-12 col-lg-4 d-none d-lg-block text-end">
                 <div class="p-3 rounded-4 text-start d-inline-block" style="background: rgba(255,255,255,0.1); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.2); max-width: 320px;">
                     <div class="d-flex align-items-center gap-2 mb-1">
-                        <span class="badge bg-warning text-dark">AI G?i ? H�m Nay</span>
-                        <small class="text-light opacity-75">�? kh?p 98%</small>
+                        <span class="badge bg-warning text-dark">AI Gợi Ý Hôm Nay</span>
+                        <small class="text-light opacity-75">Độ khớp 98%</small>
                     </div>
-                    <div class="fw-bold text-white small">??? �� N?ng & H?i An �ang v�o m�a �?p nh?t!</div>
+                    <div class="fw-bold text-white small">🌤️ Đà Nẵng & Hội An đang vào mùa đẹp nhất!</div>
                     <small class="text-light opacity-75 d-block mt-1" style="font-size: 0.76rem;">
-                        N?ng nh? 26�C, c?c h?p check-in bi?n M? Kh� & s�n ho�ng h�n S�n Tr� ch? t? 500.000�/��m.
+                        Nắng nhẹ 26°C, cực hợp check-in biển Mỹ Khê & săn hoàng hôn Sơn Trà chỉ từ 500.000đ/đêm.
                     </small>
                 </div>
             </div>
@@ -38,104 +38,104 @@
     </div>
 </section>
 
-<!-- 2. THANH T?M KI?M VI?N V�NG �?C TR�NG C?A BOOKING.COM -->
-<!-- TODO [TV3 & TV4]: N?i n�t T?m ki?m v?i API GET /api/v1/loai-phong/tim-kiem v� b? l?c AI -->
+<!-- 2. THANH TÌM KIẾM VIỀN VÀNG ĐẶC TRƯNG CỦA BOOKING.COM -->
+<!-- TODO [TV3 & TV4]: Nối nút Tìm kiếm với API GET /api/v1/loai-phong/tim-kiem và bộ lọc AI -->
 <div class="container position-relative" style="margin-top: -42px; z-index: 100;" id="dat-phong">
     <div class="p-2 rounded-3 shadow-lg" style="background: #FFB700;">
         <div class="row g-2 align-items-stretch">
-            <!-- � 1: �i?m �?n / Khu v?c -->
+            <!-- Ô 1: Điểm đến / Khu vực -->
             <div class="col-12 col-md-3">
                 <div class="bg-white rounded-2 p-2 h-100 d-flex flex-column justify-content-center">
                     <label class="small text-muted fw-bold mb-1" style="font-size: 0.72rem;">
-                        <i class="bi bi-geo-alt-fill text-primary me-1"></i> B?n mu?n �i ��u?
+                        <i class="bi bi-geo-alt-fill text-primary me-1"></i> Bạn muốn đi đâu?
                     </label>
                     <select class="form-select border-0 p-0 fw-semibold text-dark shadow-none" style="font-size: 0.9rem;" @bind="selectedDestination">
-                        <option value="">T?t c? �i?m �?n (To�n qu?c)</option>
-                        <option value="�� N?ng">�� N?ng � Bi?n M? Kh� & S�n Tr�</option>
-                        <option value="�� L?t">�� L?t � S�n m�y & �?i th�ng</option>
-                        <option value="Ph� Qu?c">Ph� Qu?c � Sunset Town & Bi?n �?o</option>
-                        <option value="Sa Pa">Sa Pa � �?nh Fansipan & B?n C�t C�t</option>
-                        <option value="H?i An">H?i An � Ph? c? & R?ng d?a</option>
+                        <option value="">Tất cả điểm đến (Toàn quốc)</option>
+                        <option value="Đà Nẵng">Đà Nẵng — Biển Mỹ Khê & Sơn Trà</option>
+                        <option value="Đà Lạt">Đà Lạt — Săn mây & Đồi thông</option>
+                        <option value="Phú Quốc">Phú Quốc — Sunset Town & Biển đảo</option>
+                        <option value="Sa Pa">Sa Pa — Đỉnh Fansipan & Bản Cát Cát</option>
+                        <option value="Hội An">Hội An — Phố cổ & Rừng dừa</option>
                     </select>
                 </div>
             </div>
 
-            <!-- � 2: Ng�y nh?n - tr? ph?ng -->
+            <!-- Ô 2: Ngày nhận - trả phòng -->
             <div class="col-12 col-md-3">
                 <div class="bg-white rounded-2 p-2 h-100 d-flex flex-column justify-content-center">
                     <label class="small text-muted fw-bold mb-1" style="font-size: 0.72rem;">
-                        <i class="bi bi-calendar-range text-primary me-1"></i> Ng�y nh?n � Ng�y tr? ph?ng
+                        <i class="bi bi-calendar-range text-primary me-1"></i> Ngày nhận — Ngày trả phòng
                     </label>
                     <div class="d-flex align-items-center gap-1">
                         <input type="date" class="form-control border-0 p-0 fw-semibold shadow-none" style="font-size: 0.84rem;" @bind="checkinDate" />
-                        <span class="text-muted">?</span>
+                        <span class="text-muted">→</span>
                         <input type="date" class="form-control border-0 p-0 fw-semibold shadow-none" style="font-size: 0.84rem;" @bind="checkoutDate" />
                     </div>
                 </div>
             </div>
 
-            <!-- � 3: Ng�n s�ch & Gu du l?ch (�?c tr�ng AI c?a �? �n) -->
+            <!-- Ô 3: Ngân sách & Gu du lịch (Đặc trưng AI của đồ án) -->
             <div class="col-12 col-md-4">
                 <div class="bg-white rounded-2 p-2 h-100 d-flex flex-column justify-content-center">
                     <label class="small text-muted fw-bold mb-1" style="font-size: 0.72rem;">
-                        <i class="bi bi-magic text-warning me-1"></i> Ng�n s�ch & Gu tr?i nghi?m (AI L?c)
+                        <i class="bi bi-magic text-warning me-1"></i> Ngân sách & Gu trải nghiệm (AI Lọc)
                     </label>
                     <div class="d-flex gap-2">
                         <select class="form-select border-0 p-0 fw-semibold text-dark shadow-none" style="font-size: 0.85rem;" @bind="selectedBudget">
-                            <option value="all">M?i ng�n s�ch</option>
-                            <option value="low">Ti?t ki?m (&lt; 800k/��m)</option>
-                            <option value="mid">V?a ph?i (800k - 1.2tr)</option>
-                            <option value="high">Th�?ng l�u (&gt; 1.2tr)</option>
+                            <option value="all">Mọi ngân sách</option>
+                            <option value="low">Tiết kiệm (&lt; 800k/đêm)</option>
+                            <option value="mid">Vừa phải (800k - 1.2tr)</option>
+                            <option value="high">Thượng lưu (&gt; 1.2tr)</option>
                         </select>
                         <span class="text-muted">|</span>
                         <select class="form-select border-0 p-0 fw-semibold text-primary shadow-none" style="font-size: 0.85rem;" @bind="selectedVibe">
-                            <option value="">M?i gu du l?ch</option>
-                            <option value="song-ao">?? Check-in S?ng ?o</option>
-                            <option value="thu-gian">?? Th� gi?n Ch?a l�nh</option>
-                            <option value="gia-dinh">??????????? Gia �?nh & Nh�m b?n</option>
+                            <option value="">Mọi gu du lịch</option>
+                            <option value="song-ao">📸 Check-in Sống ảo</option>
+                            <option value="thu-gian">🌿 Thư giãn Chữa lành</option>
+                            <option value="gia-dinh">👨‍👩‍👧‍👦 Gia đình & Nhóm bạn</option>
                         </select>
                     </div>
                 </div>
             </div>
 
-            <!-- � 4: N�t T?m ki?m -->
+            <!-- Ô 4: Nút Tìm kiếm -->
             <div class="col-12 col-md-2">
                 <button class="btn w-100 h-100 fw-bold text-white fs-6 rounded-2 d-flex align-items-center justify-content-center gap-2"
                         style="background: #006CE4; min-height: 54px;" @onclick="SearchRooms">
-                    <i class="bi bi-search"></i> T?m Ki?m
+                    <i class="bi bi-search"></i> Tìm Kiếm
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- 3. TR? L? AI T� V?N L?CH TR?NH: �I ��U �?P NH?T THEO NG�N S�CH & M�A (KHUNG CHO TV4 & TV1) -->
-<!-- TODO [TV4]: N?i d? li?u t? b?ng MuaDuLich, GoiYDiaDiemTheoMua_AI v� GoiYTour_AI -->
+<!-- 3. TRỢ LÝ AI TƯ VẤN LỊCH TRÌNH: ĐI ĐÂU ĐẸP NHẤT THEO NGÂN SÁCH & MÙA (KHUNG CHO TV4 & TV1) -->
+<!-- TODO [TV4]: Nối dữ liệu từ bảng MuaDuLich, GoiYDiaDiemTheoMua_AI và GoiYTour_AI -->
 <section class="container my-5 pt-2" id="ai-goi-y">
     <div class="p-4 rounded-4 border shadow-sm" style="background: linear-gradient(135deg, #EFF6FF 0%, #F5F3FF 100%); border-color: #BFDBFE !important;">
         <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
             <div>
                 <div class="d-flex align-items-center gap-2 mb-1">
-                    <span class="badge bg-primary"><i class="bi bi-stars me-1"></i> TR? L? DU L?CH TH�NG MINH AI</span>
-                    <span class="text-muted small">G?i ? c� nh�n h�a theo th?i ti?t m�a, ng�n s�ch &amp; phong c�ch tr?i nghi?m</span>
+                    <span class="badge bg-primary"><i class="bi bi-stars me-1"></i> TRỢ LÝ DU LỊCH THÔNG MINH AI</span>
+                    <span class="text-muted small">Gợi ý cá nhân hóa theo thời tiết mùa, ngân sách &amp; phong cách trải nghiệm</span>
                 </div>
-                <h3 class="fw-bold text-dark mb-1">Ch�a bi?t �i ��u? Ch?n Gu &amp; Ng�n s�ch �? AI g?i ? n�i �?p nh?t!</h3>
-                <p class="text-muted small mb-0">AI ph�n t�ch th?i ti?t theo m�a, ng�n s�ch v� �i?m check-in s?ng ?o �? �? xu?t l?ch tr?nh t?i �u nh?t cho b?n.</p>
+                <h3 class="fw-bold text-dark mb-1">Chưa biết đi đâu? Chọn Gu &amp; Ngân sách để AI gợi ý nơi đẹp nhất!</h3>
+                <p class="text-muted small mb-0">AI phân tích thời tiết theo mùa, ngân sách và điểm check-in sống ảo để đề xuất lịch trình tối ưu nhất cho bạn.</p>
             </div>
 
-            <!-- B? ch?n nhanh Gu & M�a -->
+            <!-- Bộ chọn nhanh Gu & Mùa -->
             <div class="d-flex flex-wrap gap-2">
                 <button class="btn btn-sm @(aiSeasonFilter == "all" ? "btn-primary" : "btn-outline-primary") rounded-pill px-3" @onclick='() => aiSeasonFilter = "all"'>
-                    ? T?t c? m�a
+                    ✨ Tất cả mùa
                 </button>
                 <button class="btn btn-sm @(aiSeasonFilter == "song-ao" ? "btn-primary" : "btn-outline-primary") rounded-pill px-3" @onclick='() => aiSeasonFilter = "song-ao"'>
-                    ?? �?p Check-in S?ng ?o
+                    📸 Đẹp Check-in Sống ảo
                 </button>
                 <button class="btn btn-sm @(aiSeasonFilter == "thu-gian" ? "btn-primary" : "btn-outline-primary") rounded-pill px-3" @onclick='() => aiSeasonFilter = "thu-gian"'>
-                    ?? Ngh? d�?ng Th� gi?n
+                    🌿 Nghỉ dưỡng Thư giãn
                 </button>
                 <button class="btn btn-sm @(aiSeasonFilter == "tiet-kiem" ? "btn-primary" : "btn-outline-primary") rounded-pill px-3" @onclick='() => aiSeasonFilter = "tiet-kiem"'>
-                    ?? D�?i 2 Tri?u Tr?n G�i
+                    💸 Dưới 2 Triệu Trọn Gói
                 </button>
             </div>
         </div>
@@ -154,23 +154,23 @@
                                 AI Match: @sug.MatchScore%
                             </span>
                             <span class="badge position-absolute bottom-0 start-0 m-2 px-2 py-1 bg-dark bg-opacity-75 text-warning">
-                                ??? Th?i �i?m �?p nh?t: @sug.BestMonths
+                                🌤️ Thời điểm đẹp nhất: @sug.BestMonths
                             </span>
                         </div>
                         <div class="card-body p-3 d-flex flex-column">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span class="badge bg-light text-primary border" style="font-size: 0.72rem;">@sug.VibeLabel</span>
-                                <span class="fw-bold text-danger small">Ng�n s�ch: @sug.BudgetRange</span>
+                                <span class="fw-bold text-danger small">Ngân sách: @sug.BudgetRange</span>
                             </div>
                             <h6 class="fw-bold text-dark mt-1 mb-1">@sug.Title</h6>
                             <p class="small text-muted mb-2" style="font-size: 0.8rem;">@sug.Reason</p>
                             <div class="small text-dark mb-3" style="font-size: 0.78rem;">
-                                <strong>?? �i?m check-in n?i b?t:</strong> @sug.CheckinSpots
+                                <strong>📸 Điểm check-in nổi bật:</strong> @sug.CheckinSpots
                             </div>
                             <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center">
-                                <small class="text-muted">Ph?ng t? <strong class="text-primary">@sug.RoomPriceFrom.ToString("N0")�</strong>/��m</small>
+                                <small class="text-muted">Phòng từ <strong class="text-primary">@sug.RoomPriceFrom.ToString("N0")đ</strong>/đêm</small>
                                 <button class="btn btn-sm btn-primary fw-semibold px-3" @onclick="() => SelectDestinationAndScroll(sug.CityKey)">
-                                    Xem Ph?ng Ngay <i class="bi bi-arrow-right ms-1"></i>
+                                    Xem Phòng Ngay <i class="bi bi-arrow-right ms-1"></i>
                                 </button>
                             </div>
                         </div>
@@ -181,49 +181,49 @@
     </div>
 </section>
 
-<!-- 4. �I?M �?N TH?NH H�NH T?I VI?T NAM (PHONG C�CH BOOKING.COM) -->
+<!-- 4. ĐIỂM ĐẾN THỊNH HÀNH TẠI VIỆT NAM (PHONG CÁCH BOOKING.COM) -->
 <section class="container my-5">
     <div class="mb-3">
-        <h3 class="fw-bold text-dark mb-1">�i?m �?n th?nh h�nh t?i Vi?t Nam</h3>
-        <p class="text-muted small mb-0">C�c th�nh ph? du l?ch ��?c l?a ch?n nhi?u nh?t b?i du kh�ch t?i Vi?t Nam</p>
+        <h3 class="fw-bold text-dark mb-1">Điểm đến thịnh hành tại Việt Nam</h3>
+        <p class="text-muted small mb-0">Các thành phố du lịch được lựa chọn nhiều nhất bởi du khách tại Việt Nam</p>
     </div>
 
     <div class="row g-3">
         <div class="col-12 col-md-6">
-            <div class="position-relative rounded-4 overflow-hidden shadow-sm hover-card" style="height: 230px; cursor: pointer;" @onclick='() => SelectDestinationAndScroll("�� N?ng")'>
-                <img src="https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=900&q=80" class="w-100 h-100" style="object-fit: cover;" alt="�� N?ng" />
+            <div class="position-relative rounded-4 overflow-hidden shadow-sm hover-card" style="height: 230px; cursor: pointer;" @onclick='() => SelectDestinationAndScroll("Đà Nẵng")'>
+                <img src="https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=900&q=80" class="w-100 h-100" style="object-fit: cover;" alt="Đà Nẵng" />
                 <div class="position-absolute top-0 start-0 w-100 h-100" style="background: linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.1) 55%, rgba(0,0,0,0.7) 100%);"></div>
                 <div class="position-absolute top-0 start-0 p-3 text-white">
-                    <h4 class="fw-bold mb-0">�� N?ng ????</h4>
-                    <small class="text-warning fw-semibold">Thi�n ��?ng bi?n M? Kh� � C?u R?ng � B� N� Hills</small>
+                    <h4 class="fw-bold mb-0">Đà Nẵng 🇻🇳</h4>
+                    <small class="text-warning fw-semibold">Thiên đường biển Mỹ Khê • Cầu Rồng • Bà Nà Hills</small>
                 </div>
                 <div class="position-absolute bottom-0 start-0 p-3 text-white">
-                    <span class="badge bg-warning text-dark fw-bold">Gi� trung b?nh: 750.000 VND/��m</span>
+                    <span class="badge bg-warning text-dark fw-bold">Giá trung bình: 750.000 VND/đêm</span>
                 </div>
             </div>
         </div>
 
         <div class="col-12 col-md-6">
-            <div class="position-relative rounded-4 overflow-hidden shadow-sm hover-card" style="height: 230px; cursor: pointer;" @onclick='() => SelectDestinationAndScroll("�� L?t")'>
-                <img src="https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=900&q=80" class="w-100 h-100" style="object-fit: cover;" alt="�� L?t" />
+            <div class="position-relative rounded-4 overflow-hidden shadow-sm hover-card" style="height: 230px; cursor: pointer;" @onclick='() => SelectDestinationAndScroll("Đà Lạt")'>
+                <img src="https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=900&q=80" class="w-100 h-100" style="object-fit: cover;" alt="Đà Lạt" />
                 <div class="position-absolute top-0 start-0 w-100 h-100" style="background: linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.1) 55%, rgba(0,0,0,0.7) 100%);"></div>
                 <div class="position-absolute top-0 start-0 p-3 text-white">
-                    <h4 class="fw-bold mb-0">�� L?t ????</h4>
-                    <small class="text-warning fw-semibold">S�n m�y C?u �?t � H? Tuy?n L�m � Qu�n Cafe S?ng ?o</small>
+                    <h4 class="fw-bold mb-0">Đà Lạt 🇻🇳</h4>
+                    <small class="text-warning fw-semibold">Săn mây Cầu Đất • Hồ Tuyền Lâm • Quán Cafe Sống Ảo</small>
                 </div>
                 <div class="position-absolute bottom-0 start-0 p-3 text-white">
-                    <span class="badge bg-warning text-dark fw-bold">Gi� trung b?nh: 650.000 VND/��m</span>
+                    <span class="badge bg-warning text-dark fw-bold">Giá trung bình: 650.000 VND/đêm</span>
                 </div>
             </div>
         </div>
 
         <div class="col-12 col-md-4">
-            <div class="position-relative rounded-4 overflow-hidden shadow-sm hover-card" style="height: 185px; cursor: pointer;" @onclick='() => SelectDestinationAndScroll("Ph� Qu?c")'>
-                <img src="https://images.unsplash.com/photo-1540541338287-41700207dee6?auto=format&fit=crop&w=600&q=80" class="w-100 h-100" style="object-fit: cover;" alt="Ph� Qu?c" />
+            <div class="position-relative rounded-4 overflow-hidden shadow-sm hover-card" style="height: 185px; cursor: pointer;" @onclick='() => SelectDestinationAndScroll("Phú Quốc")'>
+                <img src="https://images.unsplash.com/photo-1540541338287-41700207dee6?auto=format&fit=crop&w=600&q=80" class="w-100 h-100" style="object-fit: cover;" alt="Phú Quốc" />
                 <div class="position-absolute top-0 start-0 w-100 h-100" style="background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.2) 100%);"></div>
                 <div class="position-absolute top-0 start-0 p-3 text-white">
-                    <h5 class="fw-bold mb-0">Ph� Qu?c ????</h5>
-                    <small>Th? tr?n Ho�ng H�n � C�p treo H?n Th�m</small>
+                    <h5 class="fw-bold mb-0">Phú Quốc 🇻🇳</h5>
+                    <small>Thị trấn Hoàng Hôn • Cáp treo Hòn Thơm</small>
                 </div>
             </div>
         </div>
@@ -233,44 +233,44 @@
                 <img src="https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=600&q=80" class="w-100 h-100" style="object-fit: cover;" alt="Sa Pa" />
                 <div class="position-absolute top-0 start-0 w-100 h-100" style="background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.2) 100%);"></div>
                 <div class="position-absolute top-0 start-0 p-3 text-white">
-                    <h5 class="fw-bold mb-0">Sa Pa ????</h5>
-                    <small>�?nh Fansipan � Ru?ng b?c thang M�?ng Hoa</small>
+                    <h5 class="fw-bold mb-0">Sa Pa 🇻🇳</h5>
+                    <small>Đỉnh Fansipan • Ruộng bậc thang Mường Hoa</small>
                 </div>
             </div>
         </div>
 
         <div class="col-12 col-md-4">
-            <div class="position-relative rounded-4 overflow-hidden shadow-sm hover-card" style="height: 185px; cursor: pointer;" @onclick='() => SelectDestinationAndScroll("H?i An")'>
-                <img src="https://images.unsplash.com/photo-1557750255-c76072a7aad1?auto=format&fit=crop&w=600&q=80" class="w-100 h-100" style="object-fit: cover;" alt="H?i An" />
+            <div class="position-relative rounded-4 overflow-hidden shadow-sm hover-card" style="height: 185px; cursor: pointer;" @onclick='() => SelectDestinationAndScroll("Hội An")'>
+                <img src="https://images.unsplash.com/photo-1557750255-c76072a7aad1?auto=format&fit=crop&w=600&q=80" class="w-100 h-100" style="object-fit: cover;" alt="Hội An" />
                 <div class="position-absolute top-0 start-0 w-100 h-100" style="background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.2) 100%);"></div>
                 <div class="position-absolute top-0 start-0 p-3 text-white">
-                    <h5 class="fw-bold mb-0">H?i An ????</h5>
-                    <small>Ph? c? ��n l?ng � Ch�a C?u � Bi?n An B�ng</small>
+                    <h5 class="fw-bold mb-0">Hội An 🇻🇳</h5>
+                    <small>Phố cổ đèn lồng • Chùa Cầu • Biển An Bàng</small>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- 5. DANH S�CH CH? NGH? & H?NG PH?NG N?I B?T (D? LI?U TH?T T? DB + MOCK �A �I?M �?N) -->
-<!-- TODO [TV3]: N?i thao t�c �?t ph?ng v?i API POST /api/v1/dat-phong -->
+<!-- 5. DANH SÁCH CHỖ NGHỈ & HẠNG PHÒNG NỔI BẬT (DỮ LIỆU THẬT TỪ DB + MOCK ĐA ĐIỂM ĐẾN) -->
+<!-- TODO [TV3]: Nối thao tác Đặt phòng với API POST /api/v1/dat-phong -->
 <section class="container my-5 py-2" id="danh-sach-phong">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-4">
         <div>
-            <span class="text-primary fw-bold small text-uppercase">Ch? Ngh? ��?c ��nh Gi� Cao Nh?t</span>
+            <span class="text-primary fw-bold small text-uppercase">Chỗ Nghỉ Được Đánh Giá Cao Nhất</span>
             <h3 class="fw-bold text-dark mb-0">
-                Ch? Ngh? &amp; H?ng Ph?ng N?i B?t @(string.IsNullOrEmpty(selectedDestination) ? "To�n H? Th?ng" : $"T?i {selectedDestination}")
+                Chỗ Nghỉ &amp; Hạng Phòng Nổi Bật @(string.IsNullOrEmpty(selectedDestination) ? "Toàn Hệ Thống" : $"Tại {selectedDestination}")
             </h3>
         </div>
         <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
             @if (!string.IsNullOrEmpty(selectedDestination) || selectedBudget != "all" || !string.IsNullOrEmpty(selectedVibe))
             {
                 <button class="btn btn-sm btn-outline-secondary" @onclick="ResetFilters">
-                    <i class="bi bi-x-circle me-1"></i> X�a b? l?c
+                    <i class="bi bi-x-circle me-1"></i> Xóa bộ lọc
                 </button>
             }
             <a href="rooms" class="text-decoration-none fw-semibold text-primary">
-                Xem to�n b? ph?ng <i class="bi bi-arrow-right"></i>
+                Xem toàn bộ phòng <i class="bi bi-arrow-right"></i>
             </a>
         </div>
     </div>
@@ -295,7 +295,7 @@
                     <div class="card-body p-3 d-flex flex-column flex-grow-1">
                         <h6 class="fw-bold text-dark mb-1" style="font-size: 1rem;">@room.TenLoai</h6>
                         <small class="text-success fw-semibold mb-2" style="font-size: 0.75rem;">
-                            <i class="bi bi-check2-circle me-1"></i> Mi?n ph� h?y ph?ng � Bao g?m b?a s�ng
+                            <i class="bi bi-check2-circle me-1"></i> Miễn phí hủy phòng • Bao gồm bữa sáng
                         </small>
                         <p class="small text-muted mb-2" style="font-size: 0.8rem; line-height: 1.4;">@room.MoTa</p>
 
@@ -308,11 +308,11 @@
 
                         <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-end">
                             <div>
-                                <small class="text-muted d-block" style="font-size: 0.7rem;">Gi� 1 ��m (�? g?m thu?)</small>
+                                <small class="text-muted d-block" style="font-size: 0.7rem;">Giá 1 đêm (đã gồm thuế)</small>
                                 <span class="fw-bold text-primary" style="font-size: 1.08rem;">VND @room.GiaMoiDem.ToString("N0")</span>
                             </div>
                             <button class="btn btn-sm text-white fw-bold px-3 py-1" style="background: #006CE4; border-radius: 6px;" @onclick="() => OpenBookingModal(room)">
-                                �?t Ngay
+                                Đặt Ngay
                             </button>
                         </div>
                     </div>
@@ -322,50 +322,50 @@
     </div>
 </section>
 
-<!-- 6. �U �?I VOUCHER & KHUY?N M?I THEO M�A (KHUNG CHO TV1) -->
-<!-- TODO [TV1]: N?i danh s�ch Voucher v?i API GET /api/v1/voucher v� POST /api/v1/voucher/kiem-tra -->
+<!-- 6. ƯU ĐÃI VOUCHER & KHUYẾN MÃI THEO MÙA (KHUNG CHO TV1) -->
+<!-- TODO [TV1]: Nối danh sách Voucher với API GET /api/v1/voucher và POST /api/v1/voucher/kiem-tra -->
 <section class="container my-5" id="uu-dai">
     <div class="p-4 p-md-5 rounded-4" style="background: linear-gradient(135deg, #003B95 0%, #00224F 100%); color: white;">
         <div class="row align-items-center">
             <div class="col-12 col-md-7">
-                <span class="badge bg-warning text-dark px-3 py-1 fw-bold mb-2">�U �?I DU L?CH &amp; NGH? D�?NG 2026</span>
-                <h3 class="fw-bold text-white mb-2">Ti?t Ki?m �?n 20% V?i M? Voucher �?c Quy?n</h3>
+                <span class="badge bg-warning text-dark px-3 py-1 fw-bold mb-2">ƯU ĐÃI DU LỊCH &amp; NGHỈ DƯỠNG 2026</span>
+                <h3 class="fw-bold text-white mb-2">Tiết Kiệm Đến 20% Với Mã Voucher Độc Quyền</h3>
                 <p class="text-light opacity-90 small mb-4" style="max-width: 520px;">
-                    Sao ch�p m? gi?m gi� b�n d�?i v� d�n v�o b�?c �?t ph?ng �? ��?c tr? ti?n tr?c ti?p tr�n h�a ��n.
+                    Sao chép mã giảm giá bên dưới và dán vào bước Đặt phòng để được trừ tiền trực tiếp trên hóa đơn.
                 </p>
                 <div class="d-flex flex-wrap gap-3">
                     <div class="p-3 bg-white text-dark rounded-3 border d-flex align-items-center gap-3">
                         <div>
-                            <span class="badge bg-danger">Gi?m 15%</span>
+                            <span class="badge bg-danger">Giảm 15%</span>
                             <div class="fw-bold fs-6 font-monospace">WELCOME2026</div>
-                            <small class="text-muted" style="font-size: 0.75rem;">��n t? 1.000.000 VND</small>
+                            <small class="text-muted" style="font-size: 0.75rem;">Đơn từ 1.000.000 VND</small>
                         </div>
-                        <button class="btn btn-sm btn-outline-primary fw-bold" @onclick='() => CopyVoucher("WELCOME2026")'>Sao Ch�p</button>
+                        <button class="btn btn-sm btn-outline-primary fw-bold" @onclick='() => CopyVoucher("WELCOME2026")'>Sao Chép</button>
                     </div>
 
                     <div class="p-3 bg-white text-dark rounded-3 border d-flex align-items-center gap-3">
                         <div>
-                            <span class="badge bg-success">Gi?m 300.000 VND</span>
+                            <span class="badge bg-success">Giảm 300.000 VND</span>
                             <div class="fw-bold fs-6 font-monospace">SUMMERLUXURY</div>
-                            <small class="text-muted" style="font-size: 0.75rem;">��n t? 2.500.000 VND</small>
+                            <small class="text-muted" style="font-size: 0.75rem;">Đơn từ 2.500.000 VND</small>
                         </div>
-                        <button class="btn btn-sm btn-outline-primary fw-bold" @onclick='() => CopyVoucher("SUMMERLUXURY")'>Sao Ch�p</button>
+                        <button class="btn btn-sm btn-outline-primary fw-bold" @onclick='() => CopyVoucher("SUMMERLUXURY")'>Sao Chép</button>
                     </div>
                 </div>
             </div>
             <div class="col-12 col-md-5 mt-4 mt-md-0 text-center">
                 <div class="p-4 rounded-3 border border-light border-opacity-25" style="background: rgba(255,255,255,0.08);">
                     <i class="bi bi-award-fill text-warning display-5 mb-2"></i>
-                    <h5 class="fw-bold text-white mb-1">H?ng Th�nh Vi�n Genius / Loyalty</h5>
+                    <h5 class="fw-bold text-white mb-1">Hạng Thành Viên Genius / Loyalty</h5>
                     @if (Session.CurrentUser.IsLoggedIn)
                     {
-                        <p class="small text-light opacity-90 mb-3">Xin ch�o <strong>@Session.CurrentUser.HoTen</strong>! T�i kho?n c?a b?n �? ��?c k�ch ho?t �u �?i th�nh vi�n v� t�ch �i?m t? �?ng.</p>
-                        <a href="my-bookings" class="btn btn-warning fw-bold text-dark py-2 px-4 small">Xem ��n �?t Ph?ng C?a T�i</a>
+                        <p class="small text-light opacity-90 mb-3">Xin chào <strong>@Session.CurrentUser.HoTen</strong>! Tài khoản của bạn đã được kích hoạt ưu đãi thành viên và tích điểm tự động.</p>
+                        <a href="my-bookings" class="btn btn-warning fw-bold text-dark py-2 px-4 small">Xem Đơn Đặt Phòng Của Tôi</a>
                     }
                     else
                     {
-                        <p class="small text-light opacity-75 mb-3">��ng nh?p t�i kho?n �? t�ch �i?m sau m?i chuy?n �i v� m? kh�a �u �?i gi?m gi� t? �?ng theo h?ng B?c, V�ng, Kim C��ng.</p>
-                        <a href="login" class="btn btn-warning fw-bold text-dark py-2 px-4 small">��ng Nh?p Nh?n �u �?i</a>
+                        <p class="small text-light opacity-75 mb-3">Đăng nhập tài khoản để tích điểm sau mỗi chuyến đi và mở khóa ưu đãi giảm giá tự động theo hạng Bạc, Vàng, Kim Cương.</p>
+                        <a href="login" class="btn btn-warning fw-bold text-dark py-2 px-4 small">Đăng Nhập Nhận Ưu Đãi</a>
                     }
                 </div>
             </div>
@@ -373,68 +373,68 @@
     </div>
 </section>
 
-<!-- 7. TOP T?A �? CHECK-IN S?NG ?O G?N CH? NGH? -->
+<!-- 7. TOP TỌA ĐỘ CHECK-IN SỐNG ẢO GẦN CHỖ NGHỈ -->
 <section class="container my-5" id="diem-check-in">
     <div class="d-flex justify-content-between align-items-end mb-4">
         <div>
-            <span class="text-primary fw-bold small text-uppercase">C?m Nang Vi Vu &amp; Kh�m Ph�</span>
-            <h3 class="fw-bold text-dark mb-0">T?a �? Check-in �?p Nh?t G?n Khu Ngh? D�?ng</h3>
+            <span class="text-primary fw-bold small text-uppercase">Cẩm Nang Vi Vu &amp; Khám Phá</span>
+            <h3 class="fw-bold text-dark mb-0">Tọa Độ Check-in Đẹp Nhất Gần Khu Nghỉ Dưỡng</h3>
         </div>
-        <small class="text-muted d-none d-md-inline">�i?m tham quan n?i b?t ��?c du kh�ch y�u th�ch</small>
+        <small class="text-muted d-none d-md-inline">Điểm tham quan nổi bật được du khách yêu thích</small>
     </div>
 
     <div class="row g-4">
         <div class="col-12 col-md-6 col-lg-3">
             <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100 hover-card">
-                <img src="https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=600&q=80" alt="C?u R?ng" style="height: 165px; object-fit: cover;" />
+                <img src="https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=600&q=80" alt="Cầu Rồng" style="height: 165px; object-fit: cover;" />
                 <div class="p-3">
-                    <span class="badge bg-light text-primary border mb-1">?? G�c s?ng ?o v? ��m</span>
-                    <h6 class="fw-bold mb-1">C?u R?ng &amp; B?n Du Thuy?n</h6>
-                    <small class="text-muted d-block mb-2"><i class="bi bi-geo-alt text-danger me-1"></i> C�ch ch? ngh? 1.8 km</small>
-                    <p class="small text-muted mb-0">Xem C?u R?ng phun l?a l�c 21h00 cu?i tu?n v� check-in C� Ch�p H�a R?ng.</p>
+                    <span class="badge bg-light text-primary border mb-1">📸 Góc sống ảo về đêm</span>
+                    <h6 class="fw-bold mb-1">Cầu Rồng &amp; Bến Du Thuyền</h6>
+                    <small class="text-muted d-block mb-2"><i class="bi bi-geo-alt text-danger me-1"></i> Cách chỗ nghỉ 1.8 km</small>
+                    <p class="small text-muted mb-0">Xem Cầu Rồng phun lửa lúc 21h00 cuối tuần và check-in Cá Chép Hóa Rồng.</p>
                 </div>
             </div>
         </div>
 
         <div class="col-12 col-md-6 col-lg-3">
             <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100 hover-card">
-                <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80" alt="Bi?n M? Kh�" style="height: 165px; object-fit: cover;" />
+                <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80" alt="Biển Mỹ Khê" style="height: 165px; object-fit: cover;" />
                 <div class="p-3">
-                    <span class="badge bg-light text-success border mb-1">?? Ch?a l�nh &amp; B?nh minh</span>
-                    <h6 class="fw-bold mb-1">B?i Bi?n M? Kh�</h6>
-                    <small class="text-muted d-block mb-2"><i class="bi bi-geo-alt text-danger me-1"></i> C�ch ch? ngh? 500 m</small>
-                    <p class="small text-muted mb-0">B?i c�t tr?ng m?n ��n b?nh minh l�c 5h30 s�ng c?c �?p, n�?c bi?n trong xanh.</p>
+                    <span class="badge bg-light text-success border mb-1">🌿 Chữa lành &amp; Bình minh</span>
+                    <h6 class="fw-bold mb-1">Bãi Biển Mỹ Khê</h6>
+                    <small class="text-muted d-block mb-2"><i class="bi bi-geo-alt text-danger me-1"></i> Cách chỗ nghỉ 500 m</small>
+                    <p class="small text-muted mb-0">Bãi cát trắng mịn đón bình minh lúc 5h30 sáng cực đẹp, nước biển trong xanh.</p>
                 </div>
             </div>
         </div>
 
         <div class="col-12 col-md-6 col-lg-3">
             <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100 hover-card">
-                <img src="https://images.unsplash.com/photo-1544644181-1484b3fdfc62?auto=format&fit=crop&w=600&q=80" alt="B�n �?o S�n Tr�" style="height: 165px; object-fit: cover;" />
+                <img src="https://images.unsplash.com/photo-1544644181-1484b3fdfc62?auto=format&fit=crop&w=600&q=80" alt="Bán Đảo Sơn Trà" style="height: 165px; object-fit: cover;" />
                 <div class="p-3">
-                    <span class="badge bg-light text-info border mb-1">?? S�n ho�ng h�n</span>
-                    <h6 class="fw-bold mb-1">B�n �?o S�n Tr� &amp; Ch�a Linh ?ng</h6>
-                    <small class="text-muted d-block mb-2"><i class="bi bi-geo-alt text-danger me-1"></i> C�ch ch? ngh? 8.5 km</small>
-                    <p class="small text-muted mb-0">Cung ��?ng ven bi?n �m tr?n v?nh �� N?ng, g�c ch?p ?nh to�n c?nh t? tr�n cao.</p>
+                    <span class="badge bg-light text-info border mb-1">🌅 Săn hoàng hôn</span>
+                    <h6 class="fw-bold mb-1">Bán Đảo Sơn Trà &amp; Chùa Linh Ứng</h6>
+                    <small class="text-muted d-block mb-2"><i class="bi bi-geo-alt text-danger me-1"></i> Cách chỗ nghỉ 8.5 km</small>
+                    <p class="small text-muted mb-0">Cung đường ven biển ôm trọn vịnh Đà Nẵng, góc chụp ảnh toàn cảnh từ trên cao.</p>
                 </div>
             </div>
         </div>
 
         <div class="col-12 col-md-6 col-lg-3">
             <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100 hover-card">
-                <img src="https://images.unsplash.com/photo-1569154941061-e231b4725ef1?auto=format&fit=crop&w=600&q=80" alt="B� N� Hills" style="height: 165px; object-fit: cover;" />
+                <img src="https://images.unsplash.com/photo-1569154941061-e231b4725ef1?auto=format&fit=crop&w=600&q=80" alt="Bà Nà Hills" style="height: 165px; object-fit: cover;" />
                 <div class="p-3">
-                    <span class="badge bg-light text-warning border mb-1">?? Ki?n tr�c Ch�u �u</span>
-                    <h6 class="fw-bold mb-1">B� N� Hills &amp; C?u V�ng</h6>
-                    <small class="text-muted d-block mb-2"><i class="bi bi-geo-alt text-danger me-1"></i> C�ch ch? ngh? 28 km</small>
-                    <p class="small text-muted mb-0">L�ng Ph�p c? k�nh tr�n m�y, kh� h?u 4 m�a trong 1 ng�y v� C?u V�ng n?i ti?ng.</p>
+                    <span class="badge bg-light text-warning border mb-1">🏰 Kiến trúc Châu Âu</span>
+                    <h6 class="fw-bold mb-1">Bà Nà Hills &amp; Cầu Vàng</h6>
+                    <small class="text-muted d-block mb-2"><i class="bi bi-geo-alt text-danger me-1"></i> Cách chỗ nghỉ 28 km</small>
+                    <p class="small text-muted mb-0">Làng Pháp cổ kính trên mây, khí hậu 4 mùa trong 1 ngày và Cầu Vàng nổi tiếng.</p>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- 8. MODAL �?T PH?NG TR?C TUY?N -->
+<!-- 8. MODAL ĐẶT PHÒNG TRỰC TUYẾN -->
 @if (isBookingModalOpen && selectedRoom != null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.55); z-index: 2500;">
@@ -442,7 +442,7 @@
             <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
                 <div class="modal-header text-white" style="background: #003B95;">
                     <h5 class="modal-title fw-bold">
-                        <i class="bi bi-calendar-check me-2"></i> Ho�n T?t �?t Ph?ng: @selectedRoom.TenLoai (@selectedRoom.DiaDiem)
+                        <i class="bi bi-calendar-check me-2"></i> Hoàn Tất Đặt Phòng: @selectedRoom.TenLoai (@selectedRoom.DiaDiem)
                     </h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="() => isBookingModalOpen = false"></button>
                 </div>
@@ -451,12 +451,12 @@
                     {
                         <div class="text-center py-4">
                             <div class="text-success display-3 mb-2"><i class="bi bi-check-circle-fill"></i></div>
-                            <h4 class="fw-bold text-success mb-2">�?t Ph?ng Th�nh C�ng!</h4>
-                            <p class="text-muted mb-3">M? x�c nh?n �?t ph?ng c?a b?n: <strong class="text-dark fs-5">#DP-@bookingCode</strong></p>
-                            <p class="small text-muted">Th�ng tin ��n �?t �? ��?c chuy?n v? Ph�n h? Ti?n s?nh (TV3) �? x?p ph?ng v� chu?n b? ��n ti?p qu? kh�ch.</p>
+                            <h4 class="fw-bold text-success mb-2">Đặt Phòng Thành Công!</h4>
+                            <p class="text-muted mb-3">Mã xác nhận đặt phòng của bạn: <strong class="text-dark fs-5">#DP-@bookingCode</strong></p>
+                            <p class="small text-muted">Thông tin đơn đặt đã được chuyển về Phân hệ Tiền sảnh (TV3) để xếp phòng và chuẩn bị đón tiếp quý khách.</p>
                             <div class="mt-4">
-                                <a href="my-bookings" class="btn btn-primary px-4 py-2 me-2 fw-bold">Xem ��n �?t C?a T�i</a>
-                                <button class="btn btn-outline-secondary px-4 py-2" @onclick="() => isBookingModalOpen = false">��ng</button>
+                                <a href="my-bookings" class="btn btn-primary px-4 py-2 me-2 fw-bold">Xem Đơn Đặt Của Tôi</a>
+                                <button class="btn btn-outline-secondary px-4 py-2" @onclick="() => isBookingModalOpen = false">Đóng</button>
                             </div>
                         </div>
                     }
@@ -464,49 +464,49 @@
                     {
                         <div class="row g-3">
                             <div class="col-12 col-md-6">
-                                <label class="form-label small fw-bold">H? v� t�n ng�?i nh?n ph?ng *</label>
+                                <label class="form-label small fw-bold">Họ và tên người nhận phòng *</label>
                                 <input type="text" class="hotel-input w-100" @bind="guestName" />
                             </div>
                             <div class="col-12 col-md-6">
-                                <label class="form-label small fw-bold">S? �i?n tho?i li�n h? *</label>
+                                <label class="form-label small fw-bold">Số điện thoại liên hệ *</label>
                                 <input type="text" class="hotel-input w-100" @bind="guestPhone" />
                             </div>
                             <div class="col-12 col-md-6">
-                                <label class="form-label small fw-bold">�?a ch? Email nh?n x�c nh?n *</label>
+                                <label class="form-label small fw-bold">Địa chỉ Email nhận xác nhận *</label>
                                 <input type="email" class="hotel-input w-100" @bind="guestEmail" />
                             </div>
                             <div class="col-12 col-md-6">
-                                <label class="form-label small fw-bold">M? Voucher �u �?i</label>
+                                <label class="form-label small fw-bold">Mã Voucher ưu đãi</label>
                                 <div class="input-group">
                                     <input type="text" class="form-control hotel-input" placeholder="VD: WELCOME2026" @bind="appliedVoucherCode" />
-                                    <button class="btn btn-outline-primary fw-semibold" type="button" @onclick="ApplyVoucher">�p D?ng</button>
+                                    <button class="btn btn-outline-primary fw-semibold" type="button" @onclick="ApplyVoucher">Áp Dụng</button>
                                 </div>
                                 @if (discountAmount > 0)
                                 {
-                                    <small class="text-success fw-bold d-block mt-1">�? gi?m: -@discountAmount.ToString("N0") VND</small>
+                                    <small class="text-success fw-bold d-block mt-1">Đã giảm: -@discountAmount.ToString("N0") VND</small>
                                 }
                             </div>
 
                             <div class="col-12">
                                 <div class="p-3 rounded-3 border mt-2" style="background: #F8FAFC;">
                                     <div class="d-flex justify-content-between small mb-1">
-                                        <span>��n gi� ph?ng / ��m:</span>
+                                        <span>Đơn giá phòng / đêm:</span>
                                         <span>@selectedRoom.GiaMoiDem.ToString("N0") VND</span>
                                     </div>
                                     <div class="d-flex justify-content-between small mb-1">
-                                        <span>Nh?n ph?ng ? Tr? ph?ng:</span>
-                                        <span>@checkinDate.ToString("dd/MM/yyyy") ? @checkoutDate.ToString("dd/MM/yyyy")</span>
+                                        <span>Nhận phòng → Trả phòng:</span>
+                                        <span>@checkinDate.ToString("dd/MM/yyyy") → @checkoutDate.ToString("dd/MM/yyyy")</span>
                                     </div>
                                     @if (discountAmount > 0)
                                     {
                                         <div class="d-flex justify-content-between small mb-1 text-success">
-                                            <span>Voucher gi?m gi� (@appliedVoucherCode):</span>
+                                            <span>Voucher giảm giá (@appliedVoucherCode):</span>
                                             <span>-@discountAmount.ToString("N0") VND</span>
                                         </div>
                                     }
                                     <hr class="my-2" />
                                     <div class="d-flex justify-content-between fw-bold text-primary fs-6">
-                                        <span>T?ng c?ng thanh to�n:</span>
+                                        <span>Tổng cộng thanh toán:</span>
                                         <span>VND @finalTotal.ToString("N0")</span>
                                     </div>
                                 </div>
@@ -514,9 +514,9 @@
                         </div>
 
                         <div class="mt-4 pt-3 border-top text-end">
-                            <button class="btn btn-outline-secondary me-2" @onclick="() => isBookingModalOpen = false">H?y</button>
+                            <button class="btn btn-outline-secondary me-2" @onclick="() => isBookingModalOpen = false">Hủy</button>
                             <button class="btn btn-primary fw-bold px-4" style="background: #006CE4;" @onclick="SubmitBooking">
-                                <i class="bi bi-check2-circle me-1"></i> X�c Nh?n �?t Ph?ng Ngay
+                                <i class="bi bi-check2-circle me-1"></i> Xác Nhận Đặt Phòng Ngay
                             </button>
                         </div>
                     }
@@ -548,7 +548,7 @@
     private bool bookingSuccess = false;
     private int bookingCode = 1008;
 
-    private string guestName = "Nguy?n V�n Kh�ch";
+    private string guestName = "Nguyễn Văn Khách";
     private string guestPhone = "0905 123 456";
     private string guestEmail = "khachhang@gmail.com";
     private string appliedVoucherCode = "";
@@ -582,20 +582,20 @@
         string CheckinSpots,
         string ImageUrl);
 
-    // D? li?u m?u Khung AI G?i ? Du l?ch theo M�a & Ng�n s�ch (TV4 s? n?i v?i DB MuaDuLich, GoiYDiaDiemTheoMua_AI, GoiYTour_AI)
+    // Dữ liệu mẫu Khung AI Gợi ý Du lịch theo Mùa & Ngân sách (TV4 sẽ nối với DB MuaDuLich, GoiYDiaDiemTheoMua_AI, GoiYTour_AI)
     private List<AiTravelSuggestion> aiSuggestions = new()
     {
-        new("�� N?ng", "�� N?ng � Mi?n Trung", "Bi?n Xanh N?ng V�ng & Check-in C?u V�ng", "Th�ng 3 - Th�ng 9", 98, "1.5 - 3 tri?u", 500000, "song-ao", "?? Check-in S?ng ?o",
-            "Th?i ti?t n?ng �?p, bi?n trong v?t, t?p trung nhi?u t?a �? s?ng ?o n?i ti?ng t? bi?n l�n n�i.",
-            "C?u V�ng B� N�, B�n �?o S�n Tr�, B?i bi?n M? Kh�, C?u R?ng",
+        new("Đà Nẵng", "Đà Nẵng • Miền Trung", "Biển Xanh Nắng Vàng & Check-in Cầu Vàng", "Tháng 3 - Tháng 9", 98, "1.5 - 3 triệu", 500000, "song-ao", "📸 Check-in Sống ảo",
+            "Thời tiết nắng đẹp, biển trong vắt, tập trung nhiều tọa độ sống ảo nổi tiếng từ biển lên núi.",
+            "Cầu Vàng Bà Nà, Bán đảo Sơn Trà, Bãi biển Mỹ Khê, Cầu Rồng",
             "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=700&q=80"),
-        new("�� L?t", "�� L?t � T�y Nguy�n", "S�n M�y �?i Th�ng & Ngh? D�?ng Ch?a L�nh", "Th�ng 10 - Th�ng 3", 96, "1.2 - 2.5 tri?u", 650000, "thu-gian", "?? Th� gi?n Ch?a l�nh",
-            "Kh�ng kh� se l?nh 16-22�C, s��ng m� bu?i s?m v� r?ng th�ng y�n t?nh gi�p t�i t?o n�ng l�?ng.",
-            "�?i ch� C?u �?t, H? Tuy?n L�m, Thung l?ng T?nh Y�u",
+        new("Đà Lạt", "Đà Lạt • Tây Nguyên", "Săn Mây Đồi Thông & Nghỉ Dưỡng Chữa Lành", "Tháng 10 - Tháng 3", 96, "1.2 - 2.5 triệu", 650000, "thu-gian", "🌿 Thư giãn Chữa lành",
+            "Không khí se lạnh 16-22°C, sương mù buổi sớm và rừng thông yên tĩnh giúp tái tạo năng lượng.",
+            "Đồi chè Cầu Đất, Hồ Tuyền Lâm, Thung lũng Tình Yêu",
             "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=700&q=80"),
-        new("H?i An", "H?i An � Qu?ng Nam", "Ph? C? ��n L?ng & Ngh? D�?ng Ti?t Ki?m", "Th�ng 2 - Th�ng 8", 95, "D�?i 2 tri?u", 550000, "tiet-kiem", "?? Ti?t ki?m & S?ng ?o",
-            "Chi ph� �n ? c?c k? h?p l?, m?i g�c t�?ng v�ng ph? c? v� s�ng Ho�i �?u l�n h?nh lung linh.",
-            "Ch�a C?u, S�ng Ho�i th? hoa ��ng, R?ng d?a B?y M?u",
+        new("Hội An", "Hội An • Quảng Nam", "Phố Cổ Đèn Lồng & Nghỉ Dưỡng Tiết Kiệm", "Tháng 2 - Tháng 8", 95, "Dưới 2 triệu", 550000, "tiet-kiem", "💸 Tiết kiệm & Sống ảo",
+            "Chi phí ăn ở cực kỳ hợp lý, mọi góc tường vàng phố cổ và sông Hoài đều lên hình lung linh.",
+            "Chùa Cầu, Sông Hoài thả hoa đăng, Rừng dừa Bảy Mẫu",
             "https://images.unsplash.com/photo-1557750255-c76072a7aad1?auto=format&fit=crop&w=700&q=80")
     };
 
@@ -604,22 +604,22 @@
 
     private List<RoomTypeItem> allRoomTypes = new()
     {
-        new(1, "GrandStay Deluxe Sea View", "�� N?ng", 1000000, "9.4 Xu?t s?c", "?? G�c ban c�ng s?ng ?o", "song-ao",
-            "Ban c�ng h�?ng th?ng bi?n M? Kh�, ng?m b?nh minh tr�n gi�?ng ng?, c�ch b?i t?m 2 ph�t �i b?.",
+        new(1, "GrandStay Deluxe Sea View", "Đà Nẵng", 1000000, "9.4 Xuất sắc", "📸 Góc ban công sống ảo", "song-ao",
+            "Ban công hướng thẳng biển Mỹ Khê, ngắm bình minh trên giường ngủ, cách bãi tắm 2 phút đi bộ.",
             "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=600&q=80",
-            new() { "View Bi?n", "Ban c�ng s?ng ?o", "B?n t?m n?m", "Buffet s�ng" }),
-        new(2, "GrandStay Suite Family Resort", "Ph� Qu?c", 1500000, "9.6 Tuy?t h?o", "??????????? Gia �?nh & Nh�m b?n", "gia-dinh",
-            "Kh�ng gian 65m� v?i 2 ph?ng ng? ri�ng bi?t, h? b�i v� c?c ng?m ho�ng h�n bi?n �?o.",
+            new() { "View Biển", "Ban công sống ảo", "Bồn tắm nằm", "Buffet sáng" }),
+        new(2, "GrandStay Suite Family Resort", "Phú Quốc", 1500000, "9.6 Tuyệt hảo", "👨‍👩‍👧‍👦 Gia đình & Nhóm bạn", "gia-dinh",
+            "Không gian 65m² với 2 phòng ngủ riêng biệt, hồ bơi vô cực ngắm hoàng hôn biển đảo.",
             "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=600&q=80",
-            new() { "2 Ph?ng ng?", "H? b�i v� c?c", "��n s�n bay", "Smart TV" }),
-        new(3, "Pine Hill Retreat Superior", "�� L?t", 750000, "9.2 Tuy?t v?i", "?? Th� gi?n Ch?a l�nh", "thu-gian",
-            "Ph?ng g? ?m �p nh?n ra thung l?ng th�ng xanh m�?t, y�n t?nh tuy?t �?i �? ngh? ng�i �?c s�ch.",
+            new() { "2 Phòng ngủ", "Hồ bơi vô cực", "Đón sân bay", "Smart TV" }),
+        new(3, "Pine Hill Retreat Superior", "Đà Lạt", 750000, "9.2 Tuyệt vời", "🌿 Thư giãn Chữa lành", "thu-gian",
+            "Phòng gỗ ấm áp nhìn ra thung lũng thông xanh mướt, yên tĩnh tuyệt đối để nghỉ ngơi đọc sách.",
             "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=600&q=80",
-            new() { "View �?i th�ng", "S�n m�y s�ng s?m", "Tr� chi?u", "L? s�?i ?m" }),
-        new(4, "Old Town Boutique Standard", "H?i An", 500000, "8.9 R?t t?t", "?? Ti?t ki?m � G?n ph? c?", "song-ao",
-            "Ph?ng thi?t k? Indochine ?m c�ng, mi?n ph� xe �?p d?o ph? c? H?i An v� b?i bi?n An B�ng.",
+            new() { "View Đồi thông", "Săn mây sáng sớm", "Trà chiều", "Lò sưởi ấm" }),
+        new(4, "Old Town Boutique Standard", "Hội An", 500000, "8.9 Rất tốt", "💸 Tiết kiệm • Gần phố cổ", "song-ao",
+            "Phòng thiết kế Indochine ấm cúng, miễn phí xe đạp dạo phố cổ Hội An và bãi biển An Bàng.",
             "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=600&q=80",
-            new() { "Xe �?p mi?n ph�", "C�ch Ph? c? 400m", "H? b�i s�n v�?n", "Wifi 6" })
+            new() { "Xe đạp miễn phí", "Cách Phố cổ 400m", "Hồ bơi sân vườn", "Wifi 6" })
     };
 
     protected override async Task OnInitializedAsync()
@@ -652,14 +652,14 @@
                     var hasSongAo = g.DanhSachGu.Contains("songao");
                     var hasThuGian = g.DanhSachGu.Contains("thugian");
                     var vibeCode = g.ChiPhiDuKienTu <= 1_800_000m ? "tiet-kiem" : hasSongAo ? "song-ao" : hasThuGian ? "thu-gian" : "song-ao";
-                    var vibeLabel = vibeCode == "tiet-kiem" ? "?? Ti?t ki?m & S?ng ?o" : vibeCode == "thu-gian" ? "?? Th� gi?n Ch?a l�nh" : "?? Check-in S?ng ?o";
+                    var vibeLabel = vibeCode == "tiet-kiem" ? "💸 Tiết kiệm & Sống ảo" : vibeCode == "thu-gian" ? "🌿 Thư giãn Chữa lành" : "📸 Check-in Sống ảo";
                     return new AiTravelSuggestion(
                         g.DiemDen,
-                        $"{g.DiemDen} � {g.TenMuaDepNhat}",
+                        $"{g.DiemDen} • {g.TenMuaDepNhat}",
                         g.TieuDe,
                         g.ThoiDiemDepNhat,
                         g.PhanTramPhuHop,
-                        $"{g.ChiPhiDuKienTu / 1_000_000m:0.#} - {g.ChiPhiDuKienDen / 1_000_000m:0.#} tri?u",
+                        $"{g.ChiPhiDuKienTu / 1_000_000m:0.#} - {g.ChiPhiDuKienDen / 1_000_000m:0.#} triệu",
                         g.GiaPhongMoiDem ?? 650_000m,
                         vibeCode,
                         vibeLabel,

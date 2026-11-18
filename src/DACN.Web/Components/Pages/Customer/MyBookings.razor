@@ -1,6 +1,7 @@
-@page "/my-bookings"
+﻿@page "/my-bookings"
 @layout CustomerLayout
 @inject DACNContext Db
+@inject UserSessionService Session
 
 <PageTitle>Lịch Sử Đặt Phòng — Grand Hotel Da Nang</PageTitle>
 
@@ -29,7 +30,9 @@
                 <i class="bi bi-clock-history text-primary"></i>
                 <span>Danh Sách Kỳ Nghỉ Của Quý Khách</span>
             </div>
-            <span class="hotel-badge hotel-badge-info">Email: khachhang@gmail.com</span>
+            <span class="hotel-badge hotel-badge-info">
+                @(Session.CurrentUser.IsLoggedIn ? $"{Session.CurrentUser.HoTen} ({Session.CurrentUser.Email})" : "Khách chưa đăng nhập")
+            </span>
         </div>
         <div class="hotel-card-body p-0">
             <div class="table-responsive">
