@@ -32,7 +32,7 @@ builder.Services.AddDbContext<DACNContext>(options =>
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<GoiYDuLichService>();
-builder.Services.AddSingleton<UserSessionService>();
+builder.Services.AddScoped<UserSessionService>();
 
 // 2. CORS Policy (Cross-Origin Resource Sharing)
 builder.Services.AddCors(options =>

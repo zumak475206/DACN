@@ -399,12 +399,17 @@
 
     protected override void OnInitialized()
     {
-        Session.OnChange += StateHasChanged;
+        Session.OnChange += HandleSessionChanged;
+    }
+
+    private void HandleSessionChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()
     {
-        Session.OnChange -= StateHasChanged;
+        Session.OnChange -= HandleSessionChanged;
     }
 
     private void ToggleUserMenu()

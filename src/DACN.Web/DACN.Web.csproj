@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
     <ProjectReference Include="..\DACN.Domain\DACN.Domain.csproj" />
@@ -20,6 +20,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>b659733e-b88d-4b80-9a23-a79b6c36e146</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
