@@ -1,145 +1,290 @@
-﻿@page "/housekeeping/tasks"
+@page "/housekeeping/tasks"
 @inject DACNContext Db
 
-<PageTitle>Nhật Ký & Phân Công Dọn Phòng — TV2</PageTitle>
+<PageTitle>Nhật Ký Dọn Phòng — PMS</PageTitle>
 
-<PageHeader Title="Nhật Ký & Phân Công Dọn Buồng Phòng"
-            Subtitle="Phân công nhân viên dọn phòng theo ca, ghi nhận thời gian bắt đầu và duyệt kết quả làm sạch"
+<PageHeader Title="Nhật Ký Dọn Phòng"
+            Subtitle="Theo dõi nhiệm vụ dọn phòng phát sinh sau check-out, cập nhật bắt đầu và hoàn tất vệ sinh"
             Icon="bi bi-brush-fill"
-            MemberTag="TV2 — NHẬT KÝ DỌN PHÒNG"
+            MemberTag="TV2 — LỄ TÂN & BUỒNG PHÒNG"
             MemberTagClass="member-tag-tv2">
     <Actions>
-        <button class="hotel-btn hotel-btn-outline" @onclick="LoadDataAsync">
-            <i class="bi bi-arrow-clockwise"></i> Tải lại
-        </button>
-        <button class="hotel-btn hotel-btn-success">
-            <i class="bi bi-plus-circle"></i> Tạo Ca Dọn Mới
+        <button class="hotel-btn hotel-btn-outline" @onclick="LoadDataAsync"><i class="bi bi-arrow-clockwise"></i> Làm mới</button>
+        <button class="hotel-btn hotel-btn-success" disabled="@isSaving" @onclick="CreateMissingTasksAsync">
+            <i class="bi bi-plus-circle"></i> Tạo nhiệm vụ phòng chờ dọn
         </button>
     </Actions>
 </PageHeader>
 
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <div class="alert alert-success" role="status">@successMessage</div>
+}
+
 <div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <StatCard Title="Phòng Cần Dọn" Value="@tasksNeedClean.Count.ToString()" Description="Ưu tiên xử lý trước 14h" Icon="bi bi-exclamation-circle-fill" Variant="warning" />
-    </div>
-    <div class="col-6 col-md-3">
-        <StatCard Title="Đang Dọn Dẹp" Value="@tasksInProgress.ToString()" Description="Nhân viên đang trong phòng" Icon="bi bi-hourglass-split" Variant="primary" />
-    </div>
-    <div class="col-6 col-md-3">
-        <StatCard Title="Đã Hoàn Tất Ca" Value="@tasksDoneCount.ToString()" Description="Đã duyệt kiểm tra sạch sẽ" Icon="bi bi-check2-circle" Variant="success" />
-    </div>
-    <div class="col-6 col-md-3">
-        <StatCard Title="Nhân Lực Buồng Phòng" Value="6 nhân viên" Description="Ca sáng (06h - 14h)" Icon="bi bi-people" Variant="info" />
-    </div>
+    <div class="col-6 col-md-4"><StatCard Title="Chờ Dọn" Value="@assignedCount.ToString()" Description="Đã có nhiệm vụ, chưa bắt đầu" Icon="bi bi-exclamation-circle" Variant="warning" /></div>
+    <div class="col-6 col-md-4"><StatCard Title="Đang Dọn" Value="@inProgressCount.ToString()" Description="Nhân viên đang xử lý" Icon="bi bi-hourglass-split" Variant="primary" /></div>
+    <div class="col-12 col-md-4"><StatCard Title="Hoàn Tất Hôm Nay" Value="@completedTodayCount.ToString()" Description="Nhật ký đã ghi nhận" Icon="bi bi-check2-circle" Variant="success" /></div>
 </div>
 
-<div class="hotel-card mb-4">
+<div class="hotel-card">
     <div class="hotel-card-header">
-        <div class="hotel-card-title">
-            <i class="bi bi-list-task text-success"></i>
-            <span>Bảng Nhiệm Vụ Dọn Phòng Trong Ca</span>
-        </div>
-        <div class="d-flex gap-2">
-            <input type="text" class="hotel-input" placeholder="Tìm theo số phòng, nhân viên..." @bind="searchTask" @bind:event="oninput" style="width: 240px;" />
-        </div>
+        <div class="hotel-card-title"><i class="bi bi-list-task text-success"></i><span>Lịch Sử & Nhiệm Vụ Buồng Phòng</span></div>
+        <input type="search" class="hotel-input" placeholder="Tìm số phòng, ghi chú..." @bind="searchTask" @bind:event="oninput" />
     </div>
-    <div class="hotel-card-body p-0">
-        <div class="table-responsive">
-            <table class="hotel-table">
-                <thead>
-                    <tr>
-                        <th>Số Phòng</th>
-                        <th>Loại Phòng</th>
-                        <th>Nhân Viên Đảm Nhận</th>
-                        <th>Thời Điểm Nhận</th>
-                        <th>Ghi Chú Vệ Sinh</th>
-                        <th>Trạng Thái</th>
-                        <th class="text-end">Thao Tác</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (!tasksNeedClean.Any())
+    <div class="px-3 pt-2 small text-muted">Hiển thị 100 nhật ký gần nhất và toàn bộ nhiệm vụ đang mở.</div>
+    <div class="hotel-table-container">
+        <table class="hotel-table">
+            <thead><tr><th>Phòng / Tầng</th><th>Nhân viên</th><th>Phân công</th><th>Bắt đầu</th><th>Hoàn tất</th><th>Ghi chú</th><th>Trạng thái</th><th class="text-end">Cập nhật</th></tr></thead>
+            <tbody>
+                @if (isLoading)
+                {
+                    <tr><td colspan="8" class="text-center py-4">Đang tải nhật ký...</td></tr>
+                }
+                else if (!FilteredTasks.Any())
+                {
+                    <tr><td colspan="8" class="text-center py-4 text-muted">Chưa có nhật ký phù hợp.</td></tr>
+                }
+                else
+                {
+                    @foreach (var task in FilteredTasks)
                     {
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">
-                                Tuyệt vời! Tất cả các phòng trong ca trực đều đã được dọn sạch sẽ.
+                            <td><strong>Phòng @task.MaPhongNavigation.SoPhong</strong><div class="small text-muted">Tầng @(task.MaPhongNavigation.Tang?.ToString() ?? "—") · @task.MaPhongNavigation.MaLoaiPhongNavigation.Ten</div></td>
+                            <td>@(task.MaNhanVienNavigation?.HoTen ?? "Chưa phân công")</td>
+                            <td>@task.ThoiGianPhanCong.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                            <td>@(task.ThoiGianBatDau?.ToLocalTime().ToString("dd/MM HH:mm") ?? "—")</td>
+                            <td>@(task.ThoiGianHoanTat?.ToLocalTime().ToString("dd/MM HH:mm") ?? "—")</td>
+                            <td>@(task.GhiChuKiemTra ?? "—")</td>
+                            <td><StatusBadge Status="@task.TrangThai" /></td>
+                            <td class="text-end">
+                                @if (task.TrangThai == "assigned")
+                                {
+                                    <button class="hotel-btn hotel-btn-primary py-1 px-2" disabled="@isSaving" @onclick='() => UpdateTaskAsync(task.MaId, "in_progress")'>
+                                        <i class="bi bi-play-fill"></i> Bắt đầu
+                                    </button>
+                                }
+                                else if (task.TrangThai == "in_progress")
+                                {
+                                    <button class="hotel-btn hotel-btn-success py-1 px-2" disabled="@isSaving" @onclick='() => UpdateTaskAsync(task.MaId, "done")'>
+                                        <i class="bi bi-check-lg"></i> Hoàn tất
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Đã ghi nhận</span>
+                                }
                             </td>
                         </tr>
                     }
-                    else
-                    {
-                        @foreach (var room in tasksNeedClean)
-                        {
-                            <tr>
-                                <td>
-                                    <strong class="fs-6">Phòng @room.SoPhong</strong>
-                                    <div class="text-muted small">Tầng @room.SoPhong.ToString().Substring(0, 1)</div>
-                                </td>
-                                <td>@room.MaLoaiPhongNavigation?.Ten</td>
-                                <td>
-                                    <span class="badge bg-warning text-dark"><i class="bi bi-person-fill"></i> Nguyễn Thị Buồng Phòng</span>
-                                </td>
-                                <td><small class="text-muted">11:30 (Khách vừa trả)</small></td>
-                                <td>
-                                    <span class="text-danger small"><i class="bi bi-exclamation-triangle"></i> Thay toàn bộ ga giường, lau sàn & kiểm tra minibar</span>
-                                </td>
-                                <td>
-                                    <StatusBadge Status="@(room.TrangThaiVeSinh == "Dirty" || room.TrangThaiVeSinh == "Inspecting" ? room.TrangThaiVeSinh : room.TrangThai)" />
-                                </td>
-                                <td class="text-end">
-                                    <button class="hotel-btn hotel-btn-success py-1 px-3" style="font-size: 0.8rem;" @onclick="() => HoanTatVeSinh(room.MaId)">
-                                        <i class="bi bi-check-lg"></i> Duyệt Hoàn Tất
-                                    </button>
-                                </td>
-                            </tr>
-                        }
-                    }
-                </tbody>
-            </table>
-        </div>
+                }
+            </tbody>
+        </table>
     </div>
 </div>
 
 @code {
+    private bool isLoading = true;
+    private bool isSaving;
     private string searchTask = "";
-    private List<Phong> allRooms = new();
-    private int tasksDoneCount = 14;
-    private int tasksInProgress = 2;
+    private string? errorMessage;
+    private string? successMessage;
+    private List<NhatKyBuongPhong> tasks = [];
+    private int assignedCount;
+    private int inProgressCount;
+    private int completedTodayCount;
 
-    private List<Phong> tasksNeedClean => allRooms
-        .Where(r => r.TrangThaiVeSinh == "Dirty" || r.TrangThaiVeSinh == "Inspecting" || r.TrangThai == "don_dep" || r.TrangThai == "chua_don")
-        .Where(r => string.IsNullOrWhiteSpace(searchTask) || r.SoPhong.ToString().Contains(searchTask))
-        .ToList();
+    private IEnumerable<NhatKyBuongPhong> FilteredTasks => tasks.Where(task =>
+        string.IsNullOrWhiteSpace(searchTask)
+        || task.MaPhongNavigation.SoPhong.Contains(searchTask, StringComparison.OrdinalIgnoreCase)
+        || (task.GhiChuKiemTra?.Contains(searchTask, StringComparison.OrdinalIgnoreCase) ?? false));
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadDataAsync();
-    }
+    protected override Task OnInitializedAsync() => LoadDataAsync();
 
     private async Task LoadDataAsync()
     {
+        isLoading = true;
+        errorMessage = null;
+        tasks = [];
+        assignedCount = 0;
+        inProgressCount = 0;
+        completedTodayCount = 0;
         try
         {
-            allRooms = await Db.Phongs
-                .AsNoTracking()
-                .Include(p => p.MaLoaiPhongNavigation)
-                .OrderBy(p => p.SoPhong)
+            var localDayStart = DateTime.Today;
+            var utcDayStart = TimeZoneInfo.ConvertTimeToUtc(localDayStart, TimeZoneInfo.Local);
+            var utcNextDayStart = TimeZoneInfo.ConvertTimeToUtc(localDayStart.AddDays(1), TimeZoneInfo.Local);
+            assignedCount = await Db.NhatKyBuongPhongs.CountAsync(task => task.TrangThai == "assigned");
+            inProgressCount = await Db.NhatKyBuongPhongs.CountAsync(task => task.TrangThai == "in_progress");
+            completedTodayCount = await Db.NhatKyBuongPhongs.CountAsync(task =>
+                (task.TrangThai == "done" || task.TrangThai == "inspected")
+                && task.ThoiGianHoanTat.HasValue
+                && task.ThoiGianHoanTat >= utcDayStart
+                && task.ThoiGianHoanTat < utcNextDayStart);
+
+            var recentTasks = await Db.NhatKyBuongPhongs.AsNoTracking()
+                .Include(task => task.MaPhongNavigation).ThenInclude(room => room.MaLoaiPhongNavigation)
+                .Include(task => task.MaNhanVienNavigation)
+                .OrderByDescending(task => task.NgayTao)
+                .Take(100)
                 .ToListAsync();
+            var openTasks = await Db.NhatKyBuongPhongs.AsNoTracking()
+                .Include(task => task.MaPhongNavigation).ThenInclude(room => room.MaLoaiPhongNavigation)
+                .Include(task => task.MaNhanVienNavigation)
+                .Where(task => task.TrangThai == "assigned" || task.TrangThai == "in_progress")
+                .OrderByDescending(task => task.NgayTao)
+                .ToListAsync();
+            tasks = recentTasks.Concat(openTasks)
+                .GroupBy(task => task.MaId)
+                .Select(group => group.First())
+                .OrderByDescending(task => task.NgayTao)
+                .ToList();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            errorMessage = $"Không thể tải nhật ký dọn phòng: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
-    private async Task HoanTatVeSinh(int roomId)
+    private async Task CreateMissingTasksAsync()
     {
-        var room = await Db.Phongs.FindAsync(roomId);
-        if (room != null)
+        isSaving = true;
+        errorMessage = null;
+        successMessage = null;
+        try
         {
-            if (room.TrangThai != "Occupied" && room.TrangThai != "Reserved")
-                room.TrangThai = "Available";
-            room.TrangThaiVeSinh = "Clean";
-            await Db.SaveChangesAsync();
-            tasksDoneCount++;
+            await using (var transaction = await Db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+            {
+            var dirtyRooms = await Db.Phongs
+                .Where(room =>
+                    (room.TrangThaiVeSinh == "Dirty"
+                        || room.TrangThaiVeSinh == "dirty"
+                        || room.TrangThaiVeSinh == "ban"
+                        || room.TrangThaiVeSinh == "can_don"
+                        || room.TrangThaiVeSinh == "Inspecting"
+                        || room.TrangThaiVeSinh == "dang_don"
+                        || room.TrangThaiVeSinh == "don_dep"
+                        || room.TrangThaiVeSinh == "chua_don")
+                    && room.TrangThai != "Occupied"
+                    && room.TrangThai != "occupied"
+                    && room.TrangThai != "dang_o"
+                    && room.TrangThai != "Maintenance"
+                    && room.TrangThai != "maintenance"
+                    && room.TrangThai != "sua_chua")
+                .ToListAsync();
+            var openRoomIds = await Db.NhatKyBuongPhongs
+                .Where(task => task.TrangThai == "assigned" || task.TrangThai == "in_progress")
+                .Select(task => task.MaPhong)
+                .Distinct()
+                .ToListAsync();
+            var now = DateTime.UtcNow;
+            var newTasks = dirtyRooms.Where(room => !openRoomIds.Contains(room.MaId))
+                .Select(room => new NhatKyBuongPhong
+                {
+                    MaPhong = room.MaId,
+                    TrangThai = "assigned",
+                    ThoiGianPhanCong = now,
+                    GhiChuKiemTra = "Phòng cần vệ sinh sau lưu trú.",
+                    NgayTao = now
+                }).ToList();
+            if (newTasks.Count > 0)
+            {
+                Db.NhatKyBuongPhongs.AddRange(newTasks);
+                await Db.SaveChangesAsync();
+            }
+            await transaction.CommitAsync();
+            successMessage = newTasks.Count == 0
+                ? "Không có phòng chờ dọn mới."
+                : $"Đã tạo {newTasks.Count} nhiệm vụ dọn phòng.";
+            }
             await LoadDataAsync();
         }
+        catch (Exception ex)
+        {
+            errorMessage = $"Không thể tạo nhiệm vụ dọn phòng: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
     }
+
+    private async Task UpdateTaskAsync(int taskId, string status)
+    {
+        isSaving = true;
+        errorMessage = null;
+        successMessage = null;
+        try
+        {
+            await using (var transaction = await Db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+            {
+            var task = await Db.NhatKyBuongPhongs.Include(item => item.MaPhongNavigation)
+                .FirstOrDefaultAsync(item => item.MaId == taskId);
+            if (task == null)
+                throw new InvalidOperationException("Không tìm thấy nhiệm vụ dọn phòng.");
+            var room = task.MaPhongNavigation;
+            if (status == "in_progress")
+            {
+                if (task.TrangThai != "assigned")
+                    throw new InvalidOperationException("Chỉ có thể bắt đầu nhiệm vụ đang chờ xử lý.");
+                if (IsRoomOccupied(room.TrangThai) || IsRoomMaintenance(room.TrangThai) || !IsRoomDirty(room.TrangThaiVeSinh))
+                    throw new InvalidOperationException("Phòng không còn ở trạng thái phù hợp để bắt đầu dọn.");
+                task.TrangThai = "in_progress";
+                task.ThoiGianBatDau ??= DateTime.UtcNow;
+                room.TrangThaiVeSinh = "Inspecting";
+            }
+            else if (status == "done")
+            {
+                if (task.TrangThai != "in_progress")
+                    throw new InvalidOperationException("Chỉ có thể hoàn tất nhiệm vụ đang được xử lý.");
+                if (IsRoomOccupied(room.TrangThai) || IsRoomMaintenance(room.TrangThai))
+                    throw new InvalidOperationException("Không thể hoàn tất vệ sinh khi phòng đang có khách hoặc bảo trì.");
+                if (!IsRoomDirty(room.TrangThaiVeSinh))
+                    throw new InvalidOperationException("Phòng không còn ở trạng thái chờ vệ sinh.");
+                task.TrangThai = "done";
+                task.ThoiGianHoanTat = DateTime.UtcNow;
+                room.TrangThaiVeSinh = "Clean";
+                if (!IsRoomOccupied(room.TrangThai) && !IsRoomReserved(room.TrangThai) && !IsRoomMaintenance(room.TrangThai))
+                    room.TrangThai = "Available";
+            }
+            else
+            {
+                throw new InvalidOperationException("Trạng thái nhiệm vụ không hợp lệ.");
+            }
+
+            await Db.SaveChangesAsync();
+            await transaction.CommitAsync();
+            }
+            successMessage = status == "done" ? "Đã hoàn tất dọn phòng." : "Đã ghi nhận bắt đầu dọn phòng.";
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Không thể cập nhật nhật ký: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private static bool IsRoomOccupied(string? status) =>
+        status is "Occupied" or "occupied" or "dang_o";
+
+    private static bool IsRoomReserved(string? status) =>
+        status is "Reserved" or "reserved" or "da_dat";
+
+    private static bool IsRoomMaintenance(string? status) =>
+        status is "Maintenance" or "maintenance" or "sua_chua";
+
+    private static bool IsRoomDirty(string? status) =>
+        status is "Dirty" or "dirty" or "ban" or "can_don" or "Inspecting" or "dang_don" or "don_dep" or "chua_don";
 }

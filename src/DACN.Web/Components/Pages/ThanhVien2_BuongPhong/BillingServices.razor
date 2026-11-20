@@ -1,0 +1,282 @@
+@page "/frontdesk/services-billing"
+@inject DACNContext Db
+
+<PageTitle>Dịch Vụ & Hóa Đơn — TV2</PageTitle>
+
+<PageHeader Title="Dịch Vụ Phòng & Theo Dõi Hóa Đơn"
+            Subtitle="Ghi nhận yêu cầu dịch vụ của khách đang lưu trú và theo dõi số dư hóa đơn theo thời gian thực"
+            Icon="bi bi-receipt-cutoff"
+            MemberTag="TV2 — LỄ TÂN FRONT-DESK"
+            MemberTagClass="member-tag-tv2">
+    <Actions>
+        <button class="hotel-btn hotel-btn-outline" @onclick="LoadDataAsync"><i class="bi bi-arrow-clockwise"></i> Làm mới</button>
+    </Actions>
+</PageHeader>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <div class="alert alert-success" role="status">@successMessage</div>
+}
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4"><StatCard Title="Khách Đang Lưu Trú" Value="@activeStays.Count.ToString()" Description="Có thể ghi dịch vụ" Icon="bi bi-door-open" Variant="info" /></div>
+    <div class="col-6 col-md-4"><StatCard Title="Dịch Vụ Đang Cung Cấp" Value="@services.Count.ToString()" Description="Danh mục lấy từ hệ thống" Icon="bi bi-cup-hot" Variant="primary" /></div>
+    <div class="col-12 col-md-4"><StatCard Title="Hóa Đơn Chờ Thu" Value="@pendingInvoices.ToString()" Description="Số dư sẽ được thu khi check-out" Icon="bi bi-clock-history" Variant="warning" /></div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-12 col-xl-5">
+        <div class="hotel-card h-100">
+            <div class="hotel-card-header"><div class="hotel-card-title"><i class="bi bi-bell-fill text-warning"></i><span>Ghi Nhận Dịch Vụ</span></div></div>
+            <div class="hotel-card-body">
+                @if (!activeStays.Any() || !services.Any())
+                {
+                    <div class="alert alert-info mb-0">
+                        @if (!activeStays.Any())
+                        {
+                            <span>Chưa có khách đang lưu trú để ghi dịch vụ.</span>
+                        }
+                        else
+                        {
+                            <span>Chưa có dịch vụ đang hoạt động trong danh mục.</span>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="stay-select">Khách / phòng lưu trú</label>
+                        <select id="stay-select" class="hotel-select w-100" @bind="selectedStayId">
+                            @foreach (var stay in activeStays)
+                            {
+                                <option value="@stay.MaId">@stay.MaPhongNavigation?.SoPhong — @(stay.MaDatPhongNavigation?.TenKhach ?? "Khách") (@stay.MaDatPhongNavigation?.MaDatPhong)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="service-select">Dịch vụ</label>
+                        <select id="service-select" class="hotel-select w-100" @bind="selectedServiceId">
+                            @foreach (var service in services)
+                            {
+                                <option value="@service.MaId">@service.Ten — @service.GiaDichVu.ToString("N0") đ/@(service.DonViTinh ?? "lần")</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="service-quantity">Số lượng</label>
+                        <input id="service-quantity" type="number" class="hotel-input w-100" min="1" max="100" @bind="quantity" />
+                    </div>
+                    @if (SelectedService is not null)
+                    {
+                        <div class="d-flex justify-content-between border-top pt-3 mb-3">
+                            <span>Tạm tính</span><strong>@((SelectedService.GiaDichVu * quantity).ToString("N0")) đ</strong>
+                        </div>
+                    }
+                    <button class="hotel-btn hotel-btn-accent w-100" disabled="@isSaving" @onclick="AddServiceAsync">
+                        <i class="bi bi-plus-lg"></i> Ghi dịch vụ vào hóa đơn phòng
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-7">
+        <div class="hotel-card h-100">
+            <div class="hotel-card-header"><div class="hotel-card-title"><i class="bi bi-receipt text-primary"></i><span>Hóa Đơn Gần Đây</span></div></div>
+            <div class="hotel-table-container">
+                <table class="hotel-table">
+                    <thead><tr><th>Mã hóa đơn / khách</th><th>Tiền phòng</th><th>Dịch vụ</th><th>Đã thu</th><th>Còn nợ</th><th>Trạng thái</th></tr></thead>
+                    <tbody>
+                        @if (!invoices.Any())
+                        {
+                            <tr><td colspan="6" class="text-center py-4 text-muted">Chưa có hóa đơn.</td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var invoice in invoices)
+                            {
+                                var paid = invoice.ThanhToans.Where(p => StatusMapper.IsPaymentSuccess(p.TrangThai)).Sum(p => p.SoTienDaThanhToan);
+                                var balance = Math.Max(0, invoice.TongThanhToan - paid);
+                                <tr>
+                                    <td><strong>HD-@invoice.MaId.ToString("D5")</strong><div class="small text-muted">@(invoice.MaDatPhongNavigation?.TenKhach ?? invoice.MaDatPhongNavigation?.MaDatPhong)</div></td>
+                                    <td>@invoice.TongTienPhong.ToString("N0") đ</td>
+                                    <td>@invoice.TongTienDichVu.ToString("N0") đ</td>
+                                    <td>@paid.ToString("N0") đ</td>
+                                    <td class="fw-bold @(balance > 0 ? "text-danger" : "text-success")">@balance.ToString("N0") đ</td>
+                                    <td><StatusBadge Status="@invoice.TrangThai" /></td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="hotel-card">
+    <div class="hotel-card-header"><div class="hotel-card-title"><i class="bi bi-list-check text-primary"></i><span>Nhật Ký Dịch Vụ</span></div></div>
+    <div class="hotel-table-container">
+        <table class="hotel-table">
+            <thead><tr><th>Thời gian</th><th>Phòng / khách</th><th>Dịch vụ</th><th>Chi tiết</th><th>Tổng tiền</th><th>Trạng thái</th></tr></thead>
+            <tbody>
+                @if (!serviceOrders.Any())
+                {
+                    <tr><td colspan="6" class="text-center py-4 text-muted">Chưa phát sinh đơn dịch vụ.</td></tr>
+                }
+                else
+                {
+                    @foreach (var order in serviceOrders)
+                    {
+                        var detail = order.MaChiTietDatPhongNavigation;
+                        <tr>
+                            <td>@order.NgayDatDichVu.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>Phòng @(detail?.MaPhongNavigation?.SoPhong ?? "—")<div class="small text-muted">@(detail?.MaDatPhongNavigation?.TenKhach ?? "Khách")</div></td>
+                            <td>@string.Join(", ", order.ChiTietDonDichVus.Select(x => x.MaDichVuNavigation.Ten))</td>
+                            <td>@string.Join(", ", order.ChiTietDonDichVus.Select(x => $"{x.SoLuong} × {x.DonGia:N0} đ"))</td>
+                            <td class="fw-bold">@order.TongTien.ToString("N0") đ</td>
+                            <td><StatusBadge Status="@order.TrangThai" /></td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private string? errorMessage;
+    private string? successMessage;
+    private bool isSaving;
+    private int selectedStayId;
+    private int selectedServiceId;
+    private int quantity = 1;
+    private List<ChiTietDatPhong> activeStays = [];
+    private List<DichVu> services = [];
+    private List<HoaDon> invoices = [];
+    private List<DonDichVu> serviceOrders = [];
+
+    private DichVu? SelectedService => services.FirstOrDefault(s => s.MaId == selectedServiceId);
+    private int pendingInvoices;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        errorMessage = null;
+        activeStays = [];
+        services = [];
+        invoices = [];
+        serviceOrders = [];
+pendingInvoices = 0;
+        try
+        {
+            activeStays = await Db.ChiTietDatPhongs.AsNoTracking()
+                .Include(ct => ct.MaDatPhongNavigation)
+                .Include(ct => ct.MaPhongNavigation)
+                .Where(ct => ct.TrangThai == "Active" || ct.TrangThai == "dang_o")
+                .OrderBy(ct => ct.MaPhongNavigation!.SoPhong)
+                .ToListAsync();
+            services = await Db.DichVus.AsNoTracking()
+                .Where(service => service.DangHoatDong)
+                .OrderBy(service => service.Ten)
+                .ToListAsync();
+            invoices = await Db.HoaDons.AsNoTracking()
+                .Include(invoice => invoice.MaDatPhongNavigation)
+                .Include(invoice => invoice.ThanhToans)
+                .OrderByDescending(invoice => invoice.NgayTao)
+                .Take(30)
+                .ToListAsync();
+            pendingInvoices = await Db.HoaDons.CountAsync(invoice =>
+                invoice.TrangThai != "Paid" && invoice.TrangThai != "da_thanh_toan");
+            serviceOrders = await Db.DonDichVus.AsNoTracking()
+                .Include(order => order.MaChiTietDatPhongNavigation).ThenInclude(detail => detail!.MaPhongNavigation)
+                .Include(order => order.MaChiTietDatPhongNavigation).ThenInclude(detail => detail!.MaDatPhongNavigation)
+                .Include(order => order.ChiTietDonDichVus).ThenInclude(detail => detail.MaDichVuNavigation)
+                .OrderByDescending(order => order.NgayDatDichVu)
+                .Take(50)
+                .ToListAsync();
+
+            if (activeStays.All(stay => stay.MaId != selectedStayId))
+                selectedStayId = activeStays.FirstOrDefault()?.MaId ?? 0;
+            if (services.All(service => service.MaId != selectedServiceId))
+                selectedServiceId = services.FirstOrDefault()?.MaId ?? 0;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Không thể tải dữ liệu dịch vụ/hóa đơn: {ex.Message}";
+        }
+    }
+
+    private async Task AddServiceAsync()
+    {
+        errorMessage = null;
+        successMessage = null;
+        if (quantity is < 1 or > 100)
+        {
+            errorMessage = "Số lượng dịch vụ phải từ 1 đến 100.";
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            await using (var transaction = await Db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+            {
+            var stay = await Db.ChiTietDatPhongs.Include(ct => ct.MaDatPhongNavigation)
+                .FirstOrDefaultAsync(ct =>
+                    ct.MaId == selectedStayId
+                    && (ct.TrangThai == "Active" || ct.TrangThai == "dang_o"));
+            var service = await Db.DichVus.FirstOrDefaultAsync(s => s.MaId == selectedServiceId && s.DangHoatDong);
+            if (stay == null || service == null)
+                throw new InvalidOperationException("Lưu trú hoặc dịch vụ không còn hiệu lực. Vui lòng tải lại dữ liệu.");
+
+            var invoice = await Db.HoaDons.FirstOrDefaultAsync(h => h.MaDatPhong == stay.MaDatPhong);
+            if (invoice == null)
+                throw new InvalidOperationException("Đơn lưu trú chưa có hóa đơn; không thể ghi dịch vụ.");
+
+            var total = service.GiaDichVu * quantity;
+            var order = new DonDichVu
+            {
+                MaChiTietDatPhong = stay.MaId,
+                NgayDatDichVu = DateTime.UtcNow,
+                TongTien = total,
+                TrangThai = "Pending"
+            };
+            Db.DonDichVus.Add(order);
+            await Db.SaveChangesAsync();
+            Db.ChiTietDonDichVus.Add(new ChiTietDonDichVu
+            {
+                MaDonDichVu = order.MaId,
+                MaDichVu = service.MaId,
+                SoLuong = quantity,
+                DonGia = service.GiaDichVu
+            });
+
+            invoice.TongTienDichVu += total;
+            invoice.TongThanhToan = Math.Max(0,
+                invoice.TongTienPhong + invoice.TongTienDichVu + invoice.TienPhuThu + invoice.TienThue - invoice.TienGiamGia);
+            if (invoice.TrangThai == "Paid" || invoice.TrangThai == "da_thanh_toan")
+                invoice.TrangThai = "Pending";
+
+            await Db.SaveChangesAsync();
+            await transaction.CommitAsync();
+            successMessage = $"Đã ghi {service.Ten} × {quantity} ({total:N0} đ) vào hóa đơn {stay.MaDatPhongNavigation.MaDatPhong}.";
+            quantity = 1;
+            }
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Không thể ghi dịch vụ: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}
