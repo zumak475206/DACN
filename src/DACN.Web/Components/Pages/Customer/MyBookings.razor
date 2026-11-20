@@ -2,6 +2,8 @@
 @layout CustomerLayout
 @inject DACNContext Db
 @inject UserSessionService Session
+@inject IAuditService AuditService
+@implements IDisposable
 
 <PageTitle>Lịch Sử Đặt Phòng — Grand Hotel Da Nang</PageTitle>
 
@@ -50,10 +52,21 @@
                         </tr>
                     </thead>
                     <tbody>
+                        @if (!myBookings.Any())
+                        {
+                            <tr>
+                                <td colspan="8" class="text-center py-4 text-muted">
+                                    Quý khách chưa có đơn đặt phòng nào. Hãy chọn phòng tại Trang chủ để bắt đầu kỳ nghỉ!
+                                </td>
+                            </tr>
+                        }
                         @foreach (var b in myBookings)
                         {
                             <tr>
-                                <td><strong class="font-monospace text-primary fs-6">#DP-@b.Id.ToString("D4")</strong></td>
+                                <td>
+                                    <strong class="font-monospace text-primary fs-6">@b.BookingCode</strong>
+                                    <div class="small text-muted">#DP-@b.Id.ToString("D4")</div>
+                                </td>
                                 <td>
                                     <div class="fw-bold">@b.RoomType</div>
                                     <small class="text-muted">Kèm bữa sáng buffet Á - Âu</small>
@@ -68,11 +81,15 @@
                                 <td>
                                     @if (b.Status == "da_xac_nhan")
                                     {
-                                        <span class="hotel-badge hotel-badge-success">Đã xác nhận cọc</span>
+                                        <span class="hotel-badge hotel-badge-success">Chờ nhận phòng</span>
                                     }
                                     else if (b.Status == "da_nhan_phong")
                                     {
                                         <span class="hotel-badge hotel-badge-info">Đang lưu trú</span>
+                                    }
+                                    else if (b.Status == "da_tra_phong")
+                                    {
+                                        <span class="hotel-badge hotel-badge-neutral">Đã hoàn tất</span>
                                     }
                                     else
                                     {
@@ -82,7 +99,7 @@
                                 <td class="text-end">
                                     @if (b.Status == "da_xac_nhan")
                                     {
-                                        <button class="hotel-btn hotel-btn-outline text-danger py-1 px-2" style="font-size: 0.8rem;" @onclick="() => CancelBooking(b.Id)">
+                                        <button class="hotel-btn hotel-btn-outline text-danger py-1 px-2" style="font-size: 0.8rem;" @onclick="() => CancelBookingAsync(b.Id)">
                                             <i class="bi bi-x-circle me-1"></i> Hủy Phòng
                                         </button>
                                     }
@@ -108,6 +125,7 @@
     private class MyBookingItem
     {
         public int Id { get; set; }
+        public string BookingCode { get; set; } = "";
         public string RoomType { get; set; } = "";
         public string Checkin { get; set; } = "";
         public string Checkout { get; set; } = "";
@@ -117,19 +135,130 @@
         public string Status { get; set; } = "";
     }
 
-    private List<MyBookingItem> myBookings = new()
-    {
-        new() { Id = 1002, RoomType = "Deluxe Sea View (Hướng Biển)", Checkin = "20/11/2026", Checkout = "22/11/2026", Guests = 2, Total = 2000000, Deposit = 500000, Status = "da_xac_nhan" },
-        new() { Id = 1001, RoomType = "Suite Gia Đình 2 Phòng Ngủ", Checkin = "10/10/2026", Checkout = "12/10/2026", Guests = 4, Total = 3000000, Deposit = 3000000, Status = "da_nhan_phong" }
-    };
+    private List<MyBookingItem> myBookings = new();
 
-    private void CancelBooking(int id)
+    protected override async Task OnInitializedAsync()
     {
-        var item = myBookings.FirstOrDefault(x => x.Id == id);
-        if (item != null)
+        Session.OnChange += OnSessionChanged;
+        await LoadMyBookingsAsync();
+    }
+
+    private void OnSessionChanged()
+    {
+        _ = InvokeAsync(async () =>
         {
-            item.Status = "da_huy";
-            cancelSuccess = true;
+            await LoadMyBookingsAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        Session.OnChange -= OnSessionChanged;
+    }
+
+    private async Task LoadMyBookingsAsync()
+    {
+        try
+        {
+            var query = Db.DatPhongs
+                .AsNoTracking()
+                .Include(b => b.ChiTietDatPhongs)
+                    .ThenInclude(ct => ct.MaLoaiPhongNavigation)
+                .AsQueryable();
+
+            if (Session.CurrentUser.IsLoggedIn && Session.CurrentUser.Role == "Customer")
+            {
+                var userId = Session.CurrentUser.Id;
+                var email = Session.CurrentUser.Email.Trim().ToLowerInvariant();
+                query = query.Where(b =>
+                    b.MaNguoiDung == userId
+                    || (b.EmailKhach != null && b.EmailKhach.ToLower() == email));
+            }
+            else if (!Session.CurrentUser.IsLoggedIn)
+            {
+                query = query.Where(b => b.KenhDatPhong == "web");
+            }
+
+            var dbList = await query
+                .OrderByDescending(b => b.NgayTao)
+                .Take(20)
+                .ToListAsync();
+
+            myBookings = dbList.Select(b =>
+            {
+                var firstDetail = b.ChiTietDatPhongs.FirstOrDefault();
+                var roomName = firstDetail?.MaLoaiPhongNavigation?.Ten ?? "Deluxe Sea View (Hướng Biển)";
+                var guests = firstDetail?.MaLoaiPhongNavigation?.SoNguoiLonToiDa ?? 2;
+                var checkin = firstDetail?.NgayNhanPhongDuKien.ToString("dd/MM/yyyy") ?? b.NgayTao.ToLocalTime().ToString("dd/MM/yyyy");
+                var checkout = firstDetail?.NgayTraPhongDuKien.ToString("dd/MM/yyyy") ?? b.NgayTao.AddDays(1).ToLocalTime().ToString("dd/MM/yyyy");
+                var normStatus = StatusMapper.NormalizeDatPhongTrangThai(b.TrangThai);
+                var uiStatus = normStatus switch
+                {
+                    "Pending" or "Confirmed" => "da_xac_nhan",
+                    "CheckedIn" => "da_nhan_phong",
+                    "CheckedOut" => "da_tra_phong",
+                    _ => "da_huy"
+                };
+
+                return new MyBookingItem
+                {
+                    Id = b.MaId,
+                    BookingCode = b.MaDatPhong,
+                    RoomType = roomName,
+                    Checkin = checkin,
+                    Checkout = checkout,
+                    Guests = guests,
+                    Total = b.TongTien,
+                    Deposit = b.TienDatCoc,
+                    Status = uiStatus
+                };
+            }).ToList();
         }
+        catch { }
+    }
+
+    private async Task CancelBookingAsync(int id)
+    {
+        try
+        {
+            var booking = await Db.DatPhongs
+                .Include(b => b.ChiTietDatPhongs)
+                    .ThenInclude(ct => ct.MaPhongNavigation)
+                .FirstOrDefaultAsync(b => b.MaId == id);
+
+            if (booking == null) return;
+            var norm = StatusMapper.NormalizeDatPhongTrangThai(booking.TrangThai);
+            if (norm is not ("Pending" or "Confirmed")) return;
+
+            booking.TrangThai = "Cancelled";
+            booking.LyDoHuy = "Khách hàng yêu cầu hủy trực tuyến trên Cổng Khách Hàng";
+            booking.NgayCapNhat = DateTime.UtcNow;
+
+            foreach (var ct in booking.ChiTietDatPhongs)
+            {
+                ct.TrangThai = "Cancelled";
+                if (ct.MaPhongNavigation != null && ct.MaPhongNavigation.TrangThai == "Reserved")
+                {
+                    ct.MaPhongNavigation.TrangThai = "Available";
+                }
+            }
+
+            await Db.SaveChangesAsync();
+
+            await AuditService.GhiNhanAsync(
+                "HUY_DAT_PHONG_WEB",
+                "DatPhong",
+                booking.MaId.ToString(),
+                $"Khách hàng hủy đơn đặt phòng {booking.MaDatPhong} trên Cổng Khách Hàng",
+                Session.CurrentUser.IsLoggedIn ? Session.CurrentUser.Id : null,
+                booking.EmailKhach,
+                "127.0.0.1",
+                true);
+
+            cancelSuccess = true;
+            await LoadMyBookingsAsync();
+        }
+        catch { }
     }
 }

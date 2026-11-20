@@ -2,6 +2,7 @@
 @inject DACNContext Db
 @inject UserSessionService Session
 @inject IAuditService AuditService
+@inject NavigationManager Nav
 
 <PageTitle>Quản Trị Nội Dung & Điểm Đến — TV1</PageTitle>
 
@@ -221,6 +222,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (!CanManageContent)
+        {
+            Nav.NavigateTo("/admin/dashboard");
+            return;
+        }
         await LoadDataAsync();
     }
 
@@ -232,7 +238,7 @@
 
     private async Task AddAttractionAsync()
     {
-        if (string.IsNullOrWhiteSpace(attName)) return;
+        if (!CanManageContent || string.IsNullOrWhiteSpace(attName)) return;
         var item = new DiaDiemThamQuan
         {
             Ten = attName.Trim(),
@@ -255,6 +261,7 @@
 
     private async Task HideAttractionAsync(int id)
     {
+        if (!CanManageContent) return;
         var item = await Db.DiaDiemThamQuans.FindAsync(id);
         if (item == null) return;
         item.DangHoatDong = false;
@@ -264,7 +271,7 @@
 
     private async Task AddArticleAsync()
     {
-        if (string.IsNullOrWhiteSpace(artTitle)) return;
+        if (!CanManageContent || string.IsNullOrWhiteSpace(artTitle)) return;
         var baseSlug = GioVN.TaoSlug(artTitle);
         var slug = await Db.BaiViets.AnyAsync(b => b.DuongDanRutGon == baseSlug)
             ? $"{baseSlug}-{DateTime.UtcNow:HHmmss}"
@@ -294,6 +301,7 @@
 
     private async Task HideArticleAsync(int id)
     {
+        if (!CanManageContent) return;
         var bv = await Db.BaiViets.FindAsync(id);
         if (bv == null) return;
         bv.DangHoatDong = false;

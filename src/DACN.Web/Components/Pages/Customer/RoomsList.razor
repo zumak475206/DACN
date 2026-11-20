@@ -86,6 +86,50 @@
         new("Standard City View (Hướng Phố)", 500000, 26, "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=600&q=80", "Lựa chọn tiết kiệm tối ưu cho chuyến công tác hoặc khách du lịch tự túc.", new() { "View phố Đà Nẵng", "Bàn làm việc", "Điều hòa Inverter", "Wifi 6" })
     };
 
+    private static readonly string[] DefaultImages =
+    {
+        "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=600&q=80"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var dbRoomTypes = await Db.LoaiPhongs
+                .AsNoTracking()
+                .Include(l => l.AnhPhongs)
+                .Include(l => l.MaTienNghis)
+                .Where(l => l.DangHoatDong)
+                .OrderByDescending(l => l.GiaCoBan)
+                .ToListAsync();
+
+            if (dbRoomTypes.Any())
+            {
+                roomsList = dbRoomTypes.Select((lp, idx) =>
+                {
+                    var img = lp.AnhPhongs.FirstOrDefault()?.DuongDanAnh ?? DefaultImages[idx % DefaultImages.Length];
+                    var amenities = lp.MaTienNghis.Any()
+                        ? lp.MaTienNghis.Select(t => t.Ten).ToList()
+                        : new List<string>
+                        {
+                            !string.IsNullOrWhiteSpace(lp.LoaiGiuong) ? lp.LoaiGiuong : "Giường King cao cấp",
+                            !string.IsNullOrWhiteSpace(lp.HuongNhin) ? $"View {lp.HuongNhin}" : "View thoáng đãng",
+                            $"Tối đa {lp.SoNguoiLonToiDa} người lớn",
+                            "Wifi 6 & Smart TV"
+                        };
+                    var desc = !string.IsNullOrWhiteSpace(lp.MoTa)
+                        ? lp.MoTa
+                        : "Không gian nghỉ dưỡng chuẩn 5 sao với nội thất sang trọng và tiện nghi đầy đủ.";
+                    return new RoomCatalog(lp.Ten, lp.GiaCoBan, lp.DienTichM2 ?? 32, img, desc, amenities);
+                }).ToList();
+            }
+        }
+        catch { }
+    }
+
     private IEnumerable<RoomCatalog> FilteredRooms => roomsList
         .Where(r => string.IsNullOrWhiteSpace(searchQuery) || r.Title.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) || r.Desc.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
         .Where(r => priceFilter == "0" || (priceFilter == "1" && r.Price < 1000000) || (priceFilter == "2" && r.Price >= 1000000));

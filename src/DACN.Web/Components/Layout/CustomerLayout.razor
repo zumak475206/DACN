@@ -3,6 +3,7 @@
 @inject GoiYDuLichService AiService
 @inject NavigationManager Nav
 @inject IWebHostEnvironment Env
+@inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
 @implements IDisposable
 
 <div class="customer-portal-wrapper">
@@ -391,6 +392,9 @@
     private bool isChatOpen = false;
     private bool isUserMenuOpen = false;
     private bool isProfileModalOpen = false;
+    private bool isChatSending = false;
+    private DateTime lastChatSentAt = DateTime.MinValue;
+    private int guestMessageCount = 0;
     private string chatInput = "";
     private string? chatSessionToken;
     private List<ChatMsg> chatList = new();
@@ -400,6 +404,24 @@
     protected override void OnInitialized()
     {
         Session.OnChange += OnSessionChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !Session.IsRestored && !Session.CurrentUser.IsLoggedIn)
+        {
+            try
+            {
+                var stored = await LocalStorage.GetAsync<StoredUserSession>(UserSessionService.StorageKey);
+                if (stored.Success && stored.Value is { IsLoggedIn: true })
+                {
+                    Session.RestoreFromStored(stored.Value);
+                    return;
+                }
+            }
+            catch { }
+            Session.MarkRestored();
+        }
     }
 
     private void OnSessionChanged()
@@ -437,10 +459,15 @@
         Nav.NavigateTo(Session.GetDefaultStaffRoute());
     }
 
-    private void Logout()
+    private async Task Logout()
     {
         isUserMenuOpen = false;
         isProfileModalOpen = false;
+        try
+        {
+            await LocalStorage.DeleteAsync(UserSessionService.StorageKey);
+        }
+        catch { }
         Session.Logout();
         Nav.NavigateTo("/");
     }
@@ -458,11 +485,29 @@
 
     private async Task SendChatMessage()
     {
-        if (string.IsNullOrWhiteSpace(chatInput)) return;
+        if (string.IsNullOrWhiteSpace(chatInput) || isChatSending) return;
+        if ((DateTime.UtcNow - lastChatSentAt).TotalSeconds < 2)
+        {
+            return;
+        }
+
+        if (!Session.CurrentUser.IsLoggedIn && guestMessageCount >= 5)
+        {
+            chatList.Add(new ChatMsg(chatInput.Trim(), true));
+            chatInput = "";
+            chatList.Add(new ChatMsg("🔒 Bạn đã sử dụng hết 5 lượt tư vấn miễn phí dành cho khách vãng lai. Vui lòng Đăng nhập hoặc Đăng ký tài khoản để tiếp tục trò chuyện không giới hạn cùng AI!", false));
+            return;
+        }
 
         var question = chatInput.Trim();
         chatList.Add(new ChatMsg(question, true));
         chatInput = "";
+        isChatSending = true;
+        lastChatSentAt = DateTime.UtcNow;
+        if (!Session.CurrentUser.IsLoggedIn)
+        {
+            guestMessageCount++;
+        }
 
         try
         {
@@ -473,6 +518,10 @@
         catch
         {
             chatList.Add(new ChatMsg("🤖 AI đã ghi nhận nhu cầu của bạn! Bạn có thể chọn bộ lọc Ngân sách + Gu trải nghiệm ngay trên Trang chủ để xem gợi ý chi tiết.", false));
+        }
+        finally
+        {
+            isChatSending = false;
         }
     }
 }

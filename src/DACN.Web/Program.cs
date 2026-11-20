@@ -36,7 +36,7 @@ builder.Services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<DACNCon
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<GoiYDuLichService>();
-builder.Services.AddSingleton<UserSessionService>();
+builder.Services.AddScoped<UserSessionService>();
 
 // 2. CORS Policy (Cross-Origin Resource Sharing)
 builder.Services.AddCors(options =>
@@ -110,9 +110,11 @@ builder.Services.AddRateLimiter(options =>
 });
 
 // 4. JWT Authentication (Hỗ trợ nạp từ Biến môi trường & Kiểm tra độ mạnh)
+var configuredJwtKey = builder.Configuration["Jwt:Key"];
 var jwtKey = Environment.GetEnvironmentVariable("DACN_JWT_SECRET")
+    ?? Environment.GetEnvironmentVariable("ASPNETCORE_JWT__KEY")
     ?? Environment.GetEnvironmentVariable("Jwt__Key")
-    ?? builder.Configuration["Jwt:Key"]
+    ?? (string.IsNullOrWhiteSpace(configuredJwtKey) ? null : configuredJwtKey)
     ?? "DACN_Hotel_Management_Super_Secret_Key_2026_@_DeepMind_Security";
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "DACN_HotelManagement";

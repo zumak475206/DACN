@@ -1,6 +1,7 @@
 ﻿@page "/admin/audit-logs"
 @inject DACNContext Db
 @inject UserSessionService Session
+@inject NavigationManager Nav
 
 <PageTitle>Nhật Ký Kiểm Toán Hệ Thống — TV1</PageTitle>
 
@@ -105,6 +106,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (!Session.CanAccessAdmin())
+        {
+            Nav.NavigateTo("/admin/dashboard");
+            return;
+        }
         await LoadLogsAsync();
     }
 

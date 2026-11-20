@@ -170,8 +170,8 @@
             rooms = await Db.Phongs.AsNoTracking().ToListAsync();
             if (rooms.Any())
             {
-                occupiedCount = rooms.Count(r => r.TrangThai == "dang_o");
-                cleaningCount = rooms.Count(r => r.TrangThai == "don_dep" || r.TrangThai == "chua_don");
+                occupiedCount = rooms.Count(r => StatusMapper.IsRoomOccupied(r.TrangThai));
+                cleaningCount = rooms.Count(r => StatusMapper.NormalizePhongVeSinh(r.TrangThaiVeSinh) is "Dirty" or "Inspecting");
             }
         }
         catch { }

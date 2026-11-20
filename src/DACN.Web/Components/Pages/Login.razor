@@ -6,6 +6,7 @@
 @inject NavigationManager Nav
 @inject IWebHostEnvironment Env
 @inject IDbContextFactory<DACNContext> DbFactory
+@inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
 
 <PageTitle>@(isRegisterMode ? "Đăng Ký Tài Khoản" : "Đăng Nhập") — BookingStay.AI</PageTitle>
 
@@ -221,9 +222,14 @@
 
             await AuditService.GhiNhanAsync("DANG_NHAP_WEB", "Auth", user.MaId.ToString(), $"Đăng nhập Web Portal ({roleName})", user.MaId, user.Email, "127.0.0.1", true);
 
-            await InvokeAsync(() =>
+            await InvokeAsync(async () =>
             {
                 Session.SetUser(user.HoTen, user.Email, roleName, user.MaId, perms);
+                try
+                {
+                    await LocalStorage.SetAsync(UserSessionService.StorageKey, Session.ToStoredSession());
+                }
+                catch { }
                 isSuccess = true;
                 loginMessage = $"Đăng nhập thành công: {user.HoTen}";
                 NavigateByRole(Session.CurrentUser.Role);
@@ -310,9 +316,14 @@
             var perms = customerRole?.MaQuyenHans.Select(q => q.Ten).ToList() ?? new List<string> { Quyen.UseAIChatbot };
             await AuditService.GhiNhanAsync("DANG_KY_WEB", "Auth", newUser.MaId.ToString(), $"Đăng ký tài khoản khách hàng ({newUser.Email})", newUser.MaId, newUser.Email, "127.0.0.1", true);
 
-            await InvokeAsync(() =>
+            await InvokeAsync(async () =>
             {
                 Session.SetUser(newUser.HoTen, newUser.Email, "Customer", newUser.MaId, perms);
+                try
+                {
+                    await LocalStorage.SetAsync(UserSessionService.StorageKey, Session.ToStoredSession());
+                }
+                catch { }
                 isSuccess = true;
                 loginMessage = "Đăng ký tài khoản thành công! Đang chuyển hướng...";
                 Nav.NavigateTo("/");

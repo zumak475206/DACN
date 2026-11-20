@@ -3,6 +3,7 @@
 @inject DACNContext Db
 @inject UserSessionService Session
 @inject IAuditService AuditService
+@inject NavigationManager Nav
 
 <PageTitle>Quản Lý Tài Khoản — TV1</PageTitle>
 
@@ -160,6 +161,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (!Session.HasPermission(Quyen.ManageUsers))
+        {
+            Nav.NavigateTo("/admin/dashboard");
+            return;
+        }
         await LoadDataAsync();
     }
 

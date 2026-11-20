@@ -145,7 +145,7 @@
                             }
                         </td>
                         <td class="text-end">
-                            @if (expense.TrangThai == "Pending" && (Session.CurrentUser.Role == "Admin" || Session.CurrentUser.Role == "Manager" || Session.HasPermission(Quyen.ManageExpenses)))
+                            @if (expense.TrangThai == "Pending" && CanApproveExpense(expense))
                             {
                                 <button type="button" class="btn btn-sm btn-success me-1" @onclick="() => ApproveExpenseAsync(expense.MaId)" title="Duyệt">
                                     <i class="bi bi-check-lg"></i>
@@ -187,12 +187,20 @@
         await LoadExpensesAsync();
     }
 
+    private bool CanApproveExpense(ExpenseDto expense)
+    {
+        var isManagerOrAdmin = Session.CurrentUser.Role is "Admin" or "Manager";
+        var isNotCreator = !expense.NguoiGhiNhan.HasValue || expense.NguoiGhiNhan.Value != Session.CurrentUser.Id;
+        return isManagerOrAdmin && isNotCreator;
+    }
+
     private async Task LoadExpensesAsync()
     {
         try
         {
             var chiPhiList = await Db.ChiPhiVanHanhs
                 .AsNoTracking()
+                .Include(c => c.NguoiGhiNhanNavigation)
                 .OrderByDescending(c => c.NgayTao)
                 .Take(100)
                 .ToListAsync();
@@ -209,6 +217,7 @@
                     SoTien = item.SoTien,
                     NgayChi = item.NgayChi.ToDateTime(TimeOnly.MinValue),
                     TrangThai = item.TrangThai ?? "Pending",
+                    NguoiGhiNhan = item.NguoiGhiNhan,
                     TenNguoiGhiNhan = item.NguoiGhiNhanNavigation?.HoTen ?? "",
                     Stt = stt++
                 });
@@ -281,6 +290,13 @@
                 return;
             }
 
+            if (Session.CurrentUser.Role is not ("Admin" or "Manager") || chiPhi.NguoiGhiNhan == Session.CurrentUser.Id)
+            {
+                statusMessage = "Vi phạm nguyên tắc kiểm soát nội bộ (SoD): Chỉ Quản lý/Admin mới có quyền phê duyệt và không được tự duyệt phiếu chi do chính mình lập.";
+                isError = true;
+                return;
+            }
+
             chiPhi.TrangThai = "Approved";
             chiPhi.NguoiPheDuyet = Session.CurrentUser.Id;
 
@@ -305,6 +321,13 @@
             if (chiPhi == null)
             {
                 statusMessage = "Không tìm thấy khoản chi phí.";
+                isError = true;
+                return;
+            }
+
+            if (Session.CurrentUser.Role is not ("Admin" or "Manager") || chiPhi.NguoiGhiNhan == Session.CurrentUser.Id)
+            {
+                statusMessage = "Vi phạm nguyên tắc kiểm soát nội bộ (SoD): Chỉ Quản lý/Admin mới có quyền từ chối và không được tự xử lý phiếu chi do chính mình lập.";
                 isError = true;
                 return;
             }
@@ -334,6 +357,7 @@
         public decimal SoTien { get; set; }
         public DateTime NgayChi { get; set; }
         public string TrangThai { get; set; } = string.Empty;
+        public int? NguoiGhiNhan { get; set; }
         public string TenNguoiGhiNhan { get; set; } = string.Empty;
     }
 }

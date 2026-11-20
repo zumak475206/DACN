@@ -1,5 +1,6 @@
 ﻿@inject UserSessionService Session
 @inject NavigationManager Nav
+@inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
 @implements IDisposable
 
 <div class="hotel-sidebar-header">
@@ -168,8 +169,13 @@
         Session.OnChange -= OnSessionChanged;
     }
 
-    private void Logout()
+    private async Task Logout()
     {
+        try
+        {
+            await LocalStorage.DeleteAsync(UserSessionService.StorageKey);
+        }
+        catch { }
         Session.Logout();
         Nav.NavigateTo("/login");
     }

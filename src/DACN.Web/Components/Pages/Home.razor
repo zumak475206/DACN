@@ -3,6 +3,7 @@
 @inject DACNContext Db
 @inject GoiYDuLichService AiService
 @inject UserSessionService Session
+@inject IAuditService AuditService
 @inject NavigationManager Nav
 
 <PageTitle>BookingStay.AI — Đặt Phòng Khách Sạn & AI Gợi Ý Du Lịch Đi Muôn Nơi</PageTitle>
@@ -452,8 +453,8 @@
                         <div class="text-center py-4">
                             <div class="text-success display-3 mb-2"><i class="bi bi-check-circle-fill"></i></div>
                             <h4 class="fw-bold text-success mb-2">Đặt Phòng Thành Công!</h4>
-                            <p class="text-muted mb-3">Mã xác nhận đặt phòng của bạn: <strong class="text-dark fs-5">#DP-@bookingCode</strong></p>
-                            <p class="small text-muted">Thông tin đơn đặt đã được chuyển về Phân hệ Tiền sảnh (TV3) để xếp phòng và chuẩn bị đón tiếp quý khách.</p>
+                            <p class="text-muted mb-3">Mã xác nhận đặt phòng của bạn: <strong class="text-dark fs-5">@bookingCodeText (#DP-@bookingCode)</strong></p>
+                            <p class="small text-muted">Thông tin đơn đặt đã được lưu vào CSDL và chuyển về Phân hệ Tiền sảnh (TV3) để xếp phòng đón tiếp quý khách.</p>
                             <div class="mt-4">
                                 <a href="my-bookings" class="btn btn-primary px-4 py-2 me-2 fw-bold">Xem Đơn Đặt Của Tôi</a>
                                 <button class="btn btn-outline-secondary px-4 py-2" @onclick="() => isBookingModalOpen = false">Đóng</button>
@@ -462,6 +463,12 @@
                     }
                     else
                     {
+                        @if (!string.IsNullOrWhiteSpace(bookingErrorMessage))
+                        {
+                            <div class="alert alert-danger py-2 small mb-3">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i> @bookingErrorMessage
+                            </div>
+                        }
                         <div class="row g-3">
                             <div class="col-12 col-md-6">
                                 <label class="form-label small fw-bold">Họ và tên người nhận phòng *</label>
@@ -514,9 +521,9 @@
                         </div>
 
                         <div class="mt-4 pt-3 border-top text-end">
-                            <button class="btn btn-outline-secondary me-2" @onclick="() => isBookingModalOpen = false">Hủy</button>
-                            <button class="btn btn-primary fw-bold px-4" style="background: #006CE4;" @onclick="SubmitBooking">
-                                <i class="bi bi-check2-circle me-1"></i> Xác Nhận Đặt Phòng Ngay
+                            <button class="btn btn-outline-secondary me-2" disabled="@isSubmittingBooking" @onclick="() => isBookingModalOpen = false">Hủy</button>
+                            <button class="btn btn-primary fw-bold px-4" style="background: #006CE4;" disabled="@isSubmittingBooking" @onclick="SubmitBookingAsync">
+                                <i class="bi bi-check2-circle me-1"></i> @(isSubmittingBooking ? "Đang xử lý..." : "Xác Nhận Đặt Phòng Ngay")
                             </button>
                         </div>
                     }
@@ -546,7 +553,10 @@
 
     private bool isBookingModalOpen = false;
     private bool bookingSuccess = false;
+    private bool isSubmittingBooking = false;
     private int bookingCode = 1008;
+    private string bookingCodeText = "";
+    private string? bookingErrorMessage;
 
     private string guestName = "Nguyễn Văn Khách";
     private string guestPhone = "0905 123 456";
@@ -683,7 +693,9 @@
             _ => true
         });
 
-    private decimal finalTotal => Math.Max(0, (selectedRoom?.GiaMoiDem ?? 0) - discountAmount);
+    private int totalNights => Math.Max(1, (checkoutDate.Date - checkinDate.Date).Days);
+    private decimal roomSubtotal => (selectedRoom?.GiaMoiDem ?? 0) * totalNights;
+    private decimal finalTotal => Math.Max(0, roomSubtotal - discountAmount);
 
     private void SearchRooms() { }
 
@@ -705,6 +717,7 @@
         discountAmount = 0;
         appliedVoucherCode = "";
         bookingSuccess = false;
+        bookingErrorMessage = null;
         if (Session.CurrentUser.IsLoggedIn)
         {
             guestName = Session.CurrentUser.HoTen;
@@ -729,21 +742,21 @@
             var v = await Db.MaGiamGia.AsNoTracking()
                 .FirstOrDefaultAsync(x => x.MaCode.ToUpper() == code && x.DangHoatDong && x.HieuLucDen >= now && x.SoLanDaDung < x.GioiHanSuDung);
 
-            if (v != null && (!v.GiaTriDatPhongToiThieu.HasValue || selectedRoom.GiaMoiDem >= v.GiaTriDatPhongToiThieu.Value))
+            if (v != null && (!v.GiaTriDatPhongToiThieu.HasValue || roomSubtotal >= v.GiaTriDatPhongToiThieu.Value))
             {
                 var raw = StatusMapper.IsPercentDiscount(v.LoaiGiamGia)
-                    ? selectedRoom.GiaMoiDem * v.GiaTriGiamGia / 100m
+                    ? roomSubtotal * v.GiaTriGiamGia / 100m
                     : v.GiaTriGiamGia;
                 if (StatusMapper.IsPercentDiscount(v.LoaiGiamGia) && v.GiamToiDa.HasValue && raw > v.GiamToiDa.Value)
                     raw = v.GiamToiDa.Value;
-                discountAmount = Math.Min(raw, selectedRoom.GiaMoiDem);
+                discountAmount = Math.Min(raw, roomSubtotal);
                 return;
             }
         }
         catch { }
 
         if (code.Equals("WELCOME2026", StringComparison.OrdinalIgnoreCase))
-            discountAmount = selectedRoom.GiaMoiDem * 0.15m;
+            discountAmount = roomSubtotal * 0.15m;
         else if (code.Equals("SUMMERLUXURY", StringComparison.OrdinalIgnoreCase))
             discountAmount = 300000;
         else
@@ -755,9 +768,153 @@
         appliedVoucherCode = code;
     }
 
-    private void SubmitBooking()
+    private async Task SubmitBookingAsync()
     {
-        bookingCode = System.Security.Cryptography.RandomNumberGenerator.GetInt32(1005, 9999);
-        bookingSuccess = true;
+        bookingErrorMessage = null;
+        if (selectedRoom == null)
+        {
+            bookingErrorMessage = "Vui lòng chọn hạng phòng.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(guestName) || string.IsNullOrWhiteSpace(guestPhone))
+        {
+            bookingErrorMessage = "Vui lòng nhập đầy đủ Họ tên và Số điện thoại người nhận phòng.";
+            return;
+        }
+        if (checkinDate.Date < DateTime.Today || checkoutDate.Date <= checkinDate.Date)
+        {
+            bookingErrorMessage = "Ngày trả phòng phải sau ngày nhận phòng và không ở trong quá khứ.";
+            return;
+        }
+
+        isSubmittingBooking = true;
+        try
+        {
+            await using var transaction = await Db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+
+            var loaiPhong = await Db.LoaiPhongs.FirstOrDefaultAsync(l => l.MaId == selectedRoom.Id)
+                ?? await Db.LoaiPhongs.FirstOrDefaultAsync(l => l.DangHoatDong);
+
+            Phong? assignedRoom = null;
+            if (loaiPhong != null)
+            {
+                var candidateRooms = await Db.Phongs
+                    .Where(p => p.MaLoaiPhong == loaiPhong.MaId && (p.TrangThai == "Available" || p.TrangThai == "trong"))
+                    .OrderBy(p => p.SoPhong)
+                    .ToListAsync();
+
+                foreach (var candidate in candidateRooms)
+                {
+                    var hasConflict = await Db.ChiTietDatPhongs.AnyAsync(ct =>
+                        ct.MaPhong == candidate.MaId
+                        && ct.TrangThai != "Cancelled" && ct.TrangThai != "cancelled"
+                        && ct.TrangThai != "CheckedOut" && ct.TrangThai != "checked_out"
+                        && ct.NgayNhanPhongDuKien < checkoutDate.Date
+                        && ct.NgayTraPhongDuKien > checkinDate.Date);
+
+                    if (!hasConflict)
+                    {
+                        assignedRoom = candidate;
+                        break;
+                    }
+                }
+            }
+
+            int? voucherId = null;
+            if (!string.IsNullOrWhiteSpace(appliedVoucherCode) && discountAmount > 0)
+            {
+                var code = appliedVoucherCode.Trim().ToUpperInvariant();
+                var v = await Db.MaGiamGia.FirstOrDefaultAsync(x =>
+                    x.MaCode.ToUpper() == code && x.DangHoatDong && x.HieuLucDen >= GioVN.Now && x.SoLanDaDung < x.GioiHanSuDung);
+                if (v != null)
+                {
+                    v.SoLanDaDung += 1;
+                    voucherId = v.MaId;
+                }
+            }
+
+            var now = DateTime.UtcNow;
+            var userId = Session.CurrentUser.IsLoggedIn && Session.CurrentUser.Id > 0
+                ? (int?)Session.CurrentUser.Id
+                : null;
+
+            var booking = new DatPhong
+            {
+                MaDatPhong = $"DP-WEB-{now:yyMMddHHmmss}",
+                MaNguoiDung = userId,
+                NguoiTao = userId,
+                TenKhach = guestName.Trim(),
+                Sdtkhach = guestPhone.Trim(),
+                EmailKhach = string.IsNullOrWhiteSpace(guestEmail) ? null : guestEmail.Trim(),
+                MaGiamGia = voucherId,
+                KenhDatPhong = "web",
+                TrangThai = "Pending",
+                TongTien = finalTotal,
+                TienDatCoc = 0,
+                GhiChu = $"Đặt phòng trực tuyến ({selectedRoom.TenLoai}, {totalNights} đêm)",
+                NgayTao = now,
+                NgayCapNhat = now
+            };
+
+            Db.DatPhongs.Add(booking);
+            await Db.SaveChangesAsync();
+
+            if (loaiPhong != null)
+            {
+                Db.ChiTietDatPhongs.Add(new ChiTietDatPhong
+                {
+                    MaDatPhong = booking.MaId,
+                    MaPhong = assignedRoom?.MaId,
+                    MaLoaiPhong = loaiPhong.MaId,
+                    NgayNhanPhongDuKien = checkinDate.Date,
+                    NgayTraPhongDuKien = checkoutDate.Date,
+                    GiaMoiDem = selectedRoom.GiaMoiDem,
+                    TrangThai = "Pending"
+                });
+            }
+
+            Db.HoaDons.Add(new HoaDon
+            {
+                MaDatPhong = booking.MaId,
+                TongTienPhong = roomSubtotal,
+                TongTienDichVu = 0,
+                TienGiamGia = discountAmount,
+                TienThue = 0,
+                TienPhuThu = 0,
+                TongThanhToan = finalTotal,
+                TrangThai = "Pending",
+                NgayTao = now
+            });
+
+            if (assignedRoom != null && checkinDate.Date == DateTime.Today)
+            {
+                assignedRoom.TrangThai = "Reserved";
+            }
+
+            await Db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            await AuditService.GhiNhanAsync(
+                "DAT_PHONG_WEB",
+                "DatPhong",
+                booking.MaId.ToString(),
+                $"Đặt phòng trực tuyến {booking.MaDatPhong} — Khách: {booking.TenKhach}, Tổng: {finalTotal:N0} đ",
+                userId,
+                booking.EmailKhach,
+                "127.0.0.1",
+                true);
+
+            bookingCode = booking.MaId;
+            bookingCodeText = booking.MaDatPhong;
+            bookingSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            bookingErrorMessage = $"Không thể lưu đơn đặt phòng: {ex.Message}";
+        }
+        finally
+        {
+            isSubmittingBooking = false;
+        }
     }
 }

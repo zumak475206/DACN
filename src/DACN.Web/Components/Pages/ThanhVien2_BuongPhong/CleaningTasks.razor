@@ -1,5 +1,6 @@
 @page "/housekeeping/tasks"
 @inject DACNContext Db
+@inject UserSessionService Session
 
 <PageTitle>Nhật Ký Dọn Phòng — PMS</PageTitle>
 
@@ -237,6 +238,10 @@
                     throw new InvalidOperationException("Chỉ có thể bắt đầu nhiệm vụ đang chờ xử lý.");
                 if (IsRoomOccupied(room.TrangThai) || IsRoomMaintenance(room.TrangThai) || !IsRoomDirty(room.TrangThaiVeSinh))
                     throw new InvalidOperationException("Phòng không còn ở trạng thái phù hợp để bắt đầu dọn.");
+                if (Session.CurrentUser.IsLoggedIn && Session.CurrentUser.Id > 0)
+                {
+                    task.MaNhanVien ??= Session.CurrentUser.Id;
+                }
                 task.TrangThai = "in_progress";
                 task.ThoiGianBatDau ??= DateTime.UtcNow;
                 room.TrangThaiVeSinh = "Inspecting";
@@ -249,6 +254,10 @@
                     throw new InvalidOperationException("Không thể hoàn tất vệ sinh khi phòng đang có khách hoặc bảo trì.");
                 if (!IsRoomDirty(room.TrangThaiVeSinh))
                     throw new InvalidOperationException("Phòng không còn ở trạng thái chờ vệ sinh.");
+                if (Session.CurrentUser.IsLoggedIn && Session.CurrentUser.Id > 0)
+                {
+                    task.MaNhanVien ??= Session.CurrentUser.Id;
+                }
                 task.TrangThai = "done";
                 task.ThoiGianHoanTat = DateTime.UtcNow;
                 room.TrangThaiVeSinh = "Clean";

@@ -2,6 +2,7 @@
 @inject DACNContext Db
 @inject UserSessionService Session
 @inject IAuditService AuditService
+@inject NavigationManager Nav
 
 <PageTitle>Quản Trị Kho Voucher — TV1</PageTitle>
 
@@ -156,6 +157,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (!Session.HasPermission(Quyen.ManageVouchers))
+        {
+            Nav.NavigateTo("/admin/dashboard");
+            return;
+        }
         await LoadVouchersAsync();
     }
 
@@ -225,6 +231,7 @@
 
     private async Task ToggleVoucherAsync(MaGiamGium item)
     {
+        if (!Session.HasPermission(Quyen.ManageVouchers)) return;
         var entity = await Db.MaGiamGia.FindAsync(item.MaId);
         if (entity == null) return;
         entity.DangHoatDong = !entity.DangHoatDong;

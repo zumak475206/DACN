@@ -393,9 +393,11 @@ public class AuthController(DACNContext db, IConfiguration config, IAuditService
 
     private string TaoJwtToken(NguoiDung user, out DateTime expiresAt)
     {
+        var configuredJwtKey = config["Jwt:Key"];
         var jwtKey = Environment.GetEnvironmentVariable("DACN_JWT_SECRET")
+            ?? Environment.GetEnvironmentVariable("ASPNETCORE_JWT__KEY")
             ?? Environment.GetEnvironmentVariable("Jwt__Key")
-            ?? config["Jwt:Key"]
+            ?? (string.IsNullOrWhiteSpace(configuredJwtKey) ? null : configuredJwtKey)
             ?? "DACN_Hotel_Management_Super_Secret_Key_2026_@_DeepMind_Security";
 
         var jwtIssuer = config["Jwt:Issuer"] ?? "DACN_HotelManagement";

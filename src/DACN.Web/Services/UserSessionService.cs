@@ -31,9 +31,23 @@ public class CurrentUserInfo
     public bool IsLoggedIn { get; set; } = false;
 }
 
+public class StoredUserSession
+{
+    public int Id { get; set; }
+    public string HoTen { get; set; } = "";
+    public string Email { get; set; } = "";
+    public string Role { get; set; } = "Customer";
+    public List<string> Permissions { get; set; } = new();
+    public bool IsLoggedIn { get; set; }
+}
+
 public class UserSessionService
 {
+    public const string StorageKey = "dacn_user_session_v1";
+
     public CurrentUserInfo CurrentUser { get; private set; }
+
+    public bool IsRestored { get; private set; }
 
     public event Action? OnChange;
 
@@ -68,12 +82,44 @@ public class UserSessionService
             Permissions = defaultPerms,
             IsLoggedIn = true
         };
+        IsRestored = true;
         NotifyStateChanged();
+    }
+
+    public StoredUserSession ToStoredSession() => new()
+    {
+        Id = CurrentUser.Id,
+        HoTen = CurrentUser.HoTen,
+        Email = CurrentUser.Email,
+        Role = CurrentUser.Role,
+        Permissions = CurrentUser.Permissions.ToList(),
+        IsLoggedIn = CurrentUser.IsLoggedIn
+    };
+
+    public void RestoreFromStored(StoredUserSession? stored)
+    {
+        if (stored is { IsLoggedIn: true } && !string.IsNullOrWhiteSpace(stored.Email))
+        {
+            SetUser(stored.HoTen, stored.Email, stored.Role, stored.Id, stored.Permissions);
+            return;
+        }
+        IsRestored = true;
+        NotifyStateChanged();
+    }
+
+    public void MarkRestored()
+    {
+        if (!IsRestored)
+        {
+            IsRestored = true;
+            NotifyStateChanged();
+        }
     }
 
     public void SwitchRole(string role)
     {
         CurrentUser = CreateRoleUser(role);
+        IsRestored = true;
         NotifyStateChanged();
     }
 
@@ -88,6 +134,7 @@ public class UserSessionService
             Permissions = new HashSet<string>(new[] { Quyen.UseAIChatbot }, StringComparer.OrdinalIgnoreCase),
             IsLoggedIn = false
         };
+        IsRestored = true;
         NotifyStateChanged();
     }
 

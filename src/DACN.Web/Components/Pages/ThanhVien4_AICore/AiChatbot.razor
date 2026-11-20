@@ -183,13 +183,17 @@
             await SendMessageAsync();
     }
 
+    private DateTime lastSentAt = DateTime.MinValue;
+
     private async Task SendMessageAsync()
     {
         if (string.IsNullOrWhiteSpace(userQuestion) || isSending) return;
+        if ((DateTime.UtcNow - lastSentAt).TotalSeconds < 2) return;
 
         var q = userQuestion.Trim();
         userQuestion = "";
         isSending = true;
+        lastSentAt = DateTime.UtcNow;
 
         chatHistory.Add(new ChatBubble(true, q, DateTime.Now, "User", null, new()));
 

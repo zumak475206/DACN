@@ -1,5 +1,7 @@
 @page "/frontdesk/checkin-out"
 @inject DACNContext Db
+@inject UserSessionService Session
+@inject IAuditService AuditService
 
 <PageTitle>Check-in / Check-out — TV2</PageTitle>
 
@@ -244,6 +246,15 @@
             booking.NgayCapNhat = DateTime.UtcNow;
             await Db.SaveChangesAsync();
             await transaction.CommitAsync();
+            await AuditService.GhiNhanAsync(
+                "CHECK_IN_NHAN_PHONG",
+                "DatPhong",
+                booking.MaId.ToString(),
+                $"Check-in nhận phòng đơn {booking.MaDatPhong} — Khách: {booking.TenKhach ?? "Khách lưu trú"}",
+                Session.CurrentUser.Id,
+                Session.CurrentUser.Email,
+                "127.0.0.1",
+                true);
             successMessage = $"Đã check-in thành công cho đơn {booking.MaDatPhong}.";
             }
             await LoadDataAsync();
@@ -321,6 +332,15 @@
             booking.NgayCapNhat = DateTime.UtcNow;
             await Db.SaveChangesAsync();
             await transaction.CommitAsync();
+            await AuditService.GhiNhanAsync(
+                "CHECK_OUT_QUYET_TOAN",
+                "DatPhong",
+                booking.MaId.ToString(),
+                $"Check-out quyết toán đơn {booking.MaDatPhong}, thu {balance:N0} đ qua {PaymentMethodLabel(paymentMethod)}",
+                Session.CurrentUser.Id,
+                Session.CurrentUser.Email,
+                "127.0.0.1",
+                true);
             successMessage = balance > 0
                 ? $"Đã thu {balance:N0} đ qua {PaymentMethodLabel(paymentMethod)} và hoàn tất check-out {booking.MaDatPhong}. Phòng đã chuyển sang chờ dọn."
                 : $"Hóa đơn đã thanh toán đủ; hoàn tất check-out {booking.MaDatPhong}. Phòng đã chuyển sang chờ dọn.";

@@ -14,17 +14,17 @@ Một bộ linter hay test runner chỉ kiểm tra tính nhất quán nội tạ
 ### Bảng Tổng Hợp Các Điểm Lệch (Gap Matrix)
 | STT | Vấn Đề (Gap Title) | Ranh Giới Bị Ảnh Hưởng | Mức Độ | Trạng Thái Thực Tế |
 | :---: | :--- | :--- | :---: | :--- |
-| **GAP-01** | Thiếu chốt chặn URL cấp trang (Page-Level Guard) trên giao diện Blazor | Quyền riêng tư & Dữ liệu nội bộ | **Cao** | Staff bậc thấp xem được danh sách tài khoản nếu gõ thẳng URL |
-| **GAP-02** | Xung đột nguyên tắc kiểm soát nội bộ (SoD) trong phê duyệt chi phí | Tài chính & Dòng tiền | **Cao** | Kế toán có thể tự lập và tự duyệt chi phí của chính mình |
-| **GAP-03** | Thiếu ghi nhận Audit Log trong quy trình Check-in / Check-out | Kiểm toán & Trách nhiệm giải trình | **Trung bình** | Check-out thu tiền mặt không ghi vào `NhatKyHeThong` |
-| **GAP-04** | Đăng ký `AddSingleton` cho UserSessionService gây ô nhiễm phiên đăng nhập chéo giữa người dùng | Bảo mật phiên & Đa người dùng | **Nghiêm trọng (Critical)** | Mọi trình duyệt/người dùng dùng chung 1 phiên đăng nhập; F5 bị reset |
-| **GAP-05** | Phân chia thư mục Tiền sảnh giữa TV2 và TV3 | Cấu trúc phân công nhóm | **Thấp** | Trang `/frontdesk/bookings` nằm ở TV2 thay vì TV3 |
-| **GAP-06** | Giới hạn hạn mức API Chatbot trên giao diện người dùng | Chi phí & Quota Gemini AI | **Thấp** | Widget chat chưa debounce client-side chống spam click |
-| **GAP-07** | Sai lệch kiểm tra chuỗi trạng thái phòng trên Admin Dashboard khiến chỉ số ca trực luôn bằng 0 | Hiển thị nghiệp vụ & Giám sát | **Cao** | `AdminDashboard.razor` so sánh `"dang_o"` thay vì `"Occupied"`, sai cột vệ sinh |
-| **GAP-08** | Danh mục hạng phòng công khai (`/rooms`) bị hardcode tĩnh thay vì truy vấn bảng `LoaiPhong` | Tính nhất quán dữ liệu công khai | **Trung bình** | Trang giới thiệu phòng dùng List mẫu trong RAM, không phản ánh CSDL |
-| **GAP-09** | Phân hệ lịch sử đặt phòng khách hàng (`/my-bookings`) chạy Mock data, hủy phòng không lưu SQL | Trải nghiệm khách & Toàn vẹn đơn | **Cao** | Khách đăng nhập nhưng chỉ thấy 2 đơn mẫu tĩnh; bấm hủy không ghi CSDL |
-| **GAP-10** | Form đặt phòng tại Trang chủ (`Home.razor`) chỉ giả lập sinh mã ngẫu nhiên mà chưa tạo đơn thực tế | Dòng doanh thu & Đặt phòng Web | **Nghiêm trọng (Critical)** | Khách đặt phòng ngoài Home chỉ nhận popup mã ảo; CSDL không nhận đơn |
-| **GAP-11** | Nhật ký dọn phòng (`CleaningTasks.razor`) không ghi nhận nhân viên thực hiện do thiếu `UserSessionService` | Trách nhiệm ca trực buồng phòng | **Trung bình** | Nhiệm vụ dọn buồng tạo mới & cập nhật đều để `MaNhanVien = null` |
+| **GAP-01** | Thiếu chốt chặn URL cấp trang (Page-Level Guard) trên giao diện Blazor | Quyền riêng tư & Dữ liệu nội bộ | **Cao** | ✅ **Đã khắc phục** (`OnInitializedAsync` guard trong 5 trang TV1) |
+| **GAP-02** | Xung đột nguyên tắc kiểm soát nội bộ (SoD) trong phê duyệt chi phí | Tài chính & Dòng tiền | **Cao** | ✅ **Đã khắc phục** (Four-Eyes SoD trong `ExpenseManagement.razor`) |
+| **GAP-03** | Thiếu ghi nhận Audit Log trong quy trình Check-in / Check-out | Kiểm toán & Trách nhiệm giải trình | **Trung bình** | ✅ **Đã khắc phục** (Inject `IAuditService` vào `CheckInOut.razor`) |
+| **GAP-04** | Đăng ký `AddSingleton` cho UserSessionService gây ô nhiễm phiên đăng nhập chéo giữa người dùng | Bảo mật phiên & Đa người dùng | **Nghiêm trọng (Critical)** | ✅ **Đã khắc phục** (`AddScoped` + `ProtectedLocalStorage` F5 Rehydration) |
+| **GAP-05** | Phân chia thư mục Tiền sảnh giữa TV2 và TV3 | Cấu trúc phân công nhóm | **Thấp** | ℹ️ Giữ nguyên cấu trúc URL `@page` ổn định giữa TV2 và TV3 |
+| **GAP-06** | Giới hạn hạn mức API Chatbot trên giao diện người dùng | Chi phí & Quota Gemini AI | **Thấp** | ✅ **Đã khắc phục** (Cooldown 2s & trần 5 câu hỏi cho khách vãng lai) |
+| **GAP-07** | Sai lệch kiểm tra chuỗi trạng thái phòng trên Admin Dashboard khiến chỉ số ca trực luôn bằng 0 | Hiển thị nghiệp vụ & Giám sát | **Cao** | ✅ **Đã khắc phục** (Dùng `StatusMapper.IsRoomOccupied` & `TrangThaiVeSinh`) |
+| **GAP-08** | Danh mục hạng phòng công khai (`/rooms`) bị hardcode tĩnh thay vì truy vấn bảng `LoaiPhong` | Tính nhất quán dữ liệu công khai | **Trung bình** | ✅ **Đã khắc phục** (Truy vấn động `Db.LoaiPhongs` kèm ảnh & tiện nghi) |
+| **GAP-09** | Phân hệ lịch sử đặt phòng khách hàng (`/my-bookings`) chạy Mock data, hủy phòng không lưu SQL | Trải nghiệm khách & Toàn vẹn đơn | **Cao** | ✅ **Đã khắc phục** (Truy vấn & hủy đơn trực tiếp trên `Db.DatPhongs`) |
+| **GAP-10** | Form đặt phòng tại Trang chủ (`Home.razor`) chỉ giả lập sinh mã ngẫu nhiên mà chưa tạo đơn thực tế | Dòng doanh thu & Đặt phòng Web | **Nghiêm trọng (Critical)** | ✅ **Đã khắc phục** (`SubmitBookingAsync` lưu `DatPhong`, `ChiTietDatPhong`, `HoaDon`) |
+| **GAP-11** | Nhật ký dọn phòng (`CleaningTasks.razor`) không ghi nhận nhân viên thực hiện do thiếu `UserSessionService` | Trách nhiệm ca trực buồng phòng | **Trung bình** | ✅ **Đã khắc phục** (Inject `UserSessionService` & gán `task.MaNhanVien`) |
 
 ---
 
