@@ -45,6 +45,20 @@
             <i class="bi bi-receipt-cutoff"></i>
             <span>Dịch Vụ & Hóa Đơn</span>
         </NavLink>
+        @if (Session.HasPermission(Quyen.ManageVouchers))
+        {
+            <NavLink class="hotel-nav-link" href="admin/vouchers">
+                <i class="bi bi-ticket-perforated-fill"></i>
+                <span>Kho Voucher & Ưu Đãi</span>
+            </NavLink>
+        }
+        @if (Session.HasPermission(Quyen.ManageExpenses))
+        {
+            <NavLink class="hotel-nav-link" href="frontdesk/expenses">
+                <i class="bi bi-cash-stack"></i>
+                <span>Chi Phí Vận Hành</span>
+            </NavLink>
+        }
     }
 
     <!-- THÀNH VIÊN 2: BUỒNG PHÒNG & VẬN HÀNH (HOUSEKEEPING) -->

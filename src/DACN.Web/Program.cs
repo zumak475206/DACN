@@ -25,8 +25,12 @@ if (string.IsNullOrWhiteSpace(connectionString))
     throw new InvalidOperationException("Không tìm thấy chuỗi kết nối cơ sở dữ liệu. Vui lòng cấu hình ConnectionStrings:DefaultConnection hoặc biến môi trường DACN_CONNECTION_STRING.");
 }
 
-builder.Services.AddDbContext<DACNContext>(options =>
+builder.Services.AddDbContextFactory<DACNContext>(options =>
     options.UseSqlServer(connectionString));
+
+// Register DACNContext as scoped for Blazor Interactive Server pages that inject it directly
+// Using the same factory ensures consistency
+builder.Services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<DACNContext>>().CreateDbContext());
 
 // Đăng ký dịch vụ Audit Log kiểm toán hệ thống & AI Travel Advisor
 builder.Services.AddHttpClient();

@@ -1,4 +1,4 @@
-﻿@page "/frontdesk/services-billing"
+@page "/frontdesk/services-billing"
 @inject DACNContext Db
 
 <PageTitle>Dịch Vụ & Hóa Đơn — TV3</PageTitle>
@@ -45,6 +45,12 @@
                 <input type="text" class="hotel-input" placeholder="Tìm theo mã đơn, mã hóa đơn..." @bind="searchInvoice" @bind:event="oninput" style="width: 220px;" />
             </div>
             <div class="hotel-card-body p-0">
+                @if (!string.IsNullOrWhiteSpace(paymentMessage))
+                {
+                    <div class="alert alert-info m-3" role="alert">
+                    @paymentMessage
+                    </div>
+                }
                 <div class="table-responsive">
                     <table class="hotel-table">
                         <thead>
@@ -72,7 +78,7 @@
                                         <button class="hotel-btn hotel-btn-outline py-1 px-2 text-primary" title="In biên lai">
                                             <i class="bi bi-printer"></i>
                                         </button>
-                                        @if (inv.TrangThai != "da_thanh_toan")
+                                        @if (!IsInvoicePaid(inv.TrangThai))
                                         {
                                             <button class="hotel-btn hotel-btn-accent py-1 px-2 ms-1" title="Thu tiền" @onclick="() => ThuTien(inv.MaId)">
                                                 <i class="bi bi-check-circle"></i> Thu Tiền
@@ -130,11 +136,18 @@
     </div>
 </div>
 
+
 @code {
     private string searchInvoice = "";
+    private string paymentMessage = "";
     private List<HoaDon> invoices = new();
 
-    private int invoicesPendingCount => invoices.Count(i => i.TrangThai != "da_thanh_toan");
+    private int invoicesPendingCount =>
+        invoices.Count(i => !IsInvoicePaid(i.TrangThai));
+
+    private static bool IsInvoicePaid(string? status) =>
+        string.Equals(status, "Paid", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(status, "da_thanh_toan", StringComparison.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
@@ -143,38 +156,84 @@
 
     private async Task LoadDataAsync()
     {
-        try
-        {
-            invoices = await Db.HoaDons
-                .AsNoTracking()
-                .OrderByDescending(h => h.NgayTao)
-                .Take(20)
-                .ToListAsync();
-        }
-        catch { }
-
-        if (!invoices.Any())
-        {
-            invoices = new List<HoaDon>
-            {
-                new HoaDon { MaId = 1, MaDatPhong = 1, TongTienPhong = 2000000, TongTienDichVu = 450000, TongThanhToan = 2450000, TrangThai = "da_thanh_toan", NgayTao = DateTime.Now.AddDays(-1) },
-                new HoaDon { MaId = 2, MaDatPhong = 2, TongTienPhong = 1500000, TongTienDichVu = 120000, TongThanhToan = 1620000, TrangThai = "cho_thanh_toan", NgayTao = DateTime.Now.AddHours(-3) },
-                new HoaDon { MaId = 3, MaDatPhong = 3, TongTienPhong = 3000000, TongTienDichVu = 600000, TongThanhToan = 3600000, TrangThai = "cho_thanh_toan", NgayTao = DateTime.Now.AddHours(-1) }
-            };
-        }
+        invoices = await Db.HoaDons
+            .AsNoTracking()
+            .OrderByDescending(h => h.NgayTao)
+            .Take(100)
+            .ToListAsync();
     }
 
-    private IEnumerable<HoaDon> FilteredInvoices => invoices
-        .Where(i => string.IsNullOrWhiteSpace(searchInvoice) || i.MaId.ToString().Contains(searchInvoice) || i.MaDatPhong.ToString().Contains(searchInvoice));
+    private IEnumerable<HoaDon> FilteredInvoices =>
+        invoices.Where(i =>
+            string.IsNullOrWhiteSpace(searchInvoice)
+            || i.MaId.ToString().Contains(searchInvoice)
+            || i.MaDatPhong.ToString().Contains(searchInvoice));
 
     private async Task ThuTien(int invoiceId)
     {
-        var inv = await Db.HoaDons.FindAsync(invoiceId);
-        if (inv != null)
+        paymentMessage = "";
+
+        await using var transaction = await Db.Database.BeginTransactionAsync();
+
+        try
         {
-            inv.TrangThai = "da_thanh_toan";
+            var invoice = await Db.HoaDons
+                .FirstOrDefaultAsync(h => h.MaId == invoiceId);
+
+            if (invoice == null)
+            {
+                paymentMessage = "Không tìm thấy hóa đơn.";
+                return;
+            }
+
+            if (IsInvoicePaid(invoice.TrangThai))
+            {
+                paymentMessage = "Hóa đơn này đã được thanh toán.";
+                return;
+            }
+
+            var totalPaid = await Db.ThanhToans
+                .Where(t => t.MaHoaDon == invoiceId && t.TrangThai == "Success")
+                .SumAsync(t => (decimal?)t.SoTienDaThanhToan) ?? 0m;
+
+            var remaining = invoice.TongThanhToan - totalPaid;
+
+            if (remaining <= 0)
+            {
+                invoice.TrangThai = "Paid";
+                await Db.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                paymentMessage = "Hóa đơn đã được tất toán.";
+                await LoadDataAsync();
+                return;
+            }
+
+            var payment = new ThanhToan
+            {
+                MaHoaDon = invoiceId,
+                PhuongThucThanhToan = "Cash",
+                SoTienDaThanhToan = remaining,
+                TrangThai = "Success",
+                NgayThanhToan = DateTime.Now
+            };
+
+            Db.ThanhToans.Add(payment);
+
+            invoice.TrangThai = "Paid";
+
             await Db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            paymentMessage =
+                $"Thu tiền thành công hóa đơn #{invoiceId}. Số tiền: {remaining:N0} đ.";
+
             await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            paymentMessage = $"Không thể thanh toán: {ex.Message}";
         }
     }
 }

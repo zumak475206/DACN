@@ -74,14 +74,20 @@
 </div>
 
 @code {
+    private Action? _onChangeHandler;
+
     protected override void OnInitialized()
     {
-        Session.OnChange += StateHasChanged;
+        _onChangeHandler = () => InvokeAsync(StateHasChanged).ConfigureAwait(false);
+        Session.OnChange += _onChangeHandler;
     }
 
     public void Dispose()
     {
-        Session.OnChange -= StateHasChanged;
+        if (_onChangeHandler != null)
+        {
+            Session.OnChange -= _onChangeHandler;
+        }
     }
 
     private void Logout()

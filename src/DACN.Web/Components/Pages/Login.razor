@@ -1,11 +1,11 @@
 ﻿@page "/login"
 @page "/register"
 @layout CustomerLayout
-@inject DACNContext Db
 @inject UserSessionService Session
 @inject IAuditService AuditService
 @inject NavigationManager Nav
 @inject IWebHostEnvironment Env
+@inject IDbContextFactory<DACNContext> DbFactory
 
 <PageTitle>@(isRegisterMode ? "Đăng Ký Tài Khoản" : "Đăng Nhập") — BookingStay.AI</PageTitle>
 
@@ -66,7 +66,7 @@
                             </div>
                         </div>
 
-                        <button class="hotel-btn hotel-btn-primary w-100 py-2 fs-6 mb-3" @onclick="HandleLoginAsync">
+                        <button type="button" class="hotel-btn hotel-btn-primary w-100 py-2 fs-6 mb-3" @onclick="HandleLoginAsync">
                             <i class="bi bi-box-arrow-in-right me-1"></i> Đăng Nhập
                         </button>
 
@@ -118,7 +118,7 @@
                             </div>
                         </div>
 
-                        <button class="hotel-btn hotel-btn-primary w-100 py-2 fs-6 mb-3" @onclick="HandleRegisterAsync">
+                        <button type="button" class="hotel-btn hotel-btn-primary w-100 py-2 fs-6 mb-3" @onclick="HandleRegisterAsync">
                             <i class="bi bi-person-plus-fill me-1"></i> Đăng Ký Tài Khoản
                         </button>
 
@@ -170,8 +170,10 @@
 
         try
         {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
             var email = emailInput.Trim().ToLowerInvariant();
-            var user = await Db.NguoiDungs
+            var user = await db.NguoiDungs
                 .AsNoTracking()
                 .Include(u => u.MaVaiTroNavigation)
                     .ThenInclude(v => v!.MaQuyenHans)
@@ -217,12 +219,18 @@
             var roleName = user.MaVaiTroNavigation?.Ten ?? "Customer";
             var perms = user.MaVaiTroNavigation?.MaQuyenHans.Select(q => q.Ten).ToList() ?? new List<string>();
 
-            Session.SetUser(user.HoTen, user.Email, roleName, user.MaId, perms);
+            await InvokeAsync(() =>
+            {
+                Session.SetUser(user.HoTen, user.Email, roleName, user.MaId, perms);
+            });
             await AuditService.GhiNhanAsync("DANG_NHAP_WEB", "Auth", user.MaId.ToString(), $"Đăng nhập Web Portal ({roleName})", user.MaId, user.Email, "127.0.0.1", true);
 
-            isSuccess = true;
-            loginMessage = $"Đăng nhập thành công: {user.HoTen}";
-            NavigateByRole(Session.CurrentUser.Role);
+            await InvokeAsync(() =>
+            {
+                isSuccess = true;
+                loginMessage = $"Đăng nhập thành công: {user.HoTen}";
+                NavigateByRole(Session.CurrentUser.Role);
+            });
         }
         catch (Exception ex)
         {
@@ -231,9 +239,12 @@
         }
     }
 
+
     private async Task HandleRegisterAsync()
     {
-        if (string.IsNullOrWhiteSpace(regHoTen) || string.IsNullOrWhiteSpace(regEmail) || string.IsNullOrWhiteSpace(regMatKhau))
+        if (string.IsNullOrWhiteSpace(regHoTen) ||
+            string.IsNullOrWhiteSpace(regEmail) ||
+            string.IsNullOrWhiteSpace(regMatKhau))
         {
             loginMessage = "Vui lòng nhập đầy đủ Họ tên, Email và Mật khẩu.";
             isSuccess = false;
@@ -256,8 +267,13 @@
 
         try
         {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
             var email = regEmail.Trim().ToLowerInvariant();
-            var exists = await Db.NguoiDungs.AnyAsync(u => u.Email.ToLower() == email);
+
+            var exists = await db.NguoiDungs
+                .AnyAsync(u => u.Email.ToLower() == email);
+
             if (exists)
             {
                 loginMessage = "Địa chỉ Email này đã được đăng ký. Vui lòng chọn email khác hoặc đăng nhập.";
@@ -265,12 +281,12 @@
                 return;
             }
 
-            var customerRole = await Db.VaiTros
+            var customerRole = await db.VaiTros
                 .AsNoTracking()
                 .Include(v => v.MaQuyenHans)
                 .FirstOrDefaultAsync(v => v.Ten == "Customer");
 
-            var defaultTier = await Db.HangThanhViens
+            var defaultTier = await db.HangThanhViens
                 .AsNoTracking()
                 .OrderBy(h => h.DiemToiThieu)
                 .FirstOrDefaultAsync();
@@ -279,7 +295,9 @@
             {
                 HoTen = regHoTen.Trim(),
                 Email = email,
-                SoDienThoai = string.IsNullOrWhiteSpace(regSoDienThoai) ? null : regSoDienThoai.Trim(),
+                SoDienThoai = string.IsNullOrWhiteSpace(regSoDienThoai)
+                    ? null
+                    : regSoDienThoai.Trim(),
                 MaBamMatKhau = BCrypt.Net.BCrypt.HashPassword(regMatKhau),
                 LoaiNguoiDung = "customer",
                 MaVaiTro = customerRole?.MaId ?? 6,
@@ -289,16 +307,39 @@
                 NgayTao = DateTime.UtcNow
             };
 
-            Db.NguoiDungs.Add(newUser);
-            await Db.SaveChangesAsync();
+            db.NguoiDungs.Add(newUser);
+            await db.SaveChangesAsync();
 
-            var perms = customerRole?.MaQuyenHans.Select(q => q.Ten).ToList() ?? new List<string> { Quyen.UseAIChatbot };
-            Session.SetUser(newUser.HoTen, newUser.Email, "Customer", newUser.MaId, perms);
-            await AuditService.GhiNhanAsync("DANG_KY_WEB", "Auth", newUser.MaId.ToString(), $"Đăng ký tài khoản khách hàng ({newUser.Email})", newUser.MaId, newUser.Email, "127.0.0.1", true);
+            var perms = customerRole?.MaQuyenHans
+                .Select(q => q.Ten)
+                .ToList() ?? new List<string> { Quyen.UseAIChatbot };
 
-            isSuccess = true;
-            loginMessage = "Đăng ký tài khoản thành công! Đang chuyển hướng...";
-            Nav.NavigateTo("/");
+            await InvokeAsync(() =>
+            {
+                Session.SetUser(
+                    newUser.HoTen,
+                    newUser.Email,
+                    "Customer",
+                    newUser.MaId,
+                    perms);
+            });
+
+            await AuditService.GhiNhanAsync(
+                "DANG_KY_WEB",
+                "Auth",
+                newUser.MaId.ToString(),
+                $"Đăng ký tài khoản khách hàng ({newUser.Email})",
+                newUser.MaId,
+                newUser.Email,
+                "127.0.0.1",
+                true);
+
+            await InvokeAsync(() =>
+            {
+                isSuccess = true;
+                loginMessage = "Đăng ký tài khoản thành công! Đang chuyển hướng...";
+                Nav.NavigateTo("/");
+            });
         }
         catch (Exception ex)
         {
@@ -306,6 +347,7 @@
             isSuccess = false;
         }
     }
+
 
     private void NavigateByRole(string role)
     {
