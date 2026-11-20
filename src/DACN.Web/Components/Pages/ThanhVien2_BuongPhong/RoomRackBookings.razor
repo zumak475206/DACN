@@ -1,0 +1,415 @@
+@page "/frontdesk/bookings"
+@inject DACNContext Db
+
+<PageTitle>Room Rack & Walk-in — TV2</PageTitle>
+
+<PageHeader Title="Tiền Sảnh PMS — Sơ Đồ Phòng & Đặt Tại Quầy"
+            Subtitle="Tra cứu trạng thái phòng theo tầng và tiếp nhận khách vãng lai trực tiếp tại quầy"
+            Icon="bi bi-calendar-check-fill"
+            MemberTag="TV2 — LỄ TÂN FRONT-DESK"
+            MemberTagClass="member-tag-tv2">
+    <Actions>
+        <button class="hotel-btn hotel-btn-outline" @onclick="LoadDataAsync">
+            <i class="bi bi-arrow-clockwise"></i> Tải lại
+        </button>
+    </Actions>
+</PageHeader>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <div class="alert alert-success" role="status">@successMessage</div>
+}
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <StatCard Title="Phòng Sẵn Sàng" Value="@readyRoomCount.ToString()" Description="Trống và đã vệ sinh" Icon="bi bi-check-circle-fill" Variant="success" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Khách Đang Ở" Value="@occupiedRoomCount.ToString()" Description="Phòng đang có khách" Icon="bi bi-person-fill" Variant="info" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Chờ Dọn / Bảo Trì" Value="@unavailableRoomCount.ToString()" Description="Chưa thể nhận khách" Icon="bi bi-brush-fill" Variant="warning" />
+    </div>
+    <div class="col-6 col-md-3">
+        <StatCard Title="Đơn Walk-in" Value="@walkInCount.ToString()" Description="Đơn tạo tại quầy" Icon="bi bi-person-walking" Variant="accent" />
+    </div>
+</div>
+
+<div class="hotel-card mb-4">
+    <div class="hotel-card-header">
+        <div class="hotel-card-title">
+            <i class="bi bi-grid-3x3-gap-fill text-primary"></i>
+            <span>Sơ Đồ Buồng Phòng</span>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <select class="hotel-select" @bind="floorFilter" aria-label="Lọc theo tầng">
+                <option value="">Tất cả tầng</option>
+                @foreach (var floor in floors)
+                {
+                    <option value="@floor">Tầng @floor</option>
+                }
+            </select>
+            <select class="hotel-select" @bind="statusFilter" aria-label="Lọc theo trạng thái">
+                <option value="">Tất cả trạng thái</option>
+                <option value="ready">Sẵn sàng</option>
+                <option value="occupied">Đang ở</option>
+                <option value="dirty">Chờ dọn</option>
+                <option value="maintenance">Bảo trì</option>
+            </select>
+        </div>
+    </div>
+    <div class="hotel-card-body">
+        @if (isLoading)
+        {
+            <div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">Đang tải sơ đồ phòng...</div></div>
+        }
+        else if (!FilteredRooms.Any())
+        {
+            <div class="text-center py-4 text-muted">Không có phòng phù hợp với bộ lọc.</div>
+        }
+        else
+        {
+            <div class="row g-3">
+                @foreach (var room in FilteredRooms)
+                {
+                    var ready = IsReady(room);
+                    <div class="col-6 col-sm-4 col-md-3 col-xl-2">
+                        <article class="room-box h-100">
+                            <div class="room-box-header">
+                                <span class="room-box-number">P.@room.SoPhong</span>
+                                <span class="room-status-indicator @RoomStatusClass(room)"></span>
+                            </div>
+                            <div class="room-box-type text-truncate">@room.MaLoaiPhongNavigation?.Ten</div>
+                            <div class="small text-muted mt-1">Tầng @(room.Tang?.ToString() ?? "—") · @room.MaLoaiPhongNavigation?.GiaCoBan.ToString("N0") đ/đêm</div>
+                            <div class="mt-2"><StatusBadge Status="@RoomBadgeStatus(room)" /></div>
+                            @if (ready)
+                            {
+                                <button class="hotel-btn hotel-btn-primary w-100 mt-3 py-1" @onclick="() => OpenWalkIn(room)">
+                                    <i class="bi bi-person-plus"></i> Nhận khách
+                                </button>
+                            }
+                        </article>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@if (showWalkInForm)
+{
+    <div class="hotel-card mb-4" id="walk-in-form">
+        <div class="hotel-card-header">
+            <div class="hotel-card-title"><i class="bi bi-person-walking text-primary"></i><span>Tạo Đơn Khách Vãng Lai</span></div>
+            <button type="button" class="hotel-btn hotel-btn-outline py-1" @onclick="CloseWalkIn">Đóng</button>
+        </div>
+        <div class="hotel-card-body">
+            <div class="alert alert-info py-2">
+                Phòng <strong>@selectedRoom?.SoPhong</strong> — @selectedRoom?.MaLoaiPhongNavigation?.Ten,
+                @selectedRoom?.MaLoaiPhongNavigation?.GiaCoBan.ToString("N0") đ/đêm. Đơn sẽ được tạo ở trạng thái chờ check-in.
+            </div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Tên khách <span class="text-danger">*</span></label>
+                    <input class="hotel-input w-100" @bind="guestName" maxlength="255" autocomplete="name" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Số điện thoại <span class="text-danger">*</span></label>
+                    <input class="hotel-input w-100" @bind="guestPhone" maxlength="20" inputmode="tel" autocomplete="tel" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Email</label>
+                    <input class="hotel-input w-100" type="email" @bind="guestEmail" maxlength="255" autocomplete="email" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Ngày nhận</label>
+                    <input class="hotel-input w-100" type="date" @bind="checkInDate" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Ngày trả</label>
+                    <input class="hotel-input w-100" type="date" @bind="checkOutDate" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Ghi chú</label>
+                    <input class="hotel-input w-100" @bind="bookingNote" maxlength="500" />
+                </div>
+                <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span class="text-muted">Tạm tính tiền phòng: <strong class="text-primary">@EstimatedRoomTotal.ToString("N0") đ</strong></span>
+                    <button class="hotel-btn hotel-btn-primary" disabled="@isSaving" @onclick="CreateWalkInAsync">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        }
+                        <i class="bi bi-check-lg"></i> Tạo đơn tại quầy
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="hotel-card">
+    <div class="hotel-card-header">
+        <div class="hotel-card-title"><i class="bi bi-card-checklist text-primary"></i><span>Đơn Đặt Phòng Gần Đây</span></div>
+        <input type="search" placeholder="Tên, số điện thoại, mã đơn..." class="hotel-input" @bind="searchBooking" @bind:event="oninput" />
+    </div>
+    <div class="hotel-table-container">
+        <table class="hotel-table">
+            <thead>
+                <tr><th>Mã đơn</th><th>Khách hàng</th><th>Phòng</th><th>Nhận — Trả</th><th>Kênh</th><th>Trạng thái</th><th class="text-end">Tiền phòng</th></tr>
+            </thead>
+            <tbody>
+                @if (!FilteredBookings.Any())
+                {
+                    <tr><td colspan="7" class="text-center py-4 text-muted">Chưa có đơn đặt phòng phù hợp.</td></tr>
+                }
+                else
+                {
+                    @foreach (var booking in FilteredBookings)
+                    {
+                        var detail = booking.ChiTietDatPhongs.FirstOrDefault();
+                        <tr>
+                            <td><strong>@booking.MaDatPhong</strong><div class="small text-muted">@booking.NgayTao.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div></td>
+                            <td><strong>@(booking.TenKhach ?? booking.MaNguoiDungNavigation?.HoTen ?? "Khách")</strong><div class="small text-muted">@(booking.Sdtkhach ?? booking.MaNguoiDungNavigation?.SoDienThoai)</div></td>
+                            <td>@(detail?.MaPhongNavigation?.SoPhong ?? "Chưa xếp")</td>
+                            <td>@(detail?.NgayNhanPhongDuKien.ToString("dd/MM/yyyy") ?? "—") — @(detail?.NgayTraPhongDuKien.ToString("dd/MM/yyyy") ?? "—")</td>
+                            <td>@(booking.KenhDatPhong == "walk_in" ? "Tại quầy" : booking.KenhDatPhong)</td>
+                            <td><StatusBadge Status="@booking.TrangThai" /></td>
+                            <td class="text-end fw-bold">@booking.TongTien.ToString("N0") đ</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private bool isLoading = true;
+    private bool isSaving;
+    private bool showWalkInForm;
+    private string? errorMessage;
+    private string? successMessage;
+    private string floorFilter = "";
+    private string statusFilter = "";
+    private string searchBooking = "";
+    private string guestName = "";
+    private string guestPhone = "";
+    private string guestEmail = "";
+    private string bookingNote = "";
+    private DateTime checkInDate = DateTime.Today;
+    private DateTime checkOutDate = DateTime.Today.AddDays(1);
+    private Phong? selectedRoom;
+    private List<Phong> rooms = [];
+    private List<DatPhong> bookings = [];
+
+    private int readyRoomCount => rooms.Count(IsReady);
+    private int occupiedRoomCount => rooms.Count(r => IsRoomOccupied(r.TrangThai));
+    private int unavailableRoomCount => rooms.Count(r => !IsReady(r) && !IsRoomOccupied(r.TrangThai));
+    private int walkInCount;
+    private decimal EstimatedRoomTotal => selectedRoom?.MaLoaiPhongNavigation == null
+        ? 0
+        : Math.Max(0, (checkOutDate.Date - checkInDate.Date).Days) * selectedRoom.MaLoaiPhongNavigation.GiaCoBan;
+    private IEnumerable<int> floors => rooms.Where(r => r.Tang.HasValue).Select(r => r.Tang!.Value).Distinct().OrderBy(x => x);
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        rooms = [];
+        bookings = [];
+        walkInCount = 0;
+        try
+        {
+            rooms = await Db.Phongs.AsNoTracking()
+                .Include(p => p.MaLoaiPhongNavigation)
+                .OrderBy(p => p.Tang).ThenBy(p => p.SoPhong)
+                .ToListAsync();
+            walkInCount = await Db.DatPhongs.CountAsync(booking => booking.KenhDatPhong == "walk_in");
+            bookings = await Db.DatPhongs.AsNoTracking()
+                .Include(b => b.MaNguoiDungNavigation)
+                .Include(b => b.ChiTietDatPhongs).ThenInclude(ct => ct.MaPhongNavigation)
+                .OrderByDescending(b => b.NgayTao)
+                .Take(100)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Không thể tải dữ liệu tiền sảnh: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private IEnumerable<Phong> FilteredRooms => rooms.Where(room =>
+        (string.IsNullOrEmpty(floorFilter) || room.Tang?.ToString() == floorFilter)
+        && (string.IsNullOrEmpty(statusFilter)
+            || (statusFilter == "ready" && IsReady(room))
+            || (statusFilter == "occupied" && IsRoomOccupied(room.TrangThai))
+            || (statusFilter == "dirty" && IsRoomDirty(room))
+            || (statusFilter == "maintenance" && IsRoomMaintenance(room.TrangThai))));
+
+    private IEnumerable<DatPhong> FilteredBookings => bookings.Where(booking =>
+        string.IsNullOrWhiteSpace(searchBooking)
+        || booking.MaDatPhong.Contains(searchBooking, StringComparison.OrdinalIgnoreCase)
+        || (booking.TenKhach?.Contains(searchBooking, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (booking.Sdtkhach?.Contains(searchBooking, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (booking.MaNguoiDungNavigation?.HoTen.Contains(searchBooking, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    private void OpenWalkIn(Phong room)
+    {
+        selectedRoom = room;
+        guestName = "";
+        guestPhone = "";
+        guestEmail = "";
+        bookingNote = "";
+        checkInDate = DateTime.Today;
+        checkOutDate = DateTime.Today.AddDays(1);
+        showWalkInForm = true;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private void CloseWalkIn()
+    {
+        showWalkInForm = false;
+        selectedRoom = null;
+    }
+
+    private async Task CreateWalkInAsync()
+    {
+        errorMessage = null;
+        successMessage = null;
+        if (selectedRoom == null || string.IsNullOrWhiteSpace(guestName) || string.IsNullOrWhiteSpace(guestPhone))
+        {
+            errorMessage = "Vui lòng chọn phòng và nhập tên, số điện thoại khách.";
+            return;
+        }
+        if (guestEmail.Length > 0 && !System.Net.Mail.MailAddress.TryCreate(guestEmail, out _))
+        {
+            errorMessage = "Địa chỉ email không hợp lệ.";
+            return;
+        }
+        if (checkInDate.Date < DateTime.Today || checkOutDate.Date <= checkInDate.Date)
+        {
+            errorMessage = "Ngày trả phòng phải sau ngày nhận và ngày nhận không được ở quá khứ.";
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            await using (var transaction = await Db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+            {
+            var room = await Db.Phongs.Include(p => p.MaLoaiPhongNavigation)
+                .FirstOrDefaultAsync(p => p.MaId == selectedRoom.MaId);
+            if (room == null || !IsReady(room))
+                throw new InvalidOperationException("Phòng vừa được cập nhật hoặc chưa sẵn sàng. Vui lòng tải lại sơ đồ.");
+
+            var conflicts = await Db.ChiTietDatPhongs.AnyAsync(ct =>
+                ct.MaPhong == room.MaId
+                && ct.TrangThai != "Cancelled" && ct.TrangThai != "cancelled"
+                && ct.TrangThai != "CheckedOut" && ct.TrangThai != "checked_out"
+                && ct.NgayNhanPhongDuKien < checkOutDate.Date
+                && ct.NgayTraPhongDuKien > checkInDate.Date);
+            if (conflicts)
+                throw new InvalidOperationException("Phòng đã có đơn đặt trùng khoảng ngày này.");
+
+            var now = DateTime.UtcNow;
+            var nights = (checkOutDate.Date - checkInDate.Date).Days;
+            var total = room.MaLoaiPhongNavigation.GiaCoBan * nights;
+
+            var booking = new DatPhong
+            {
+                MaDatPhong = $"WI{now:yyMMddHHmmss}{Guid.NewGuid():N}",
+                TenKhach = guestName.Trim(),
+                Sdtkhach = guestPhone.Trim(),
+                EmailKhach = string.IsNullOrWhiteSpace(guestEmail) ? null : guestEmail.Trim(),
+                KenhDatPhong = "walk_in",
+                TrangThai = "Pending",
+                TongTien = total,
+                TienDatCoc = 0,
+                GhiChu = string.IsNullOrWhiteSpace(bookingNote) ? null : bookingNote.Trim(),
+                NgayTao = now,
+                NgayCapNhat = now
+            };
+            Db.DatPhongs.Add(booking);
+            await Db.SaveChangesAsync();
+
+            Db.ChiTietDatPhongs.Add(new ChiTietDatPhong
+            {
+                MaDatPhong = booking.MaId,
+                MaPhong = room.MaId,
+                MaLoaiPhong = room.MaLoaiPhong,
+                NgayNhanPhongDuKien = checkInDate.Date,
+                NgayTraPhongDuKien = checkOutDate.Date,
+                GiaMoiDem = room.MaLoaiPhongNavigation.GiaCoBan,
+                TrangThai = "Pending"
+            });
+            Db.HoaDons.Add(new HoaDon
+            {
+                MaDatPhong = booking.MaId,
+                TongTienPhong = total,
+                TongTienDichVu = 0,
+                TienGiamGia = 0,
+                TienThue = 0,
+                TienPhuThu = 0,
+                TongThanhToan = total,
+                TrangThai = "Pending",
+                NgayTao = now
+            });
+            room.TrangThai = "Reserved";
+            await Db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            successMessage = $"Đã tạo đơn walk-in {booking.MaDatPhong}. Có thể tiếp tục check-in cho khách.";
+            }
+            CloseWalkIn();
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Không thể tạo đơn walk-in: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private static bool IsReady(Phong room) =>
+        IsRoomAvailable(room.TrangThai) && IsRoomClean(room.TrangThaiVeSinh);
+
+    private static bool IsRoomAvailable(string? status) =>
+        status is "Available" or "available" or "trong";
+
+    private static bool IsRoomOccupied(string? status) =>
+        status is "Occupied" or "occupied" or "dang_o";
+
+    private static bool IsRoomMaintenance(string? status) =>
+        status is "Maintenance" or "maintenance" or "sua_chua";
+
+    private static bool IsRoomClean(string? status) =>
+        status is "Clean" or "clean" or "sach_se" or "da_don";
+
+    private static bool IsRoomDirty(Phong room) =>
+        room.TrangThaiVeSinh is "Dirty" or "dirty" or "ban" or "can_don" or "Inspecting" or "dang_don" or "don_dep" or "chua_don";
+
+    private static string RoomStatusClass(Phong room) =>
+        IsReady(room) ? "trong" :
+        IsRoomOccupied(room.TrangThai) ? "dang_o" :
+        IsRoomMaintenance(room.TrangThai) ? "sua_chua" : "don_dep";
+
+    private static string RoomBadgeStatus(Phong room) =>
+        IsReady(room) ? "Available" :
+        IsRoomOccupied(room.TrangThai) ? "Occupied" :
+        IsRoomMaintenance(room.TrangThai) ? "Maintenance" : "Dirty";
+}

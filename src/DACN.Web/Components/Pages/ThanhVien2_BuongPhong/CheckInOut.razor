@@ -1,0 +1,345 @@
+@page "/frontdesk/checkin-out"
+@inject DACNContext Db
+
+<PageTitle>Check-in / Check-out — TV2</PageTitle>
+
+<PageHeader Title="Tiếp Đón Lưu Trú & Quyết Toán"
+            Subtitle="Nhận phòng cho khách có đơn, đối soát hóa đơn và hoàn tất check-out"
+            Icon="bi bi-box-arrow-in-right"
+            MemberTag="TV2 — LỄ TÂN FRONT-DESK"
+            MemberTagClass="member-tag-tv2">
+    <Actions>
+        <button class="hotel-btn hotel-btn-outline" @onclick="LoadDataAsync"><i class="bi bi-arrow-clockwise"></i> Làm mới</button>
+    </Actions>
+</PageHeader>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <div class="alert alert-success" role="status">@successMessage</div>
+}
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4"><StatCard Title="Chờ Check-in" Value="@checkInCount.ToString()" Description="Đơn đã xác nhận hoặc walk-in" Icon="bi bi-person-check" Variant="primary" /></div>
+    <div class="col-6 col-md-4"><StatCard Title="Khách Đang Lưu Trú" Value="@checkOutCount.ToString()" Description="Cần hoàn tất thanh toán khi trả" Icon="bi bi-door-open" Variant="warning" /></div>
+    <div class="col-12 col-md-4"><StatCard Title="Phương Thức Thu" Value="@PaymentMethodLabel(paymentMethod)" Description="Dùng cho khoản còn phải thu" Icon="bi bi-credit-card" Variant="success" /></div>
+</div>
+
+<div class="hotel-card mb-4 p-2">
+    <ul class="nav nav-pills gap-2">
+        <li class="nav-item">
+            <button class="nav-link @(mode == "checkin" ? "active" : "")" @onclick='() => mode = "checkin"'>
+                <i class="bi bi-box-arrow-in-right me-1"></i> Chờ Check-in (@checkInCount)
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(mode == "checkout" ? "active" : "")" @onclick='() => mode = "checkout"'>
+                <i class="bi bi-box-arrow-left me-1"></i> Chờ Check-out (@checkOutCount)
+            </button>
+        </li>
+        @if (mode == "checkout")
+        {
+            <li class="nav-item ms-auto d-flex align-items-center gap-2 px-2">
+                <label class="small fw-semibold" for="payment-method">Thu qua</label>
+                <select id="payment-method" class="hotel-select" @bind="paymentMethod">
+                    <option value="Cash">Tiền mặt</option>
+                    <option value="BankTransfer">Chuyển khoản</option>
+                </select>
+            </li>
+        }
+    </ul>
+</div>
+
+<div class="hotel-card">
+    <div class="hotel-card-header">
+        <div class="hotel-card-title"><i class="bi bi-list-stars text-primary"></i><span>@(mode == "checkin" ? "Danh Sách Khách Đến" : "Danh Sách Khách Trả Phòng")</span></div>
+        <input type="search" class="hotel-input" placeholder="Tìm tên khách, mã đơn, số điện thoại..." @bind="searchQuery" @bind:event="oninput" />
+    </div>
+    <div class="hotel-table-container">
+        <table class="hotel-table">
+            <thead><tr><th>Mã đơn / khách</th><th>Phòng</th><th>Ngày lưu trú</th><th>Hóa đơn / còn nợ</th><th>Trạng thái</th><th class="text-end">Thao tác</th></tr></thead>
+            <tbody>
+                @if (isLoading)
+                {
+                    <tr><td colspan="6" class="text-center py-4">Đang tải đặt phòng...</td></tr>
+                }
+                else if (!DisplayBookings.Any())
+                {
+                    <tr><td colspan="6" class="text-center py-4 text-muted">Không có khách trong danh sách này.</td></tr>
+                }
+                else
+                {
+                    @foreach (var booking in DisplayBookings)
+                    {
+                        var detail = booking.ChiTietDatPhongs.FirstOrDefault();
+                        var invoice = booking.HoaDon;
+                        var paid = invoice?.ThanhToans.Where(p => StatusMapper.IsPaymentSuccess(p.TrangThai)).Sum(p => p.SoTienDaThanhToan) ?? 0;
+                        var due = Math.Max(0, (invoice?.TongThanhToan ?? 0) - paid);
+                        <tr>
+                            <td><strong>@booking.MaDatPhong</strong><div class="fw-semibold">@(booking.TenKhach ?? booking.MaNguoiDungNavigation?.HoTen ?? "Khách lẻ")</div><div class="small text-muted">@(booking.Sdtkhach ?? booking.MaNguoiDungNavigation?.SoDienThoai ?? "—")</div></td>
+                            <td>
+                                @if (booking.ChiTietDatPhongs.Any())
+                                {
+                                    @foreach (var roomDetail in booking.ChiTietDatPhongs)
+                                    {
+                                        <div>Phòng @(roomDetail.MaPhongNavigation?.SoPhong ?? "Chưa xếp") <span class="small text-muted">(@roomDetail.MaLoaiPhongNavigation?.Ten)</span></div>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Chưa xếp phòng</span>
+                                }
+                            </td>
+                            <td>@(detail?.NgayNhanPhongDuKien.ToString("dd/MM/yyyy") ?? "—") → @(detail?.NgayTraPhongDuKien.ToString("dd/MM/yyyy") ?? "—")</td>
+                            <td>
+                                @if (invoice != null)
+                                {
+                                    <div>Tổng: @invoice.TongThanhToan.ToString("N0") đ</div>
+                                    <strong class="@(due > 0 ? "text-danger" : "text-success")">Còn nợ: @due.ToString("N0") đ</strong>
+                                }
+                                else
+                                {
+                                    <span class="text-danger">Chưa có hóa đơn</span>
+                                }
+                            </td>
+                            <td><StatusBadge Status="@booking.TrangThai" /></td>
+                            <td class="text-end">
+                                @if (mode == "checkin")
+                                {
+                                    <button class="hotel-btn hotel-btn-primary py-1 px-3" disabled="@isSaving" @onclick="() => CheckInAsync(booking.MaId)">
+                                        <i class="bi bi-key-fill"></i> Check-in
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="hotel-btn hotel-btn-accent py-1 px-3" disabled="@isSaving" @onclick="() => SettleAndCheckOutAsync(booking.MaId)">
+                                        <i class="bi bi-cash-coin"></i> Quyết toán & Check-out
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private string mode = "checkin";
+    private string paymentMethod = "Cash";
+    private string searchQuery = "";
+    private string? errorMessage;
+    private string? successMessage;
+    private bool isLoading = true;
+    private bool isSaving;
+    private List<DatPhong> bookings = [];
+
+    private int checkInCount => bookings.Count(IsWaitingForCheckIn);
+    private int checkOutCount => bookings.Count(IsCheckedIn);
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        bookings = [];
+        try
+        {
+            bookings = await Db.DatPhongs.AsNoTracking()
+                .Where(b => b.TrangThai == "Pending"
+                    || b.TrangThai == "Confirmed"
+                    || b.TrangThai == "cho_xac_nhan"
+                    || b.TrangThai == "da_xac_nhan"
+                    || b.TrangThai == "CheckedIn"
+                    || b.TrangThai == "checked_in"
+                    || b.TrangThai == "dang_o"
+                    || b.TrangThai == "da_nhan_phong")
+                .Include(b => b.MaNguoiDungNavigation)
+                .Include(b => b.ChiTietDatPhongs).ThenInclude(ct => ct.MaLoaiPhongNavigation)
+                .Include(b => b.ChiTietDatPhongs).ThenInclude(ct => ct.MaPhongNavigation)
+                .Include(b => b.HoaDon).ThenInclude(h => h!.ThanhToans)
+                .OrderByDescending(b => b.NgayTao)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Không thể tải danh sách khách: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private IEnumerable<DatPhong> DisplayBookings => bookings
+        .Where(b => mode == "checkin" ? IsWaitingForCheckIn(b) : IsCheckedIn(b))
+        .Where(b => string.IsNullOrWhiteSpace(searchQuery)
+            || b.MaDatPhong.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)
+            || (b.TenKhach?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (b.Sdtkhach?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (b.MaNguoiDungNavigation?.HoTen.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    private static bool IsWaitingForCheckIn(DatPhong booking) =>
+        booking.TrangThai is "Pending" or "Confirmed" or "cho_xac_nhan" or "da_xac_nhan";
+
+    private static bool IsCheckedIn(DatPhong booking) =>
+        booking.TrangThai is "CheckedIn" or "checked_in" or "dang_o" or "da_nhan_phong";
+
+    private async Task CheckInAsync(int bookingId)
+    {
+        isSaving = true;
+        errorMessage = null;
+        successMessage = null;
+        try
+        {
+            await using (var transaction = await Db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+            {
+            var booking = await Db.DatPhongs.Include(b => b.ChiTietDatPhongs)
+                .ThenInclude(ct => ct.MaPhongNavigation)
+                .FirstOrDefaultAsync(b => b.MaId == bookingId);
+            if (booking == null)
+                throw new InvalidOperationException("Không tìm thấy đơn đặt phòng.");
+            if (!IsWaitingForCheckIn(booking))
+                throw new InvalidOperationException("Đơn không còn ở trạng thái chờ check-in.");
+            if (booking.ChiTietDatPhongs.Count == 0)
+                throw new InvalidOperationException("Đơn chưa có chi tiết phòng để nhận khách.");
+
+            var pendingDetails = booking.ChiTietDatPhongs
+                .Where(d => d.TrangThai is "Pending" or "Confirmed" or "cho_xac_nhan" or "da_xac_nhan")
+                .ToList();
+            if (pendingDetails.Count == 0)
+                throw new InvalidOperationException("Đơn không có chi tiết phòng đang chờ check-in.");
+
+            var selectedRoomIds = new HashSet<int>();
+            foreach (var detail in pendingDetails)
+            {
+                Phong? room = detail.MaPhongNavigation;
+                if (room == null)
+                {
+                    room = await Db.Phongs.FirstOrDefaultAsync(p =>
+                        p.MaLoaiPhong == detail.MaLoaiPhong
+                        && (p.TrangThai == "Available" || p.TrangThai == "trong")
+                        && (p.TrangThaiVeSinh == "Clean" || p.TrangThaiVeSinh == "sach_se")
+                        && !selectedRoomIds.Contains(p.MaId));
+                }
+                if (room == null || selectedRoomIds.Contains(room.MaId)
+                    || !(room.TrangThai is "Available" or "Reserved" or "trong" or "da_dat")
+                    || !(room.TrangThaiVeSinh is "Clean" or "sach_se" or "clean"))
+                    throw new InvalidOperationException("Một hoặc nhiều phòng chưa được xếp hoặc chưa sẵn sàng. Kiểm tra sơ đồ phòng trước khi check-in.");
+
+                selectedRoomIds.Add(room.MaId);
+                detail.MaPhong = room.MaId;
+                detail.MaPhongNavigation = room;
+                detail.TrangThai = "Active";
+                detail.ThoiGianNhanPhongThucTe = DateTime.UtcNow;
+                room.TrangThai = "Occupied";
+            }
+
+            booking.TrangThai = "CheckedIn";
+            booking.NgayCapNhat = DateTime.UtcNow;
+            await Db.SaveChangesAsync();
+            await transaction.CommitAsync();
+            successMessage = $"Đã check-in thành công cho đơn {booking.MaDatPhong}.";
+            }
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Không thể check-in: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task SettleAndCheckOutAsync(int bookingId)
+    {
+        isSaving = true;
+        errorMessage = null;
+        successMessage = null;
+        try
+        {
+            await using (var transaction = await Db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+            {
+            var booking = await Db.DatPhongs.Include(b => b.ChiTietDatPhongs)
+                .ThenInclude(ct => ct.MaPhongNavigation)
+                .FirstOrDefaultAsync(b => b.MaId == bookingId);
+            if (booking == null || !IsCheckedIn(booking))
+                throw new InvalidOperationException("Chỉ có thể check-out đơn đang lưu trú.");
+
+            var invoice = await Db.HoaDons.Include(h => h.ThanhToans)
+                .FirstOrDefaultAsync(h => h.MaDatPhong == bookingId);
+            if (invoice == null)
+                throw new InvalidOperationException("Đơn này chưa có hóa đơn; không thể quyết toán.");
+
+            var activeDetails = booking.ChiTietDatPhongs
+                .Where(detail => detail.TrangThai is "Active" or "dang_o")
+                .ToList();
+            if (activeDetails.Count == 0 || activeDetails.Any(detail => detail.MaPhongNavigation == null))
+                throw new InvalidOperationException("Đơn lưu trú thiếu phòng đang ở; không thể hoàn tất check-out.");
+
+            var paid = invoice.ThanhToans.Where(p => StatusMapper.IsPaymentSuccess(p.TrangThai)).Sum(p => p.SoTienDaThanhToan);
+            var balance = Math.Max(0, invoice.TongThanhToan - paid);
+            if (balance > 0)
+            {
+                Db.ThanhToans.Add(new ThanhToan
+                {
+                    MaHoaDon = invoice.MaId,
+                    PhuongThucThanhToan = StatusMapper.NormalizePhuongThucThanhToan(paymentMethod),
+                    SoTienDaThanhToan = balance,
+                    MaGiaoDich = $"FD-{DateTime.UtcNow:yyMMddHHmmss}-{Guid.NewGuid():N}"[..40],
+                    TrangThai = "Success",
+                    NgayThanhToan = DateTime.UtcNow
+                });
+            }
+            invoice.TrangThai = "Paid";
+
+            foreach (var detail in activeDetails)
+            {
+                detail.TrangThai = "CheckedOut";
+                detail.ThoiGianTraPhongThucTe = DateTime.UtcNow;
+                detail.MaPhongNavigation!.TrangThai = "Available";
+                detail.MaPhongNavigation.TrangThaiVeSinh = "Dirty";
+                Db.NhatKyBuongPhongs.Add(new NhatKyBuongPhong
+                {
+                    MaPhong = detail.MaPhongNavigation.MaId,
+                    MaChiTietDatPhong = detail.MaId,
+                    TrangThai = "assigned",
+                    ThoiGianPhanCong = DateTime.UtcNow,
+                    GhiChuKiemTra = $"Khách trả phòng đơn {booking.MaDatPhong}; cần dọn phòng và kiểm tra tài sản.",
+                    NgayTao = DateTime.UtcNow
+                });
+            }
+
+            booking.TrangThai = "CheckedOut";
+            booking.NgayCapNhat = DateTime.UtcNow;
+            await Db.SaveChangesAsync();
+            await transaction.CommitAsync();
+            successMessage = balance > 0
+                ? $"Đã thu {balance:N0} đ qua {PaymentMethodLabel(paymentMethod)} và hoàn tất check-out {booking.MaDatPhong}. Phòng đã chuyển sang chờ dọn."
+                : $"Hóa đơn đã thanh toán đủ; hoàn tất check-out {booking.MaDatPhong}. Phòng đã chuyển sang chờ dọn.";
+            }
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Không thể quyết toán/check-out: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private static string PaymentMethodLabel(string method) => method switch
+    {
+        "BankTransfer" => "Chuyển khoản",
+        _ => "Tiền mặt"
+    };
+}
