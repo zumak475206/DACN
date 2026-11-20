@@ -217,12 +217,15 @@
             var roleName = user.MaVaiTroNavigation?.Ten ?? "Customer";
             var perms = user.MaVaiTroNavigation?.MaQuyenHans.Select(q => q.Ten).ToList() ?? new List<string>();
 
-            Session.SetUser(user.HoTen, user.Email, roleName, user.MaId, perms);
             await AuditService.GhiNhanAsync("DANG_NHAP_WEB", "Auth", user.MaId.ToString(), $"Đăng nhập Web Portal ({roleName})", user.MaId, user.Email, "127.0.0.1", true);
 
-            isSuccess = true;
-            loginMessage = $"Đăng nhập thành công: {user.HoTen}";
-            NavigateByRole(Session.CurrentUser.Role);
+            await InvokeAsync(() =>
+            {
+                Session.SetUser(user.HoTen, user.Email, roleName, user.MaId, perms);
+                isSuccess = true;
+                loginMessage = $"Đăng nhập thành công: {user.HoTen}";
+                NavigateByRole(Session.CurrentUser.Role);
+            });
         }
         catch (Exception ex)
         {
@@ -293,12 +296,15 @@
             await Db.SaveChangesAsync();
 
             var perms = customerRole?.MaQuyenHans.Select(q => q.Ten).ToList() ?? new List<string> { Quyen.UseAIChatbot };
-            Session.SetUser(newUser.HoTen, newUser.Email, "Customer", newUser.MaId, perms);
             await AuditService.GhiNhanAsync("DANG_KY_WEB", "Auth", newUser.MaId.ToString(), $"Đăng ký tài khoản khách hàng ({newUser.Email})", newUser.MaId, newUser.Email, "127.0.0.1", true);
 
-            isSuccess = true;
-            loginMessage = "Đăng ký tài khoản thành công! Đang chuyển hướng...";
-            Nav.NavigateTo("/");
+            await InvokeAsync(() =>
+            {
+                Session.SetUser(newUser.HoTen, newUser.Email, "Customer", newUser.MaId, perms);
+                isSuccess = true;
+                loginMessage = "Đăng ký tài khoản thành công! Đang chuyển hướng...";
+                Nav.NavigateTo("/");
+            });
         }
         catch (Exception ex)
         {
