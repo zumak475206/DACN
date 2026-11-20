@@ -134,7 +134,9 @@ Mật khẩu dùng chung cho toàn bộ tài khoản hệ thống: **`Admin@123`
    ```csharp
    private void OnSessionChanged() => _ = InvokeAsync(StateHasChanged);
    ```
-3. **Phân quyền chặt chẽ (Strict RBAC):**  
+3. **Vòng đời UserSessionService (Scoped vs Singleton):**  
+   Trong Blazor Server, `UserSessionService` bắt buộc phải cấu hình `AddScoped` (theo từng Circuit SignalR). Tuyệt đối không để `AddSingleton` vì sẽ gây rò rỉ phiên đăng nhập (Người dùng A đăng nhập Admin thì Người dùng B vào web cũng bị nhận nhầm là Admin).
+4. **Phân quyền chặt chẽ (Strict RBAC):**  
    Không cấp quyền `ManageUsers` (ID 11) cho `Manager`. Chỉ có tài khoản có vai trò `Admin` mới được phép thao tác phân quyền RBAC hoặc thay đổi vai trò tài khoản khác.
 4. **Quy trình Git & Merge:**  
    Khi tích hợp code từ các nhánh thành viên khác (`noaye`, `feature/*`), luôn fetch, checkout nhánh tạm review, chạy `dotnet build` và `dotnet test` trước khi merge vào `main` với tùy chọn `--no-ff`.

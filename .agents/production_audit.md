@@ -65,6 +65,24 @@ Kiểm định dựa trên 100% bằng chứng cục bộ từ kho mã nguồn (
 * **Rủi ro Prod:** Vi phạm nguyên tắc kiểm soát nội bộ tài chính (Segregation of Duties).
 * **Biện pháp khắc phục:** Ràng buộc quyền duyệt chi nghiêm ngặt: Chỉ vai trò `Manager` hoặc `Admin` mới được duyệt, và người tạo phiếu không được phép tự duyệt phiếu của chính mình.
 
+### 4. [Bảo Mật & Kiến Trúc] Đăng Ký UserSessionService Dạng Singleton Trong Program.cs Gây Rò Rỉ Phiên Chéo
+* **Bằng chứng:** Trong [Program.cs](file:///d:/THAI_ANH_KY_WORKSPACE/Projects/DACN/src/DACN.Web/Program.cs#L39):
+  `builder.Services.AddSingleton<UserSessionService>();`
+* **Rủi ro Prod:** Trong Blazor Server, một service Singleton được chia sẻ duy nhất cho toàn bộ máy chủ. Người dùng A đăng nhập Admin thì Người dùng B ở máy khác vào web sẽ bị gán luôn quyền Admin; Người dùng B đăng xuất sẽ làm Người dùng A bị đăng xuất theo.
+* **Biện pháp khắc phục:** Đổi ngay sang `builder.Services.AddScoped<UserSessionService>();` để mỗi kết nối SignalR Circuit của từng người dùng sở hữu vùng nhớ phiên riêng biệt.
+
+### 5. [Luồng Nghiệp Vụ Doanh Thu] Khách Hàng Đặt Phòng Ngoài Trang Chủ Chưa Tạo Bản Ghi Vào CSDL (Đơn Đặt Ảo)
+* **Bằng chứng:** Trong [Home.razor](file:///d:/THAI_ANH_KY_WORKSPACE/Projects/DACN/src/DACN.Web/Components/Pages/Home.razor#L758-L763):
+  Hàm `SubmitBooking()` chỉ gọi `RandomNumberGenerator.GetInt32(1005, 9999)` và bật popup thông báo thành công. Hoàn toàn không chèn bản ghi vào bảng `DatPhong` và `ChiTietDatPhong`. Đồng thời, trang [MyBookings.razor](file:///d:/THAI_ANH_KY_WORKSPACE/Projects/DACN/src/DACN.Web/Components/Pages/Customer/MyBookings.razor#L120-L134) và [RoomsList.razor](file:///d:/THAI_ANH_KY_WORKSPACE/Projects/DACN/src/DACN.Web/Components/Pages/Customer/RoomsList.razor#L81-L87) vẫn sử dụng danh sách mock cứng trong bộ nhớ RAM.
+* **Rủi ro Prod:** Đứt gãy luồng doanh thu trực tuyến (Broken Revenue Pipeline): Khách đặt phòng trên web tưởng đã thành công nhưng khách sạn không hề nhận được đơn, lễ tân không thấy trên sơ đồ phòng.
+* **Biện pháp khắc phục:** Hoàn thiện hàm lưu CSDL thực tế trong `SubmitBookingAsync()` với Transaction Entity Framework Core và đọc dữ liệu động từ `LoaiPhong` / `DatPhong`.
+
+### 6. [Giám Sát Vận Hành] Sai Lệch Logic Thống Kê Trên Bảng Điều Khiển Ca Trực (Admin Dashboard)
+* **Bằng chứng:** Trong [AdminDashboard.razor](file:///d:/THAI_ANH_KY_WORKSPACE/Projects/DACN/src/DACN.Web/Components/Pages/AdminDashboard.razor#L173-L174):
+  Đếm phòng đang ở bằng điều kiện `r.TrangThai == "dang_o"` (trong khi SQL lưu chuẩn `"Occupied"`) và đếm phòng cần dọn trên cột `r.TrangThai` thay vì `r.TrangThaiVeSinh`.
+* **Rủi ro Prod:** Ban giám đốc và lễ tân mở màn hình quản trị luôn thấy số phòng đang có khách = 0 và số phòng cần dọn = 0 dù khách sạn đang đầy phòng.
+* **Biện pháp khắc phục:** Sửa hàm `LoadStatsAsync()` sử dụng `StatusMapper.IsRoomOccupied(r.TrangThai)` và kiểm tra `r.TrangThaiVeSinh is "Dirty" or "Inspecting"`.
+
 ---
 
 ## 💡 CÁC ĐIỂM CẢI TIẾN GIÁ TRỊ CAO (HIGH-VALUE FIXES)
@@ -105,12 +123,17 @@ Kiểm định dựa trên 100% bằng chứng cục bộ từ kho mã nguồn (
 ## 📋 CHECKLIST HÀNH ĐỘNG TRƯỚC KHI BÀN GIAO / GOLIVE
 
 ```text
-[ ] 1. Rút "Jwt:Key" ra biến môi trường ASPNETCORE_JWT__KEY trên máy chủ production.
-[ ] 2. Thêm guard phân quyền if (!Session.HasPermission) trong AccountManagement.razor và RbacMatrix.razor.
-[ ] 3. Sửa điều kiện duyệt chi phí trong ExpenseManagement.razor (Không cho kế toán tự duyệt).
-[ ] 4. Inject IAuditService vào CheckInOut.razor để ghi vết thu ngân tiền mặt.
-[ ] 5. Lưu phiên đăng nhập vào ProtectedLocalStorage để F5 không bị văng đăng nhập.
-[ ] 6. Cập nhật Connection String sang Remote SQL Server có chứng chỉ SSL mã hóa.
+[ ] 1. Đổi AddSingleton thành AddScoped cho UserSessionService trong Program.cs line 39.
+[ ] 2. Rút "Jwt:Key" ra biến môi trường ASPNETCORE_JWT__KEY trên máy chủ production.
+[ ] 3. Thêm guard phân quyền if (!Session.HasPermission) trong AccountManagement, RbacMatrix, AuditLogs, VoucherManagement.
+[ ] 4. Sửa điều kiện duyệt chi phí trong ExpenseManagement.razor (Không cho kế toán tự duyệt).
+[ ] 5. Hoàn thiện hàm SubmitBookingAsync() trong Home.razor để lưu đơn đặt phòng thực tế vào SQL Server.
+[ ] 6. Chuyển RoomsList.razor và MyBookings.razor từ mock data sang đọc/ghi CSDL thực tế.
+[ ] 7. Sửa hàm LoadStatsAsync() trong AdminDashboard.razor (dùng StatusMapper & r.TrangThaiVeSinh).
+[ ] 8. Inject IAuditService vào CheckInOut.razor để ghi vết thu ngân tiền mặt.
+[ ] 9. Inject UserSessionService vào CleaningTasks.razor để ghi nhận danh tính nhân viên dọn phòng.
+[ ] 10. Lưu phiên đăng nhập vào ProtectedLocalStorage để F5 không bị văng đăng nhập.
+[ ] 11. Cập nhật Connection String sang Remote SQL Server có chứng chỉ SSL mã hóa.
 ```
 
 ---
