@@ -48,6 +48,27 @@ flowchart TD
 
 ---
 
+## 📊 BẢNG KẾ HOẠCH HÀNH ĐỘNG TỔNG HỢP (MASTER REMEDIATION MATRIX)
+
+| Phase | Mã Task | Lỗ Hổng / Vấn Đề | File Chịu Trách Nhiệm | Mức Độ | Hành Động Kỹ Thuật (Remediation) | Kiểm Thử / Checkpoint |
+| :---: | :---: | :--- | :--- | :---: | :--- | :--- |
+| **P1** | **T-1.1** | **GAP-04**: Rò rỉ phiên Singleton | `src/DACN.Web/Program.cs` | 🔴 Critical | Đổi `AddSingleton` sang `AddScoped<UserSessionService>()` | 2 trình duyệt riêng biệt đăng nhập chéo không bị đè phiên |
+| **P1** | **T-1.2** | **GAP-01**: Thiếu Guard URL trang | `AccountManagement.razor`, `RbacMatrix.razor`, `AuditLogs.razor`, `VoucherManagement.razor` | 🔴 Cao | Thêm kiểm tra `Session.HasPermission(...)` trong `OnInitializedAsync()` | Lễ tân / Buồng phòng gõ trực tiếp URL bị redirect về `/admin/dashboard` |
+| **P1** | **T-1.3** | **Prod Block**: Khóa bí mật JWT | `src/DACN.Web/appsettings.json` | 🔴 Cao | Nạp fallback từ biến môi trường `ASPNETCORE_JWT__KEY` | Khởi động server không lộ secret trong git, đọc biến môi trường thành công |
+| **P2** | **T-2.1** | **GAP-10**: Form đặt phòng ảo | `src/DACN.Web/Components/Pages/Home.razor` | 🔴 Critical | Tái cấu trúc `SubmitBookingAsync` chèn thực thể `DatPhong` & `ChiTietDatPhong` vào SQL Server | Đặt phòng trên Home -> SQL có record mới -> Lễ tân PMS thấy đơn |
+| **P2** | **T-2.2** | **GAP-08**: Hạng phòng hardcode | `src/DACN.Web/Components/Pages/Customer/RoomsList.razor` | 🟡 Trung bình | Truy vấn động `Db.LoaiPhongs.AsNoTracking().Where(l => l.DangHoatDong)` | Thêm/sửa giá phòng trong DB phản ánh ngay lên trang `/rooms` |
+| **P2** | **T-2.3** | **GAP-09**: Lịch sử phòng mock data | `src/DACN.Web/Components/Pages/Customer/MyBookings.razor` | 🔴 Cao | Truy vấn `Db.DatPhongs` theo `Session.CurrentUser.Id`; Cập nhật hủy đơn vào SQL | Khách thấy đúng đơn vừa đặt; bấm Hủy đơn cập nhật `TrangThai = 'Cancelled'` |
+| **P3** | **T-3.1** | **GAP-02**: Kế toán tự duyệt chi phí | `src/DACN.Web/Components/Pages/ThanhVien3_TienSanh/ExpenseManagement.razor` | 🔴 Cao | Ràng buộc Four-Eyes: Chỉ Admin/Manager duyệt, cấm `expense.NguoiTaoId == Session.CurrentUser.Id` | Kế toán tạo phiếu không có nút Duyệt; Quản lý vào duyệt thành công |
+| **P3** | **T-3.2** | **GAP-07**: Sai logic đếm phòng ca trực | `src/DACN.Web/Components/Pages/AdminDashboard.razor` | 🔴 Cao | Dùng `StatusMapper.IsRoomOccupied(r.TrangThai)` và đếm dọn phòng trên `r.TrangThaiVeSinh` | Thẻ KPI Dashboard hiển thị số phòng lưu trú & phòng cần dọn thực tế |
+| **P3** | **T-3.3** | **GAP-03**: Thiếu Audit Log Check-out | `src/DACN.Web/Components/Pages/ThanhVien2_BuongPhong/CheckInOut.razor` | 🟡 Trung bình | Inject `IAuditService` và ghi `CHECK_OUT_QUYET_TOAN` khi thu tiền trả phòng | Sau khi check-out, bảng `NhatKyHeThong` ghi nhận đầy đủ tiền thu & người thao tác |
+| **P3** | **T-3.4** | **GAP-11**: Không định danh ca dọn phòng | `src/DACN.Web/Components/Pages/ThanhVien2_BuongPhong/CleaningTasks.razor` | 🟡 Trung bình | Inject `UserSessionService`, gán `task.MaNhanVien = Session.CurrentUser.Id` khi bắt đầu dọn | Bảng nhật ký dọn phòng hiển thị họ tên nhân viên thực hiện ca dọn |
+| **P4** | **T-4.1** | **UX F5**: Mất phiên khi reload | `src/DACN.Web/Components/Layout/CustomerLayout.razor`, `MainLayout.razor` | 🟡 Trung bình | Tích hợp `ProtectedLocalStorage` lưu token phiên làm việc, tự động rehydrate khi F5 | Đăng nhập -> nhấn F5 trên trình duyệt -> phiên vẫn giữ nguyên vai trò |
+| **P4** | **T-4.2** | **GAP-06**: Quota Gemini AI Chatbot | `CustomerLayout.razor`, `AiChatbot.razor` | 🟢 Thấp | Thêm debounce 2 giây, giới hạn trần 5 câu hỏi/phiên đối với khách vãng lai | Spam click không tạo request liên tiếp; khách vãng lai bị nhắc đăng nhập |
+| **P5** | **T-5.1** | **QA**: Bổ sung Unit/Integration Tests | `tests/DACN.UnitTests/`, `tests/DACN.IntegrationTests/` | 🟢 Cao | Viết test kiểm tra cách ly Scoped session, kiểm soát SoD, E2E Booking | `dotnet test` vượt qua toàn bộ 104+ test suites (0 fail) |
+| **P5** | **T-5.2** | **Bàn giao**: Nâng điểm Prod-Readiness | `.agents/production_audit.md`, `.agents/intended_vs_implemented.md` | 🟢 Hoàn tất | Cập nhật toàn bộ trạng thái các GAP sang "Đã khắc phục", nâng điểm lên 95+/100 | Báo cáo kiểm định đạt chuẩn bàn giao và nghiệm lưu trữ Git |
+
+---
+
 ## 📌 CHI TIẾT TỪNG GIAI ĐOẠN, CHECKLIST & CHECKPOINT KIỂM THỬ
 
 ---
