@@ -1,87 +1,147 @@
-# DACN Hotel Management - Project Architecture & Memory
+# DACN Hotel Management (BookingStay.AI) — Master Architecture & Project Memory
 
-## 1. Tech Stack
-- **Framework:** .NET 9.0 (ASP.NET Core Web API + Blazor Server)
-- **Database:** Microsoft SQL Server (Local `Server=.;Database=DACN`)
-- **ORM:** Entity Framework Core 9.0 (`DACNContext`)
-- **Authentication:** JWT Bearer Token (HMAC-SHA256) + Sliding Refresh Token Rotation (14-day expiry)
-- **Password Hashing:** BCrypt.Net-Next
-- **Security & Headers:** Built-in RateLimiter (`auth-policy`: 10 req/min, `general-policy`: 100 req/min), Custom `SecurityHeadersMiddleware` (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy)
-- **Audit System:** Dual-logging (`IAuditService` -> Structured `ILogger` + EF Core Entity `NhatKyHeThong`)
+> **Tài liệu bàn giao & bộ nhớ dự án cốt lõi dành cho Developer và AI Models**  
+> **Cập nhật:** 20/11/2026 | **Trạng thái:** Tích hợp hoàn tất 4 phân hệ (TV1 - TV4) | **Tests:** 104/104 PASSED
 
-## 2. Solution Structure
-- `src/DACN.Domain`: Domain abstractions.
-- `src/DACN.Application`: Application contracts & interfaces.
-- `src/DACN.Infrastructure`: EF Core `DACNContext`, DB Entities, Fluent API mapping, Indexes, Relationships.
-- `src/DACN.Web`:
-  - `Controllers/`: RESTful APIs (`/api/v1/*`)
-    - `AuthController`: Đăng nhập, Đăng ký (`customer`), Làm mới Token (Refresh Token Rotation), Đăng xuất (Revoke Token), Quên mật khẩu (OTP Demo), Đặt lại mật khẩu, Đổi mật khẩu, Profile (`me`).
-    - `DatPhongController`: Đặt phòng (Transaction Serializable), Hủy phòng, Gán phòng, Check-in, Check-out.
-    - `PhongController`: Danh sách, Chi tiết, Cập nhật trạng thái, Hoàn tất vệ sinh buồng phòng.
-    - `LoaiPhongController`: Tìm kiếm phòng trống theo thời gian & số người, CRUD loại phòng.
-    - `DichVuController`: Danh mục dịch vụ, Đặt dịch vụ theo phòng (đồng bộ tự động vào Hóa đơn).
-    - `HoaDonController`: Chi tiết hóa đơn, Xem theo đơn đặt phòng, Thanh toán hóa đơn.
-    - `DashboardController`: Thống kê tổng quan phòng, doanh thu theo ngày, biểu đồ trạng thái, KPI khách sạn (`Occupancy %`, `ADR`, `RevPAR`, tỷ lệ hủy, doanh thu theo kênh/loại phòng).
-    - `NguoiDungController`: Quản lý danh sách (lọc theo từ khóa/vai trò/trạng thái), Xem/Cập nhật hồ sơ, Khóa/Mở khóa (thu hồi RefreshToken & bảo vệ Admin cuối cùng), Đổi vai trò RBAC.
-    - `VaiTroController`: Quản lý vai trò (`CRUD`) & cập nhật ma trận 18 quyền hạn (`QuyenHan`), ghi log diff quyền thêm/bớt.
-    - `VoucherController`: Danh sách công khai (`cong-khai`), Kiểm tra mã giảm giá (rate-limit `public-strict`, áp trần `GiamToiDa`), CRUD voucher (`ManageVouchers`).
-    - `NoiDungController`: CRUD Địa điểm tham quan (gắn nhãn `PhongCach` cho AI), Bài viết cẩm nang (tự động tạo slug ASCII không dấu `GioVN.TaoSlug`), Thông báo.
-    - `AiController`: Chatbot Hybrid RAG (`POST /api/v1/ai/chat`, lịch sử phiên chat), Bộ máy chấm điểm gợi ý du lịch theo Ngân sách + Tháng/Mùa + Gu trải nghiệm (`POST/GET /api/v1/ai/goi-y`, `mua-du-lich`, `tour`), Dự báo nhu cầu 14 ngày (`du-bao-nhu-cau/chay`), Chấm điểm rủi ro hủy đơn (`du-doan-huy-phong/chay`, `do-chinh-xac`).
-    - `DanhGiaController`: Đánh giá loại phòng, Duyệt/Xóa đánh giá (`ModerateReviews`).
-    - `NhatKyController`: Xem nhật ký kiểm toán hệ thống (`GET /api/v1/nhat-ky-he-thong`).
-    - `SystemController`: Health check kết nối Database & máy chủ (`GET /api/v1/system/health`).
-  - `DTOs/`: Data Transfer Objects with Data Annotations validation.
-  - `Middleware/`: `ExceptionMiddleware`, `SecurityHeadersMiddleware`.
-  - `Services/`: `IAuditService`, `AuditService`, `GoiYDuLichService` (Scoring Engine + NLU Intent Extractor + Hybrid Gemini/Rule Chatbot + Forecasting & Churn Risk), `UserSessionService`.
-  - `Common/`: `ClaimsPrincipalExtensions` (strict `HasPermission`), `Quyen` (18 hằng số quyền), `GioVN`, `SchemaMigrationRunner`, `StatusMapper`, `ApiResponse<T>`, `KetQuaPhanTrang<T>`.
-- `tests/DACN.UnitTests`: 53 Unit tests (ClaimsPrincipalExtensions, ApiResponse, VoucherCalculation, AuditService).
-- `tests/DACN.IntegrationTests`: 40 Integration tests (WebApplicationFactory + InMemory DB + LiveDb tests on real SQL Server).
-- `tests/smoke_test.ps1`: Automated CLI Smoke tests for all public & protected API endpoints.
+---
 
-## 3. Key Design Decisions & Security Patterns
-1. **Refresh Token Rotation (Sliding Session):**
-   - Đăng nhập/Đăng ký cấp cả Access Token (JWT) và Refresh Token (64-byte CSPRNG token).
-   - API `POST /api/v1/auth/lam-moi-token`: Đổi Refresh Token cũ lấy Access Token mới + Refresh Token mới. Token cũ bị thu hồi ngay lập tức (`DaThuHoi = true`).
-   - Chống Replay Attack: Nếu một token đã bị thu hồi được gửi lên, hệ thống phát hiện và ghi audit cảnh báo bảo mật.
-2. **Khôi phục Mật khẩu an toàn (OTP Flow):**
-   - `POST /api/v1/auth/quen-mat-khau`: Phát sinh mã OTP 6 số ngẫu nhiên (hạn 15 phút).
-   - `POST /api/v1/auth/dat-lai-mat-khau`: Xác nhận OTP, cập nhật mật khẩu băm BCrypt và tự động thu hồi toàn bộ Refresh Token cũ để bảo vệ tài khoản.
-3. **Chuẩn hóa Kiểm toán Hệ thống (AuditService):**
-   - Chuyển toàn bộ `NhatKyHeThong` thành First-Class Entity trong EF Core.
-   - Loại bỏ hoàn toàn mã DDL `CREATE TABLE` động tại runtime, đảm bảo tương thích mọi môi trường (SQL Server, InMemory, Staging, CI/CD).
-4. **Chống Overbooking (Race Condition):**
-   - Áp dụng `IsolationLevel.Serializable` trong transaction tạo đặt phòng (`TaoDatPhong`).
-   - Kiểm tra overlap khoảng thời gian phòng trống trước khi chốt đơn.
-5. **Chống lạm dụng Voucher:**
-   - Atomic SQL Update & Validate chặt chẽ giá trị đặt phòng tối thiểu.
-6. **Quy trình Buồng phòng (Housekeeping Lifecycle):**
-   - Check-out: Chuyển phòng sang `don_dep` và tự động phát sinh phiếu công việc tại `NhatKyBuongPhong`.
-   - Hoàn tất vệ sinh: API `PUT /api/v1/phong/{id}/hoan-tat-ve-sinh` đóng phiếu và đưa phòng về `trong` (`sach_se`).
-7. **Đồng bộ Tài chính & Hóa đơn tự động:**
-   - Đặt phòng tạo ngay `HoaDon` ban đầu.
-   - Đặt dịch vụ (`DatDichVu`) tự động cộng dồn chi phí vào `HoaDon.TongTienDichVu` và `HoaDon.TongThanhToan`.
-8. **IDOR & Bảo mật Phân quyền:**
-   - Lấy `userId` từ JWT claims (`User.GetUserId()`), chặn khách hàng truy cập đơn/hóa đơn của người khác.
+## 1. Tổng Quan Dự Án & Tech Stack
+* **Tên giải pháp:** Hệ thống Đặt phòng Khách sạn & Trợ lý Du lịch Thông minh BookingStay.AI.
+* **Tech Stack:**
+  * **Framework:** .NET 9.0 (ASP.NET Core Web API + Blazor Server Interactive Server).
+  * **Cơ sở dữ liệu:** Microsoft SQL Server (Local `Server=.;Database=DACN;Integrated Security=True;TrustServerCertificate=True`).
+  * **ORM:** Entity Framework Core 9.0 (`DACNContext`, Fluent API, 36 bảng dữ liệu).
+  * **Authentication:** JWT Bearer Token (HMAC-SHA256) + Sliding Refresh Token Rotation (14 ngày).
+  * **Password Hashing:** BCrypt.Net-Next (Work Factor: 11).
+  * **Trí tuệ nhân tạo (AI):** Bộ máy Hybrid NLU + Heuristic Scoring + Google Gemini API Fallback + AI Forecast/Churn Risk Scorer.
+  * **Security & Hardening:**
+    * ASP.NET Core RateLimiter (`auth-policy`: 10 req/min, `general-policy`: 100 req/min, `public-strict`: 20 req/min).
+    * `SecurityHeadersMiddleware`: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy.
+    * `IAuditService`: Ghi log kép (Dual Logging: Console ILogger + Bảng CSDL `NhatKyHeThong`).
+    * Session Thread Safety: Bọc các sự kiện `Session.OnChange` qua `InvokeAsync(StateHasChanged)` bảo đảm an toàn luồng trong Blazor Server.
 
-## 4. Current Quality Status
-- **Build:** `0 Warning(s), 0 Error(s)`.
-- **Automated Tests:** 93/93 tests PASS (0 failures, 100% pass rate).
-- **Database DACN (SQL Server Local):** Kết nối thực tế thành công, schema 36 bảng chuẩn xác, seed data đầy đủ.
-- **Backend Status:** Hoàn tất, sẵn sàng làm nền tảng vững chắc để xây dựng Frontend.
+---
 
+## 2. Cấu Trúc Solution & Các Tầng Ứng Dụng (Clean Architecture)
 
-## 5. Frontend Architecture & Design System (Blazor Web App)
-- **Design System CSS:** `src/DACN.Web/wwwroot/css/design-system.css`
-  - Bảng màu dịu mắt: Maritime Teal (`#1E5F74`), Deep Midnight Navy (`#0D2833`), Warm Sand (`#DDA15E`), App Background (`#F8FAFC`).
-  - Semantic Status: Success (`#10B981`), Warning (`#F59E0B`), Danger (`#EF4444`), Info (`#3B82F6`), AI Purple (`#8B5CF6`).
-  - Font & Icon: Plus Jakarta Sans + Bootstrap Icons v1.11.3.
-- **Shared Components:**
-  - `PageHeader.razor`: Tiêu đề chuẩn phân hệ kèm thẻ thành viên.
-  - `StatCard.razor`: Thẻ thống kê chỉ số nghiệp vụ với các variant màu.
-  - `StatusBadge.razor`: Tự động map trạng thái buồng phòng, đơn đặt phòng, thanh toán thành badge chuẩn.
-- **Phân hệ 4 Thành viên (Đã xây khung đầy đủ):**
-  - **TV1:** `ThanhVien1_BaoMat/RbacDashboard.razor` (`/admin/rbac`, `/admin/vouchers`, `/admin/audit-logs`) - Quản lý tài khoản, RBAC, kho Voucher, nội dung du lịch, Audit Logs.
-  - **TV2:** `ThanhVien2_BuongPhong/HousekeepingDashboard.razor` (`/housekeeping/rooms`, `/housekeeping/tasks`, `/housekeeping/assets`) - Trạng thái buồng phòng, nhật ký dọn dẹp, kiểm kê tài sản & hư hỏng.
-  - **TV3:** `ThanhVien3_TienSanh/FrontDeskDashboard.razor` (`/frontdesk/bookings`, `/frontdesk/checkin-out`, `/frontdesk/services-billing`) - Sơ đồ phòng trực quan, check-in/out, dịch vụ, hóa đơn, thanh toán.
-  - **TV4:** `ThanhVien4_AICore/AiBiDashboard.razor` (`/ai-analytics/dashboard`, `/ai-analytics/chatbot`, `/ai-analytics/forecast`) - AI Chatbot tư vấn tour theo mùa, dự báo nhu cầu phòng, cảnh báo nguy cơ hủy phòng, báo cáo BI.
-- **Tài liệu Hướng Dẫn Kỹ Thuật:** `DESIGN.md` đặt tại thư mục gốc dự án.
+```
+DACN_HotelManagement/
+├── src/
+│   ├── DACN.Domain/                     # Entities & Domain Interfaces thuần túy
+│   ├── DACN.Application/                # DTOs, Business Contracts, Validation Rules
+│   ├── DACN.Infrastructure/             # EF Core DACNContext, 34 Models, Fluent API Mappings
+│   └── DACN.Web/                        # ASP.NET Core API + Blazor Server Components
+│       ├── Common/                      # Quyen (18 quyền), GioVN, SchemaMigrationRunner, ClaimsPrincipalExtensions
+│       ├── Components/
+│       │   ├── App.razor                # Root component với @rendermode InteractiveServer
+│       │   ├── Routes.razor             # Bộ định tuyến Blazor
+│       │   ├── Layout/                  # CustomerLayout, MainLayout, NavMenu (Sidebar 4 phân hệ)
+│       │   ├── Shared/                  # PageHeader, StatCard, StatusBadge
+│       │   └── Pages/
+│       │       ├── Home.razor           # Giao diện đặt phòng & AI gợi ý du lịch khách hàng
+│       │       ├── Login.razor          # Đăng nhập & Đăng ký tài khoản (Auto BCrypt & Session)
+│       │       ├── AdminDashboard.razor # Trung tâm điều hành ca trực khách sạn
+│       │       ├── Customer/            # RoomsList.razor, MyBookings.razor
+│       │       ├── ThanhVien1_BaoMat/   # TV1: AccountManagement, RbacMatrix, VoucherManagement, ContentManagement, AuditLogs
+│       │       ├── ThanhVien2_BuongPhong/# TV2: RoomRackBookings, CheckInOut, RoomStatus, CleaningTasks, AssetInventory
+│       │       ├── ThanhVien3_TienSanh/ # TV3: BillingServices, ExpenseManagement
+│       │       └── ThanhVien4_AICore/   # TV4: BiReports, AiChatbot, AiForecastRisk
+│       ├── Controllers/                 # 17 RESTful Controllers (/api/v1/*)
+│       ├── DTOs/                        # DTOs cho Auth, Đặt phòng, Voucher, AI, Dashboard, v.v.
+│       ├── Middleware/                  # ExceptionMiddleware, SecurityHeadersMiddleware
+│       ├── Services/                    # AuditService, GoiYDuLichService, UserSessionService (Scoped)
+│       └── wwwroot/css/                 # design-system.css (Maritime Teal & Midnight Navy)
+├── tests/
+│   ├── DACN.UnitTests/                  # 58 Unit Tests (RBAC, Voucher math, API Response, Audit)
+│   └── DACN.IntegrationTests/           # 46 Integration Tests (Tv1Tv4ApiTests, RealDbSmokeTests)
+├── database/
+│   ├── DACN_Full.sql                    # Script CSDL đầy đủ (Schema + Seed Data)
+│   └── migrations/                      # Các script nâng cấp (001_tv1_tv4, 002_nhatky, 008_encoding)
+└── .agents/
+    ├── project_architecture.md          # Master Memory của toàn bộ dự án (File này)
+    └── domain_analysis.md               # Báo cáo phân tích nghiệp vụ 7 bước chuyên sâu
+```
+
+---
+
+## 3. Phân Hệ Chi Tiết Của 4 Thành Viên Nhóm
+
+### 🛡️ THÀNH VIÊN 1: BẢO MẬT, TÀI KHOẢN, PHÂN QUYỀN RBAC, VOUCHER, NỘI DUNG & AUDIT
+* **Trách nhiệm:** An ninh hệ thống, quản lý định danh người dùng, ma trận quyền hạn, chiến dịch khuyến mãi và cẩm nang du lịch.
+* **Màn hình Blazor:**
+  1. `AccountManagement.razor` (`/admin/accounts`): Xem danh sách, tìm kiếm, lọc theo vai trò, khóa/mở khóa tài khoản (thu hồi refresh token ngay lập tức), bảo vệ chống khóa Admin cuối cùng.
+  2. `RbacMatrix.razor` (`/admin/rbac`): Ma trận phân quyền động 18 quyền hạn trên 6 vai trò, lưu log diff khi cấp/hủy quyền.
+  3. `VoucherManagement.razor` (`/admin/vouchers`): Tạo và cấu hình mã giảm giá (áp trần giảm giá, đơn hàng tối thiểu, lượt dùng tối đa).
+  4. `ContentManagement.razor` (`/admin/content`): Quản lý địa điểm tham quan gắn nhãn `PhongCach` (Sea, Mountain, Healing...) và bài viết cẩm nang du lịch tự sinh slug tiếng Việt không dấu.
+  5. `AuditLogs.razor` (`/admin/audit-logs`): Tra cứu nhật ký kiểm toán hệ thống bất biến theo thời gian, IP và tác vụ.
+* **APIs:** `NguoiDungController`, `VaiTroController`, `VoucherController`, `NoiDungController`, `NhatKyController`.
+
+---
+
+### 🛏️ THÀNH VIÊN 2: BUỒNG PHÒNG, VẬN HÀNH & SƠ ĐỒ TIỀN SẢNH
+* **Trách nhiệm:** Vận hành sơ đồ phòng trực quan, thủ tục check-in/out, phân công dọn dẹp buồng phòng và kiểm kê tài sản.
+* **Màn hình Blazor:**
+  1. `RoomRackBookings.razor` (`/frontdesk/bookings`): Sơ đồ buồng phòng trực quan phân theo tầng, màu sắc trạng thái (Trống, Đang ở, Cần dọn, Bảo trì), tiếp nhận khách vãng lai (Walk-in).
+  2. `CheckInOut.razor` (`/frontdesk/checkin-out`): Danh sách chờ nhận phòng (Check-in) và chờ trả phòng (Check-out) với tổng hợp hóa đơn.
+  3. `RoomStatus.razor` (`/housekeeping/rooms`): Quản trị trạng thái buồng phòng cho khối Housekeeping.
+  4. `CleaningTasks.razor` (`/housekeeping/tasks`): Điều phối, phân công nhân viên vệ sinh buồng và ghi nhận thời gian hoàn thành.
+  5. `AssetInventory.razor` (`/housekeeping/assets`): Kiểm kê tiện nghi trong phòng (TV, Điều hòa, Két sắt, Minibar) và ghi nhận hư hỏng/mất mát đền bù.
+* **APIs:** `PhongController`, `BuongPhongController`, `DatPhongController`.
+
+---
+
+### 💰 THÀNH VIÊN 3: TIỀN SẢNH, THU NGÂN, HÓA ĐƠN & CHI PHÍ VẬN HÀNH
+* **Trách nhiệm:** Quản lý dịch vụ phòng, quyết toán hóa đơn thu ngân và theo dõi chi phí vận hành khách sạn.
+* **Màn hình Blazor:**
+  1. `BillingServices.razor` (`/frontdesk/services-billing`): Ghi nhận dịch vụ phát sinh (gọi món, minibar, giặt ủi), tự động cộng dồn hóa đơn theo thời gian thực, thanh toán thu ngân (Tiền mặt, Chuyển khoản).
+  2. `ExpenseManagement.razor` (`/frontdesk/expenses`): Ghi nhận các khoản chi phí vận hành (vật tư, điện nước, sửa chữa), phê duyệt và tổng hợp dòng tiền chi.
+* **APIs:** `HoaDonController`, `DichVuController`, `ChiPhiController`.
+
+---
+
+### 🤖 THÀNH VIÊN 4: TRÍ TUỆ NHÂN TẠO (AI) & BÁO CÁO PHÂN TÍCH DOANH NGHIỆP (BI)
+* **Trách nhiệm:** Trợ lý ảo AI tư vấn du lịch, thuật toán gợi ý điểm đến theo mùa & ngân sách, dự báo nhu cầu phòng và báo cáo KPI khách sạn.
+* **Màn hình Blazor:**
+  1. `Home.razor` (Cổng khách hàng): Bộ máy AI Recommender chấm điểm gợi ý điểm đến dựa trên Mùa du lịch + Ngân sách + Gu trải nghiệm (Gia đình, Cặp đôi, Sống ảo, Chữa lành).
+  2. `AiChatbot.razor` (`/ai-analytics/chatbot`): Chatbot tư vấn du lịch và khách sạn với cơ chế Hybrid RAG (truy vấn CSDL phòng/tiện nghi/địa điểm trước, gọi Google Gemini API khi cần mở rộng kiến thức bên ngoài).
+  3. `AiForecastRisk.razor` (`/ai-analytics/forecast`): Mô hình AI dự báo nhu cầu phòng 14 ngày tới (theo mùa & sự kiện) và thuật toán phát hiện nguy cơ khách hủy phòng (Churn Risk Scorer).
+  4. `BiReports.razor` (`/ai-analytics/dashboard`): Báo cáo chỉ số KPI khách sạn chuẩn quốc tế: Tỷ lệ lấp đầy (`Occupancy Rate %`), Giá phòng trung bình ngày (`ADR`), Doanh thu trên mỗi phòng sẵn có (`RevPAR`), cơ cấu doanh thu theo loại phòng.
+* **APIs:** `AiController`, `DashboardController`.
+
+---
+
+## 4. Tài Khoản Kiểm Thử Mặc Định (Seed Accounts)
+
+Mật khẩu dùng chung cho toàn bộ tài khoản hệ thống: **`Admin@123`** *(hoặc dự phòng `123456` trong môi trường Development)*.
+
+| Vai trò (Role) | Họ và Tên | Email Đăng Nhập | Đường Dẫn Mặc Định Sau Khi Đăng Nhập |
+| :--- | :--- | :--- | :--- |
+| **Admin** | Quản Trị Viên Hệ Thống | `admin@hotel.com` | `/admin/dashboard` |
+| **Manager** | Trần Quản Lý | `manager@hotel.com` | `/ai-analytics/dashboard` |
+| **FrontDesk** | Lê Lễ Tân | `receptionist@hotel.com` | `/frontdesk/bookings` |
+| **Housekeeping** | Nguyễn Buồng Phòng | `housekeeper@hotel.com` | `/housekeeping/rooms` |
+| **Accountant** | Hoàng Kế Toán | `accountant@hotel.com` | `/frontdesk/services-billing` |
+| **Customer** | Nguyễn Văn An | `customer1@gmail.com` | `/` (Trang chủ khách hàng) |
+
+---
+
+## 5. Quy Chuẩn Lập Trình & Các Lưu Ý Sống Còn Cho AI Models
+
+1. **Bảo toàn Encoding Tiếng Việt:**  
+   Tất cả các file `.razor`, `.cs`, `.sql` khi đọc và ghi **bắt buộc phải giữ định dạng UTF-8 (ưu tiên UTF-8 with BOM)**. Tuyệt đối không dùng các script PowerShell `Set-Content` mặc định ANSI làm hỏng dấu tiếng Việt thành các ký tự `?`.
+2. **Luồng giao diện Blazor Server (Dispatcher Safety):**  
+   Không được gọi trực tiếp `StateHasChanged()` từ luồng ngầm sau các tác vụ `await Db...`. Mọi subscription sự kiện từ `UserSessionService.OnChange` bắt buộc phải bọc qua:
+   ```csharp
+   private void OnSessionChanged() => _ = InvokeAsync(StateHasChanged);
+   ```
+3. **Phân quyền chặt chẽ (Strict RBAC):**  
+   Không cấp quyền `ManageUsers` (ID 11) cho `Manager`. Chỉ có tài khoản có vai trò `Admin` mới được phép thao tác phân quyền RBAC hoặc thay đổi vai trò tài khoản khác.
+4. **Quy trình Git & Merge:**  
+   Khi tích hợp code từ các nhánh thành viên khác (`noaye`, `feature/*`), luôn fetch, checkout nhánh tạm review, chạy `dotnet build` và `dotnet test` trước khi merge vào `main` với tùy chọn `--no-ff`.
+5. **Chạy kiểm thử trước khi kết thúc task:**  
+   Trước khi hoàn thành bất kỳ lượt tương tác nào về code:
+   ```bash
+   dotnet build
+   dotnet test
+   ```
+   Đảm bảo luôn đạt **104/104 PASSED** và **0 Errors**.
