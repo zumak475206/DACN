@@ -1,0 +1,339 @@
+@page "/frontdesk/expenses"
+@inject DACNContext Db
+@inject UserSessionService Session
+@inject IAuditService AuditService
+@using DACN.Infrastructure.Data
+
+<PageTitle>Quản Lý Chi Phí Vận Hành — TV3</PageTitle>
+
+<PageHeader Title="Quản Lý Chi Phí Vận Hành"
+            Subtitle="Ghi nhận, theo dõi và phê duyệt các khoản chi phí vận hành khách sạn"
+            Icon="bi bi-cash-stack"
+            MemberTag="TV3 — CHI PHÍ"
+            MemberTagClass="member-tag-tv3">
+    <Actions>
+        @if (Session.HasPermission(Quyen.ManageExpenses))
+        {
+            <button type="button" class="hotel-btn hotel-btn-primary" @onclick="() => showForm = !showForm">
+                <i class="bi bi-plus-lg"></i> Thêm Khoản Chi Phí
+            </button>
+        }
+    </Actions>
+</PageHeader>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert @(isError ? "alert-danger" : "alert-success") alert-dismissible fade show py-2 small mb-3">
+        <i class="bi @(isError ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill") me-1"></i> @statusMessage
+        <button type="button" class="btn-close py-2" @onclick="() => statusMessage = null"></button>
+    </div>
+}
+
+@if (showForm && Session.HasPermission(Quyen.ManageExpenses))
+{
+    <div class="hotel-card mb-4 border-primary">
+        <div class="hotel-card-header bg-light">
+            <div class="hotel-card-title">
+                <i class="bi bi-plus-circle-fill text-primary"></i>
+                <span>Thêm Khoản Chi Phí Mới</span>
+            </div>
+        </div>
+        <div class="hotel-card-body">
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold">Danh Mục Chi Phí *</label>
+                    <select class="form-select hotel-input" @bind="formDanhMuc">
+                        <option value="Vận hành">Vận hành</option>
+                        <option value="Bảo trì">Bảo trì</option>
+                        <option value="Tiện ích">Tiện ích</option>
+                        <option value="Nhân sự">Nhân sự</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="Khác">Khác</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold">Số Tiền (VNĐ) *</label>
+                    <input type="number" class="form-control hotel-input" placeholder="VD: 5000000" @bind="formSoTien" />
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold">Ngày Chi</label>
+                    <input type="date" class="form-control hotel-input" @bind="formNgayChi" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label small fw-bold">Mô Tả *</label>
+                    <textarea class="form-control hotel-input" rows="2" placeholder="Mô tả chi tiết khoản chi phí..." @bind="formMoTa"></textarea>
+                </div>
+                <div class="col-12 d-flex gap-2">
+                    <button type="button" class="hotel-btn hotel-btn-primary" @onclick="CreateExpenseAsync">
+                        <i class="bi bi-check-lg"></i> Lưu Khoản Chi Phí
+                    </button>
+                    <button type="button" class="hotel-btn hotel-btn-outline" @onclick="() => showForm = false">
+                        <i class="bi bi-x-lg"></i> Hủy
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="hotel-card">
+    <div class="hotel-card-header d-flex justify-content-between align-items-center">
+        <div class="hotel-card-title">
+            <i class="bi bi-list-ul text-warning"></i>
+            <span>Danh Sách Chi Phí (@expenses.Count khoản)</span>
+        </div>
+        <div class="d-flex gap-2">
+            <select class="form-select form-select-sm" style="width: 160px;" @bind="filterTrangThai">
+                <option value="">Tất cả trạng thái</option>
+                <option value="Pending">Chờ duyệt</option>
+                <option value="Approved">Đã duyệt</option>
+                <option value="Rejected">Bị từ chối</option>
+            </select>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="hotel-table">
+            <thead>
+                <tr>
+                    <th>STT</th>
+                    <th>Danh Mục</th>
+                    <th>Mô Tả</th>
+                    <th>Số Tiền</th>
+                    <th>Ngày Chi</th>
+                    <th>Người Ghi Nhận</th>
+                    <th>Trạng Thái</th>
+                    <th class="text-end">Thao Tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (filteredExpenses.Count == 0)
+                {
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                            <p class="mt-2 mb-0">Chưa có khoản chi phí nào.</p>
+                        </td>
+                    </tr>
+                }
+                @foreach (var expense in filteredExpenses)
+                {
+                    <tr>
+                        <td>@expense.Stt</td>
+                        <td>
+                            <span class="badge bg-secondary">@expense.DanhMuc</span>
+                        </td>
+                        <td>@expense.MoTa</td>
+                        <td class="fw-bold text-danger">@expense.SoTien.ToString("N0") VNĐ</td>
+                        <td>@expense.NgayChi.ToString("dd/MM/yyyy")</td>
+                        <td>@expense.TenNguoiGhiNhan</td>
+                        <td>
+                            @if (expense.TrangThai == "Pending")
+                            {
+                                <span class="badge bg-warning text-dark">Chờ duyệt</span>
+                            }
+                            else if (expense.TrangThai == "Approved")
+                            {
+                                <span class="badge bg-success">Đã duyệt</span>
+                            }
+                            else if (expense.TrangThai == "Rejected")
+                            {
+                                <span class="badge bg-danger">Bị từ chối</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">@expense.TrangThai</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            @if (expense.TrangThai == "Pending" && (Session.CurrentUser.Role == "Admin" || Session.CurrentUser.Role == "Manager" || Session.HasPermission(Quyen.ManageExpenses)))
+                            {
+                                <button type="button" class="btn btn-sm btn-success me-1" @onclick="() => ApproveExpenseAsync(expense.MaId)" title="Duyệt">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger" @onclick="() => RejectExpenseAsync(expense.MaId)" title="Từ chối">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            }
+                            else
+                            {
+                                <span class="text-muted small">—</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private bool showForm = false;
+    private string? statusMessage = string.Empty;
+    private bool isError = false;
+    private string filterTrangThai = string.Empty;
+
+    private string formDanhMuc = "Vận hành";
+    private decimal formSoTien = 0;
+    private DateTime formNgayChi = DateTime.UtcNow;
+    private string formMoTa = string.Empty;
+
+    private List<ExpenseDto> expenses = new();
+    private List<ExpenseDto> filteredExpenses => string.IsNullOrEmpty(filterTrangThai)
+        ? expenses
+        : expenses.Where(e => e.TrangThai == filterTrangThai).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadExpensesAsync();
+    }
+
+    private async Task LoadExpensesAsync()
+    {
+        try
+        {
+            var chiPhiList = await Db.ChiPhiVanHanhs
+                .AsNoTracking()
+                .OrderByDescending(c => c.NgayTao)
+                .Take(100)
+                .ToListAsync();
+
+            expenses = new List<ExpenseDto>();
+            int stt = 1;
+            foreach (var item in chiPhiList)
+            {
+                expenses.Add(new ExpenseDto
+                {
+                    MaId = item.MaId,
+                    DanhMuc = item.DanhMuc ?? "",
+                    MoTa = item.MoTa ?? "",
+                    SoTien = item.SoTien,
+                    NgayChi = item.NgayChi.ToDateTime(TimeOnly.MinValue),
+                    TrangThai = item.TrangThai ?? "Pending",
+                    TenNguoiGhiNhan = item.NguoiGhiNhanNavigation?.HoTen ?? "",
+                    Stt = stt++
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Lỗi tải danh sách chi phí: {ex.Message}";
+            isError = true;
+        }
+    }
+
+    private async Task CreateExpenseAsync()
+    {
+        if (string.IsNullOrWhiteSpace(formMoTa))
+        {
+            statusMessage = "Vui lòng nhập mô tả khoản chi phí.";
+            isError = true;
+            return;
+        }
+
+        if (formSoTien <= 0)
+        {
+            statusMessage = "Số tiền phải lớn hơn 0.";
+            isError = true;
+            return;
+        }
+
+        try
+        {
+            var chiPhi = new ChiPhiVanHanh
+            {
+                DanhMuc = formDanhMuc,
+                MoTa = formMoTa,
+                SoTien = formSoTien,
+                NgayChi = DateOnly.FromDateTime(formNgayChi),
+                NguoiGhiNhan = Session.CurrentUser.Id,
+                TrangThai = "Pending",
+                NgayTao = DateTime.UtcNow
+            };
+
+            Db.ChiPhiVanHanhs.Add(chiPhi);
+            await Db.SaveChangesAsync();
+
+            statusMessage = "Đã ghi nhận khoản chi phí mới thành công.";
+            isError = false;
+            showForm = false;
+            formMoTa = string.Empty;
+            formSoTien = 0;
+            formDanhMuc = "Vận hành";
+            formNgayChi = DateTime.UtcNow;
+            await LoadExpensesAsync();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Lỗi khi tạo chi phí: {ex.Message}";
+            isError = true;
+        }
+    }
+
+    private async Task ApproveExpenseAsync(int id)
+    {
+        try
+        {
+            var chiPhi = await Db.ChiPhiVanHanhs.FindAsync(id);
+            if (chiPhi == null)
+            {
+                statusMessage = "Không tìm thấy khoản chi phí.";
+                isError = true;
+                return;
+            }
+
+            chiPhi.TrangThai = "Approved";
+            chiPhi.NguoiPheDuyet = Session.CurrentUser.Id;
+
+            await Db.SaveChangesAsync();
+
+            statusMessage = "Đã phê duyệt khoản chi phí.";
+            isError = false;
+            await LoadExpensesAsync();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Lỗi khi phê duyệt: {ex.Message}";
+            isError = true;
+        }
+    }
+
+    private async Task RejectExpenseAsync(int id)
+    {
+        try
+        {
+            var chiPhi = await Db.ChiPhiVanHanhs.FindAsync(id);
+            if (chiPhi == null)
+            {
+                statusMessage = "Không tìm thấy khoản chi phí.";
+                isError = true;
+                return;
+            }
+
+            chiPhi.TrangThai = "Rejected";
+            chiPhi.NguoiPheDuyet = Session.CurrentUser.Id;
+
+            await Db.SaveChangesAsync();
+
+            statusMessage = "Đã từ chối khoản chi phí.";
+            isError = false;
+            await LoadExpensesAsync();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Lỗi khi từ chối: {ex.Message}";
+            isError = true;
+        }
+    }
+
+    private class ExpenseDto
+    {
+        public int Stt { get; set; }
+        public int MaId { get; set; }
+        public string DanhMuc { get; set; } = string.Empty;
+        public string MoTa { get; set; } = string.Empty;
+        public decimal SoTien { get; set; }
+        public DateTime NgayChi { get; set; }
+        public string TrangThai { get; set; } = string.Empty;
+        public string TenNguoiGhiNhan { get; set; } = string.Empty;
+    }
+}

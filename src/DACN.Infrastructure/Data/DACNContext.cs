@@ -131,7 +131,7 @@ public partial class DACNContext : DbContext
             entity.Property(e => e.MaId).HasColumnName("MaID");
             entity.Property(e => e.DanhMuc)
                 .HasMaxLength(100)
-                .IsUnicode(false);
+                .IsUnicode(true);
             entity.Property(e => e.NgayChi).HasDefaultValueSql("(CONVERT([date],getdate()))");
             entity.Property(e => e.NgayTao)
                 .HasDefaultValueSql("(getdate())")

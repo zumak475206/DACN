@@ -3,21 +3,26 @@
         <i class="@Icon"></i>
     </div>
     <div class="stat-content">
-        <p class="stat-title">@Title</p>
+        <p class="stat-title">@DisplayTitle</p>
         <h3 class="stat-number">@Value</h3>
-        @if (!string.IsNullOrEmpty(Description))
+        @if (!string.IsNullOrEmpty(DisplayDescription))
         {
-            <p class="stat-desc">@Description</p>
+            <p class="stat-desc">@DisplayDescription</p>
         }
     </div>
 </div>
 
 @code {
     [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Label { get; set; } = string.Empty;
     [Parameter] public string Value { get; set; } = "0";
     [Parameter] public string? Description { get; set; }
+    [Parameter] public string? Subtext { get; set; }
     [Parameter] public string Icon { get; set; } = "bi bi-graph-up";
     [Parameter] public string Variant { get; set; } = "primary";
+
+    private string DisplayTitle => string.IsNullOrEmpty(Label) ? Title : Label;
+    private string? DisplayDescription => string.IsNullOrEmpty(Subtext) ? Description : Subtext;
 
     private string GetBgColor() => Variant.ToLower() switch
     {
