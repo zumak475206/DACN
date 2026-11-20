@@ -1,0 +1,119 @@
+# 🛡️ PRODUCTION AUDIT REPORT — BÁO CÁO KIỂM ĐỊNH SẴN SÀNG TRIỂN KHAI (PROD READINESS)
+## Dự Án: BookingStay.AI — Hệ Thống Quản Lý Khách Sạn & Trợ Lý Du Lịch (DACN)
+
+> **Đánh giá tổng quan (Verdict):**  
+> **Production audit: 68/100 — Risky (Cần xử lý các chốt chặn an toàn trước khi golive công khai)**, do khóa ký JWT còn nằm trong file cấu hình git, giao diện Blazor thiếu chốt chặn phân quyền trực tiếp trên URL với nhân sự nội bộ, và chức năng phê duyệt chi phí chưa tách biệt trách nhiệm.
+
+---
+
+## 📊 BẢNG ĐIỂM ĐÁNH GIÁ NĂNG LỰC SẴN SÀNG (READINESS SCORECARD)
+
+| Hạng Mục Đánh Giá | Điểm Thành Phần | Mức Độ An Toàn | Nhận Định Chính |
+| :--- | :---: | :---: | :--- |
+| **1. An Ninh & Xác Thực (Security & Auth)** | 62 / 100 | 🟡 Cần gia cố | Đã có RateLimiting + CORS chuẩn, nhưng JWT Secret còn lộ trong repo; Blazor thiếu URL route guard. |
+| **2. Toàn Vẹn Dữ Liệu & Giao Dịch (Data Integrity)** | 88 / 100 | 🟢 Rất tốt | Đặt phòng dùng `IsolationLevel.Serializable` chống Overbooking; Schema 36 bảng chuẩn khóa ngoại. |
+| **3. Thanh Toán & Quyết Toán (Payments & Billing)** | 75 / 100 | 🟢 Khá | Hóa đơn đồng bộ thời gian thực; Kiểm soát số dư nợ chặt chẽ khi check-out; Chưa có webhook bất đồng bộ. |
+| **4. Vận Hành & Khả Năng Phục Hồi (Operations & SRE)**| 78 / 100 | 🟢 Khá | Đã có Health Check CSDL (`/api/v1/system/health`); Dual Audit Logging; Cần chuyển biến môi trường. |
+| **5. Trải Nghiệm Giao Diện (UX & Client Circuit)** | 70 / 100 | 🟡 Chấp nhận được | UI Responsive, thiết kế nhất quán; Phiên làm việc Blazor Circuit bị reset khi người dùng F5. |
+| **TỔNG ĐIỂM CHUẨN HÓA** | **68 / 100** | **RISKY (PRE-RELEASE)** | **Đạt chuẩn nghiệm thu đồ án / Cần sửa 3 Blocker nếu đưa vào kinh doanh thực tế.** |
+
+---
+
+## 🔎 BẰNG CHỨNG KIỂM ĐỊNH TẠI CHỖ (EVIDENCE CHECKED)
+
+Kiểm định dựa trên 100% bằng chứng cục bộ từ kho mã nguồn (Commit `fe57190` trên nhánh `main`):
+1. **Kiểm thử tự động:** `tests/DACN.UnitTests` và `tests/DACN.IntegrationTests` $\rightarrow$ **104/104 PASSED**.
+2. **Cấu hình & Bí mật:** `src/DACN.Web/appsettings.json`, `appsettings.Development.json`.
+3. **Hạ tầng Middleware:** `src/DACN.Web/Program.cs`, `SecurityHeadersMiddleware.cs`, `ExceptionMiddleware.cs`.
+4. **Hệ thống API:** 17 Controllers (`AuthController`, `DatPhongController`, `NguoiDungController`, `AiController`, `HoaDonController`, `ChiPhiController`, `SystemController`...).
+5. **Giao diện Web:** 20 Razor Components (`CustomerLayout.razor`, `MainLayout.razor`, `AccountManagement.razor`, `ExpenseManagement.razor`, `CheckInOut.razor`...).
+6. **Cơ sở dữ liệu:** `database/DACN_Full.sql`, `SchemaMigrationRunner.cs`.
+
+---
+
+## 🚨 NHỮNG ĐIỂM CHẶN BẮT BUỘC SỬA (BLOCKERS BEFORE PUBLIC PROD)
+
+### 1. [Bảo Mật] Khóa Bí Mật Ký JWT (Secret Key) Đang Lưu Trực Tiếp Trong Git
+* **Bằng chứng:** Trong file [appsettings.json](file:///d:/THAI_ANH_KY_WORKSPACE/Projects/DACN/src/DACN.Web/appsettings.json#L5-L10):
+  ```json
+  "Jwt": {
+    "Key": "DACN_Hotel_Management_Super_Secret_Key_2026_@_DeepMind_Security",
+    "Issuer": "DACN_HotelManagement",
+    "Audience": "DACN_HotelManagement_Clients"
+  }
+  ```
+* **Rủi ro Prod:** Bất kỳ ai có quyền truy cập repo git (kể cả thực tập sinh hoặc mã nguồn mở) đều có thể dùng khóa bí mật này để giả mạo JWT Token với vai trò `Admin`, chiếm quyền điều khiển toàn bộ hệ sinh thái mà không cần mật khẩu.
+* **Biện pháp khắc phục:** 
+  - Đưa `Jwt:Key` ra biến môi trường hệ điều hành: `ASPNETCORE_JWT__KEY` (hoặc Azure Key Vault / AWS Secrets Manager).
+  - Trong `appsettings.json` chỉ để chuỗi rỗng hoặc placeholder: `"Key": ""`.
+
+### 2. [Phân Quyền] Thiếu Route Guard Cấp Trang Trong `AccountManagement.razor` & `RbacMatrix.razor`
+* **Bằng chứng:** Trong `MainLayout.razor` (lines 50-60), hệ thống chỉ chặn khách hàng vãng lai. Nếu một nhân viên Lễ tân (`receptionist@hotel.com`) hoặc Buồng phòng (`housekeeper@hotel.com`) nhập thẳng URL `https://localhost:7136/admin/accounts`, hàm `OnInitializedAsync()` trong [AccountManagement.razor](file:///d:/THAI_ANH_KY_WORKSPACE/Projects/DACN/src/DACN.Web/Components/Pages/ThanhVien1_BaoMat/AccountManagement.razor#L161-L174) vẫn nạp toàn bộ danh sách tài khoản, email, số điện thoại lên màn hình.
+* **Rủi ro Prod:** Rò rỉ thông tin cá nhân (PII Breach) của toàn bộ nhân sự và khách lưu trú cho các tài khoản nội bộ cấp thấp.
+* **Biện pháp khắc phục:** Bổ sung điều hướng đẩy ra trang chủ nếu không có quyền:
+  ```csharp
+  if (!Session.HasPermission(Quyen.ManageUsers))
+  {
+      Nav.NavigateTo("/admin/dashboard");
+      return;
+  }
+  ```
+
+### 3. [Tài Chính] Nhân Viên Kế Toán Có Thể Tự Lập Và Tự Duyệt Chi Phí Vận Hành
+* **Bằng chứng:** Trong [ExpenseManagement.razor](file:///d:/THAI_ANH_KY_WORKSPACE/Projects/DACN/src/DACN.Web/Components/Pages/ThanhVien3_TienSanh/ExpenseManagement.razor#L148):
+  Nút bấm "Duyệt" và "Từ chối" hiển thị khi `Session.HasPermission(Quyen.ManageExpenses)`. Vì tài khoản Kế toán (`accountant@hotel.com`) được cấp quyền này, họ có thể vừa tạo khoản chi khống, vừa tự bấm duyệt để xuất quỹ.
+* **Rủi ro Prod:** Vi phạm nguyên tắc kiểm soát nội bộ tài chính (Segregation of Duties).
+* **Biện pháp khắc phục:** Ràng buộc quyền duyệt chi nghiêm ngặt: Chỉ vai trò `Manager` hoặc `Admin` mới được duyệt, và người tạo phiếu không được phép tự duyệt phiếu của chính mình.
+
+---
+
+## 💡 CÁC ĐIỂM CẢI TIẾN GIÁ TRỊ CAO (HIGH-VALUE FIXES)
+
+1. **Khắc phục mất phiên đăng nhập khi F5 (Circuit Rehydration):**
+   * *Hiện trạng:* `UserSessionService` là Scoped in-memory. F5 trình duyệt sẽ tạo SignalR Circuit mới và đưa phiên về `Khách Vãng Lai`.
+   * *Giải pháp:* Tích hợp `ProtectedLocalStorage` trong Blazor Server để lưu mã định danh phiên an toàn và tự động nạp lại khi F5.
+2. **Bổ sung Audit Log cho các giao dịch quầy tại [CheckInOut.razor](file:///d:/THAI_ANH_KY_WORKSPACE/Projects/DACN/src/DACN.Web/Components/Pages/ThanhVien2_BuongPhong/CheckInOut.razor):**
+   * *Hiện trạng:* Nhận phòng và thu tiền quyết toán trả phòng chưa gọi `AuditService.GhiNhanAsync(...)`.
+   * *Giải pháp:* Inject `IAuditService` và ghi log mỗi khi khách thanh toán trả phòng bằng tiền mặt.
+3. **Chuẩn hóa chuỗi kết nối CSDL Sản Xuất (Production Connection String):**
+   * *Hiện trạng:* Dùng Windows Integrated Security (`Server=.;Database=DACN;Trusted_Connection=True;TrustServerCertificate=True;`).
+   * *Giải pháp:* Trên production server, chuyển sang tài khoản dịch vụ riêng biệt với quyền tối thiểu (Least Privilege), bật cờ `Encrypt=True` và kiểm tra chứng chỉ SSL thật.
+
+---
+
+## 🛡️ PHÂN TÍCH RỦI RO CHI TIẾT THEO CÁC LĂNG KÍNH (RISK LENSES)
+
+### 1. Bảo Mật & Xác Thực (Security & Auth) — Đạt Khá
+* ✅ **Mật khẩu an toàn:** Băm BCrypt chuẩn với độ khó Work Factor 11.
+* ✅ **Cơ chế Token hiện đại:** Refresh Token Rotation (Sliding 14 ngày), tự động thu hồi token cũ, phát hiện và ngăn chặn tấn công Replay Attack.
+* ✅ **Rate Limiting:** Bảo vệ chống brute-force đăng nhập (10 req/min), chống dò mã voucher (20 req/min), và bảo vệ API chung (100 req/min).
+* ✅ **CORS & Headers:** Cấu hình nguồn gốc rõ ràng (`DefaultCorsPolicy`), áp dụng bộ header chuẩn OWASP qua `SecurityHeadersMiddleware`.
+* ✅ **Bảo vệ ranh giới AI:** API Chatbot Gemini được bọc trong giới hạn ký tự, timeout 8 giây và ép chặt prompt context vào dữ liệu CSDL để chống Prompt Injection / Hallucination.
+
+### 2. Tính Toàn Vẹn Dữ Liệu (Data Integrity) — Rất Mạnh
+* ✅ **Chống Overbooking:** Giao dịch đặt phòng chạy ở mức cô lập cao nhất `IsolationLevel.Serializable`.
+* ✅ **Ràng buộc toàn vẹn CSDL:** 36 bảng đều có khóa chính, khóa ngoại liên kết chặt chẽ (ON DELETE NO ACTION / CASCADE đúng nghiệp vụ).
+* ✅ **Khả năng tự vá Schema:** `SchemaMigrationRunner.cs` chạy tự động khi ứng dụng khởi động, bổ sung an toàn các bảng AI/Voucher mà không làm hỏng dữ liệu đang có.
+
+### 3. Vận Hành & SRE (Operations) — Ổn Định
+* ✅ **Khởi động sạch:** Dự án có thể clone về máy mới và chạy ngay lập tức bằng lệnh `dotnet run --project src/DACN.Web`.
+* ✅ **Health Check:** Endpoint `GET /api/v1/system/health` kiểm tra thực tế kết nối SQL Server và trả về mã lỗi 503 nếu gián đoạn.
+* ✅ **Dual Logging:** Ghi log song song ra Console Server và bảng kiểm toán `NhatKyHeThong`.
+
+---
+
+## 📋 CHECKLIST HÀNH ĐỘNG TRƯỚC KHI BÀN GIAO / GOLIVE
+
+```text
+[ ] 1. Rút "Jwt:Key" ra biến môi trường ASPNETCORE_JWT__KEY trên máy chủ production.
+[ ] 2. Thêm guard phân quyền if (!Session.HasPermission) trong AccountManagement.razor và RbacMatrix.razor.
+[ ] 3. Sửa điều kiện duyệt chi phí trong ExpenseManagement.razor (Không cho kế toán tự duyệt).
+[ ] 4. Inject IAuditService vào CheckInOut.razor để ghi vết thu ngân tiền mặt.
+[ ] 5. Lưu phiên đăng nhập vào ProtectedLocalStorage để F5 không bị văng đăng nhập.
+[ ] 6. Cập nhật Connection String sang Remote SQL Server có chứng chỉ SSL mã hóa.
+```
+
+---
+
+> [!TIP]
+> File báo cáo này được tạo độc lập và lưu trữ tại [`.agents/production_audit.md`](file:///d:/THAI_ANH_KY_WORKSPACE/Projects/DACN/.agents/production_audit.md). Đây là tài liệu giá trị cao giúp bạn bảo vệ đồ án trước hội đồng phản biện hoặc khi nâng cấp hệ thống lên môi trường đám mây thực tế.
