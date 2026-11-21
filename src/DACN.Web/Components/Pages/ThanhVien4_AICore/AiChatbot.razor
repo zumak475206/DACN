@@ -26,11 +26,14 @@
 
             <div class="hotel-card-body flex-grow-1" style="max-height: 460px; overflow-y: auto; background: #F8FAFC;">
                 <div class="d-flex flex-wrap gap-2 mb-3">
-                    <button class="btn btn-sm btn-outline-primary rounded-pill" @onclick='() => AskQuickAsync("Tháng 6 có 3 triệu muốn đi đâu check-in sống ảo đẹp nhất?")'>
-                        📸 Tháng 6 có 3tr đi đâu sống ảo?
+                    <button class="btn btn-sm btn-outline-success rounded-pill fw-semibold" @onclick='() => AskQuickAsync("Giờ tôi có 3 triệu muốn đi sống ảo gần khu vực Hồ Chí Minh trong tháng 12 thì nên đi đâu?")'>
+                        🌲 3tr đi sống ảo gần TP.HCM tháng 12?
                     </button>
-                    <button class="btn btn-sm btn-outline-success rounded-pill" @onclick='() => AskQuickAsync("Cuối năm có 4 triệu muốn đi nghỉ dưỡng thư giãn chữa lành")'>
-                        🌿 Cuối năm 4tr nghỉ dưỡng chữa lành
+                    <button class="btn btn-sm btn-outline-primary rounded-pill" @onclick='() => AskQuickAsync("Tháng 6 có 3 triệu muốn đi biển Đà Nẵng check-in sống ảo đẹp nhất?")'>
+                        📸 Tháng 6 có 3tr đi biển Đà Nẵng?
+                    </button>
+                    <button class="btn btn-sm btn-outline-info text-dark rounded-pill" @onclick='() => AskQuickAsync("Tháng 1 có 5 triệu muốn đi nghỉ dưỡng biển đảo Phú Quốc")'>
+                        🌴 Tháng 1 có 5tr đi Phú Quốc
                     </button>
                     <button class="btn btn-sm btn-outline-warning text-dark rounded-pill" @onclick='() => AskQuickAsync("Khách sạn đang có mã voucher giảm giá nào còn lượt?")'>
                         🎁 Hỏi mã Voucher đang mở
@@ -45,7 +48,7 @@
                                 <span>@(msg.IsUser ? "Khách hàng" : $"BookingStay.AI ({msg.EngineSource})")</span>
                                 <span class="opacity-75">@msg.Time.ToString("HH:mm")</span>
                             </div>
-                            <div class="small">@msg.Text</div>
+                            <div class="small">@((MarkupString)RenderMarkdown(msg.Text))</div>
 
                             @if (!msg.IsUser && msg.Intent != null)
                             {
@@ -63,6 +66,14 @@
                                     {
                                         <span class="badge bg-primary">Gu: @msg.Intent.PhongCach</span>
                                     }
+                                    @if (!string.IsNullOrEmpty(msg.Intent.KhuVuc))
+                                    {
+                                        <span class="badge bg-secondary">Khu vực: @msg.Intent.KhuVuc</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(msg.Intent.DiemXuatPhat))
+                                    {
+                                        <span class="badge bg-dark">Xuất phát: @msg.Intent.DiemXuatPhat.ToUpper() @(msg.Intent.YeuCauGanXuatPhat ? "(Gần)" : "")</span>
+                                    }
                                 </div>
                             }
 
@@ -72,12 +83,18 @@
                                     @foreach (var s in msg.Suggestions)
                                     {
                                         <div class="p-2 rounded border bg-light text-dark small">
-                                            <div class="d-flex justify-content-between">
+                                            <div class="d-flex justify-content-between align-items-start">
                                                 <strong>@s.TieuDe (@s.DiemDen)</strong>
                                                 <span class="badge bg-success">@s.PhanTramPhuHop% Match</span>
                                             </div>
-                                            <div class="text-muted" style="font-size: 0.75rem;">
-                                                🌤️ @s.ThoiDiemDepNhat (@s.ThoiTietDuKien) | 🛏️ Phòng: <strong>@s.HangPhongPhuHop</strong> (@s.GiaPhongMoiDem?.ToString("N0")đ/đêm)
+                                            <div class="text-muted mt-1" style="font-size: 0.75rem;">
+                                                🌤️ @s.ThoiDiemDepNhat (@s.ThoiTietDuKien) | 🚗 @s.PhuongTienGoiY
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mt-1 pt-1 border-top" style="font-size: 0.78rem;">
+                                                <span>🏨 <strong>@s.TenChiNhanh</strong> — Phòng: <strong>@s.HangPhongPhuHop</strong> (@s.GiaPhongMoiDem?.ToString("N0")đ/đêm | Trọn gói: @s.ChiPhiDuKienTu.ToString("N0")đ – @s.ChiPhiDuKienDen.ToString("N0")đ)</span>
+                                                <a href="/rooms?branch=@s.MaChiNhanh" class="btn btn-sm btn-primary py-0 px-2 fw-bold" style="font-size: 0.73rem;">
+                                                    Đặt Phòng Ngay
+                                                </a>
                                             </div>
                                         </div>
                                     }
@@ -208,5 +225,14 @@
         {
             isSending = false;
         }
+    }
+
+    private static string RenderMarkdown(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        var encoded = System.Net.WebUtility.HtmlEncode(text);
+        encoded = System.Text.RegularExpressions.Regex.Replace(encoded, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+        encoded = encoded.Replace("\n", "<br/>");
+        return encoded;
     }
 }

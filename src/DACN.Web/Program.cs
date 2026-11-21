@@ -34,6 +34,10 @@ builder.Services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<DACNCon
 
 // Đăng ký dịch vụ Audit Log kiểm toán hệ thống & AI Travel Advisor
 builder.Services.AddHttpClient();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IGeoService, GeoService>();
+builder.Services.AddScoped<IWeatherService, WeatherService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<GoiYDuLichService>();
 builder.Services.AddScoped<UserSessionService>();

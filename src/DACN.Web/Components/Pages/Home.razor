@@ -5,6 +5,7 @@
 @inject UserSessionService Session
 @inject IAuditService AuditService
 @inject NavigationManager Nav
+@inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
 
 <PageTitle>BookingStay.AI — Đặt Phòng Khách Sạn & AI Gợi Ý Du Lịch Đi Muôn Nơi</PageTitle>
 
@@ -68,9 +69,11 @@
                         <i class="bi bi-calendar-range text-primary me-1"></i> Ngày nhận — Ngày trả phòng
                     </label>
                     <div class="d-flex align-items-center gap-1">
-                        <input type="date" class="form-control border-0 p-0 fw-semibold shadow-none" style="font-size: 0.84rem;" @bind="checkinDate" />
+                        <input type="date" class="form-control border-0 p-0 fw-semibold shadow-none" style="font-size: 0.84rem;"
+                               min="@DateTime.Today.ToString("yyyy-MM-dd")" @bind="checkinDate" @bind:after="SyncDates" />
                         <span class="text-muted">→</span>
-                        <input type="date" class="form-control border-0 p-0 fw-semibold shadow-none" style="font-size: 0.84rem;" @bind="checkoutDate" />
+                        <input type="date" class="form-control border-0 p-0 fw-semibold shadow-none" style="font-size: 0.84rem;"
+                               min="@checkinDate.AddDays(1).ToString("yyyy-MM-dd")" @bind="checkoutDate" @bind:after="SyncDates" />
                     </div>
                 </div>
             </div>
@@ -168,11 +171,16 @@
                             <div class="small text-dark mb-3" style="font-size: 0.78rem;">
                                 <strong>📸 Điểm check-in nổi bật:</strong> @sug.CheckinSpots
                             </div>
-                            <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center">
+                            <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center gap-1">
                                 <small class="text-muted">Phòng từ <strong class="text-primary">@sug.RoomPriceFrom.ToString("N0")đ</strong>/đêm</small>
-                                <button class="btn btn-sm btn-primary fw-semibold px-3" @onclick="() => SelectDestinationAndScroll(sug.CityKey)">
-                                    Xem Phòng Ngay <i class="bi bi-arrow-right ms-1"></i>
-                                </button>
+                                <div class="d-flex gap-1">
+                                    <button class="btn btn-sm btn-outline-primary fw-semibold px-2" @onclick="() => SelectDestinationAndScroll(sug.CityKey)">
+                                        Lọc phòng
+                                    </button>
+                                    <button class="btn btn-sm btn-primary fw-semibold px-2" @onclick="() => BookFromAiSuggestion(sug.CityKey)">
+                                        Đặt Ngay <i class="bi bi-arrow-right ms-1"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -284,7 +292,7 @@
                     <div class="position-relative" style="height: 190px; background: #CBD5E1; overflow: hidden;">
                         <img src="@room.ImageUrl" alt="@room.TenLoai" style="width: 100%; height: 100%; object-fit: cover;" />
                         <span class="badge position-absolute top-0 start-0 m-2 px-2 py-1 bg-dark bg-opacity-75 text-white" style="font-size: 0.72rem;">
-                            <i class="bi bi-geo-alt-fill text-warning me-1"></i> @room.DiaDiem
+                            <i class="bi bi-geo-alt-fill text-warning me-1"></i> @room.DiaDiem • @room.TenChiNhanh
                         </span>
                         <div class="position-absolute top-0 end-0 m-2 d-flex align-items-center gap-1">
                             <span class="badge px-2 py-1 fw-bold" style="background: #003B95; color: white; font-size: 0.78rem;">@room.DiemDanhGia</span>
@@ -442,8 +450,9 @@
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
                 <div class="modal-header text-white" style="background: #003B95;">
-                    <h5 class="modal-title fw-bold">
-                        <i class="bi bi-calendar-check me-2"></i> Hoàn Tất Đặt Phòng: @selectedRoom.TenLoai (@selectedRoom.DiaDiem)
+                    <h5 class="modal-title fw-bold d-flex align-items-center flex-wrap gap-2">
+                        <span><i class="bi bi-calendar-check me-2"></i> Hoàn Tất Đặt Phòng: @selectedRoom.TenLoai</span>
+                        <span class="badge bg-warning text-dark fs-6 fw-normal"><i class="bi bi-building me-1"></i> @selectedRoom.TenChiNhanh</span>
                     </h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="() => isBookingModalOpen = false"></button>
                 </div>
@@ -456,7 +465,7 @@
                             <p class="text-muted mb-3">Mã xác nhận đặt phòng của bạn: <strong class="text-dark fs-5">@bookingCodeText (#DP-@bookingCode)</strong></p>
                             <p class="small text-muted">Thông tin đơn đặt đã được lưu vào CSDL và chuyển về Phân hệ Tiền sảnh (TV3) để xếp phòng đón tiếp quý khách.</p>
                             <div class="mt-4">
-                                <a href="my-bookings" class="btn btn-primary px-4 py-2 me-2 fw-bold">Xem Đơn Đặt Của Tôi</a>
+                                <a href="/my-bookings" class="btn btn-primary px-4 py-2 me-2 fw-bold">Xem Đơn Đặt Của Tôi</a>
                                 <button class="btn btn-outline-secondary px-4 py-2" @onclick="() => isBookingModalOpen = false">Đóng</button>
                             </div>
                         </div>
@@ -470,6 +479,30 @@
                             </div>
                         }
                         <div class="row g-3">
+                            <!-- 1. Chọn ngày nhận phòng & ngày trả phòng -->
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small fw-bold">
+                                    <i class="bi bi-calendar-check text-primary me-1"></i> Ngày nhận phòng *
+                                </label>
+                                <input type="date" class="form-control hotel-input"
+                                       min="@DateTime.Today.ToString("yyyy-MM-dd")"
+                                       value="@checkinDate.ToString("yyyy-MM-dd")"
+                                       @onchange="OnCheckinDateChanged" />
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small fw-bold d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-calendar-x text-danger me-1"></i> Ngày trả phòng *</span>
+                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 fw-semibold px-2 py-1">
+                                        <i class="bi bi-moon-stars-fill me-1"></i>@totalNights đêm
+                                    </span>
+                                </label>
+                                <input type="date" class="form-control hotel-input"
+                                       min="@checkinDate.AddDays(1).ToString("yyyy-MM-dd")"
+                                       value="@checkoutDate.ToString("yyyy-MM-dd")"
+                                       @onchange="OnCheckoutDateChanged" />
+                            </div>
+
+                            <!-- 2. Thông tin khách & Voucher -->
                             <div class="col-12 col-md-6">
                                 <label class="form-label small fw-bold">Họ và tên người nhận phòng *</label>
                                 <input type="text" class="hotel-input w-100" @bind="guestName" />
@@ -485,24 +518,39 @@
                             <div class="col-12 col-md-6">
                                 <label class="form-label small fw-bold">Mã Voucher ưu đãi</label>
                                 <div class="input-group">
-                                    <input type="text" class="form-control hotel-input" placeholder="VD: WELCOME2026" @bind="appliedVoucherCode" />
+                                    <input type="text" class="form-control hotel-input" placeholder="VD: WELCOME2026, HE2026" @bind="appliedVoucherCode" />
                                     <button class="btn btn-outline-primary fw-semibold" type="button" @onclick="ApplyVoucher">Áp Dụng</button>
                                 </div>
-                                @if (discountAmount > 0)
+                                <div class="mt-1 d-flex flex-wrap gap-1 align-items-center">
+                                    <small class="text-muted" style="font-size: 0.72rem;">Mã nhanh:</small>
+                                    <button type="button" class="btn btn-sm btn-light border py-0 px-2 fw-semibold" style="font-size: 0.75rem;" @onclick='() => QuickApplyVoucher("WELCOME2026")'>WELCOME2026 (-15%)</button>
+                                    <button type="button" class="btn btn-sm btn-light border py-0 px-2 fw-semibold" style="font-size: 0.75rem;" @onclick='() => QuickApplyVoucher("HE2026")'>HE2026 (-15%)</button>
+                                    <button type="button" class="btn btn-sm btn-light border py-0 px-2 fw-semibold" style="font-size: 0.75rem;" @onclick='() => QuickApplyVoucher("SUMMERLUXURY")'>SUMMERLUXURY (-300K)</button>
+                                </div>
+                                @if (!string.IsNullOrEmpty(voucherMessage))
                                 {
-                                    <small class="text-success fw-bold d-block mt-1">Đã giảm: -@discountAmount.ToString("N0") VND</small>
+                                    <small class="@(discountAmount > 0 ? "text-success fw-bold" : "text-danger fw-semibold") d-block mt-1">
+                                        <i class="bi @(discountAmount > 0 ? "bi-check-circle-fill" : "bi-x-circle-fill") me-1"></i> @voucherMessage
+                                    </small>
                                 }
                             </div>
 
                             <div class="col-12">
-                                <div class="p-3 rounded-3 border mt-2" style="background: #F8FAFC;">
+                                <div class="p-3 rounded-3 border mt-1" style="background: #F8FAFC;">
                                     <div class="d-flex justify-content-between small mb-1">
-                                        <span>Đơn giá phòng / đêm:</span>
-                                        <span>@selectedRoom.GiaMoiDem.ToString("N0") VND</span>
+                                        <span>Đơn giá phòng:</span>
+                                        <span>@selectedRoom.GiaMoiDem.ToString("N0") VND / đêm</span>
                                     </div>
                                     <div class="d-flex justify-content-between small mb-1">
-                                        <span>Nhận phòng → Trả phòng:</span>
-                                        <span>@checkinDate.ToString("dd/MM/yyyy") → @checkoutDate.ToString("dd/MM/yyyy")</span>
+                                        <span>Thời gian lưu trú:</span>
+                                        <span class="fw-semibold text-dark">
+                                            @checkinDate.ToString("dd/MM/yyyy") → @checkoutDate.ToString("dd/MM/yyyy")
+                                            <span class="text-primary ms-1">(@totalNights đêm)</span>
+                                        </span>
+                                    </div>
+                                    <div class="d-flex justify-content-between small mb-1">
+                                        <span>Tạm tính tiền phòng (@totalNights đêm):</span>
+                                        <span>@roomSubtotal.ToString("N0") VND</span>
                                     </div>
                                     @if (discountAmount > 0)
                                     {
@@ -516,6 +564,38 @@
                                         <span>Tổng cộng thanh toán:</span>
                                         <span>VND @finalTotal.ToString("N0")</span>
                                     </div>
+                                    <div class="d-flex justify-content-between small fw-semibold text-success mt-1">
+                                        <span>Tiền cọc giữ phòng (30%):</span>
+                                        <span>VND @depositRequired.ToString("N0")</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold mb-2">Phương thức đặt cọc &amp; Giữ phòng *</label>
+                                <div class="row g-2">
+                                    <div class="col-12 col-md-6">
+                                        <div class="p-3 rounded-3 border h-100 @(payDepositNow ? "border-primary bg-primary bg-opacity-10" : "bg-white")"
+                                             style="cursor: pointer;"
+                                             @onclick="() => payDepositNow = true">
+                                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                                <span class="fw-bold small text-dark"><i class="bi bi-qr-code-scan text-primary me-1"></i> Thanh toán cọc 30% (VietQR / VNPAY)</span>
+                                                <input type="radio" class="form-check-input" checked="@payDepositNow" @onchange="() => payDepositNow = true" />
+                                            </div>
+                                            <small class="text-muted d-block">Xác nhận giữ phòng chắc chắn ngay lập tức (@depositRequired.ToString("N0") đ).</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <div class="p-3 rounded-3 border h-100 @(!payDepositNow ? "border-warning bg-warning bg-opacity-10" : "bg-white")"
+                                             style="cursor: pointer;"
+                                             @onclick="() => payDepositNow = false">
+                                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                                <span class="fw-bold small text-dark"><i class="bi bi-hourglass-split text-warning me-1"></i> Giữ chỗ tạm thời 15 phút</span>
+                                                <input type="radio" class="form-check-input" checked="@(!payDepositNow)" @onchange="() => payDepositNow = false" />
+                                            </div>
+                                            <small class="text-muted d-block">Giữ phòng miễn phí trong 15 phút, thanh toán cọc sau tại mục Đơn Đặt Của Tôi.</small>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -523,7 +603,7 @@
                         <div class="mt-4 pt-3 border-top text-end">
                             <button class="btn btn-outline-secondary me-2" disabled="@isSubmittingBooking" @onclick="() => isBookingModalOpen = false">Hủy</button>
                             <button class="btn btn-primary fw-bold px-4" style="background: #006CE4;" disabled="@isSubmittingBooking" @onclick="SubmitBookingAsync">
-                                <i class="bi bi-check2-circle me-1"></i> @(isSubmittingBooking ? "Đang xử lý..." : "Xác Nhận Đặt Phòng Ngay")
+                                <i class="bi bi-check2-circle me-1"></i> @(isSubmittingBooking ? "Đang xử lý..." : (payDepositNow ? $"Thanh Toán Cọc {depositRequired:N0} đ & Đặt Phòng" : "Xác Nhận Giữ Chỗ 15 Phút"))
                             </button>
                         </div>
                     }
@@ -576,7 +656,9 @@
         string VibeCode,
         string MoTa,
         string ImageUrl,
-        List<string> TienNghi);
+        List<string> TienNghi,
+        int MaChiNhanh = 1,
+        string TenChiNhanh = "GrandStay Đà Nẵng Beach Resort");
 
     public record AiTravelSuggestion(
         string CityKey,
@@ -617,19 +699,23 @@
         new(1, "GrandStay Deluxe Sea View", "Đà Nẵng", 1000000, "9.4 Xuất sắc", "📸 Góc ban công sống ảo", "song-ao",
             "Ban công hướng thẳng biển Mỹ Khê, ngắm bình minh trên giường ngủ, cách bãi tắm 2 phút đi bộ.",
             "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=600&q=80",
-            new() { "View Biển", "Ban công sống ảo", "Bồn tắm nằm", "Buffet sáng" }),
+            new() { "View Biển", "Ban công sống ảo", "Bồn tắm nằm", "Buffet sáng" },
+            1, "GrandStay Đà Nẵng Beach Resort"),
         new(2, "GrandStay Suite Family Resort", "Phú Quốc", 1500000, "9.6 Tuyệt hảo", "👨‍👩‍👧‍👦 Gia đình & Nhóm bạn", "gia-dinh",
             "Không gian 65m² với 2 phòng ngủ riêng biệt, hồ bơi vô cực ngắm hoàng hôn biển đảo.",
             "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=600&q=80",
-            new() { "2 Phòng ngủ", "Hồ bơi vô cực", "Đón sân bay", "Smart TV" }),
+            new() { "2 Phòng ngủ", "Hồ bơi vô cực", "Đón sân bay", "Smart TV" },
+            2, "GrandStay Sunset Villa Phú Quốc"),
         new(3, "Pine Hill Retreat Superior", "Đà Lạt", 750000, "9.2 Tuyệt vời", "🌿 Thư giãn Chữa lành", "thu-gian",
             "Phòng gỗ ấm áp nhìn ra thung lũng thông xanh mướt, yên tĩnh tuyệt đối để nghỉ ngơi đọc sách.",
             "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=600&q=80",
-            new() { "View Đồi thông", "Săn mây sáng sớm", "Trà chiều", "Lò sưởi ấm" }),
+            new() { "View Đồi thông", "Săn mây sáng sớm", "Trà chiều", "Lò sưởi ấm" },
+            3, "GrandStay Pine Hill Retreat Đà Lạt"),
         new(4, "Old Town Boutique Standard", "Hội An", 500000, "8.9 Rất tốt", "💸 Tiết kiệm • Gần phố cổ", "song-ao",
             "Phòng thiết kế Indochine ấm cúng, miễn phí xe đạp dạo phố cổ Hội An và bãi biển An Bàng.",
             "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=600&q=80",
-            new() { "Xe đạp miễn phí", "Cách Phố cổ 400m", "Hồ bơi sân vườn", "Wifi 6" })
+            new() { "Xe đạp miễn phí", "Cách Phố cổ 400m", "Hồ bơi sân vườn", "Wifi 6" },
+            1, "GrandStay Đà Nẵng Beach Resort")
     };
 
     protected override async Task OnInitializedAsync()
@@ -644,7 +730,8 @@
                     allRoomTypes[i] = allRoomTypes[i] with
                     {
                         Id = dbRooms[i].MaId,
-                        GiaMoiDem = dbRooms[i].GiaCoBan
+                        GiaMoiDem = dbRooms[i].GiaCoBan,
+                        MaChiNhanh = dbRooms[i].MaChiNhanh > 0 ? dbRooms[i].MaChiNhanh : allRoomTypes[i].MaChiNhanh
                     };
                 }
             }
@@ -657,15 +744,25 @@
 
             if (dbAiGoiY.Count >= 3)
             {
-                aiSuggestions = dbAiGoiY.Take(3).Select(g =>
+                // Chọn đa dạng 3 chi nhánh / điểm đến nổi bật để hiển thị trên Trang chủ
+                var distinctByBranch = dbAiGoiY
+                    .GroupBy(g => g.MaChiNhanh)
+                    .Select(grp => grp.First())
+                    .ToList();
+                var displayPool = distinctByBranch.Count >= 3
+                    ? distinctByBranch.Take(3).ToList()
+                    : dbAiGoiY.Take(3).ToList();
+
+                aiSuggestions = displayPool.Select(g =>
                 {
                     var hasSongAo = g.DanhSachGu.Contains("songao");
                     var hasThuGian = g.DanhSachGu.Contains("thugian");
-                    var vibeCode = g.ChiPhiDuKienTu <= 1_800_000m ? "tiet-kiem" : hasSongAo ? "song-ao" : hasThuGian ? "thu-gian" : "song-ao";
+                    var vibeCode = g.ChiPhiDuKienTu <= 2_200_000m ? "tiet-kiem" : hasSongAo ? "song-ao" : hasThuGian ? "thu-gian" : "song-ao";
                     var vibeLabel = vibeCode == "tiet-kiem" ? "💸 Tiết kiệm & Sống ảo" : vibeCode == "thu-gian" ? "🌿 Thư giãn Chữa lành" : "📸 Check-in Sống ảo";
+                    var cityKey = NormalizeCityKey(g.DiemDen, g.MaChiNhanh);
                     return new AiTravelSuggestion(
-                        g.DiemDen,
-                        $"{g.DiemDen} • {g.TenMuaDepNhat}",
+                        cityKey,
+                        $"{cityKey} • {g.TenChiNhanh}",
                         g.TieuDe,
                         g.ThoiDiemDepNhat,
                         g.PhanTramPhuHop,
@@ -682,8 +779,19 @@
         catch { }
     }
 
+    private static string NormalizeCityKey(string? diemDen, int maChiNhanh)
+    {
+        var d = (diemDen ?? "").ToLowerInvariant();
+        if (d.Contains("đà lạt") || maChiNhanh == 3) return "Đà Lạt";
+        if (d.Contains("phú quốc") || maChiNhanh == 2) return "Phú Quốc";
+        if (d.Contains("hội an")) return "Hội An";
+        return "Đà Nẵng";
+    }
+
     private IEnumerable<RoomTypeItem> DisplayRoomTypes => allRoomTypes
-        .Where(r => string.IsNullOrWhiteSpace(selectedDestination) || r.DiaDiem.Contains(selectedDestination, StringComparison.OrdinalIgnoreCase))
+        .Where(r => string.IsNullOrWhiteSpace(selectedDestination) ||
+                    r.DiaDiem.Contains(selectedDestination, StringComparison.OrdinalIgnoreCase) ||
+                    selectedDestination.Contains(r.DiaDiem, StringComparison.OrdinalIgnoreCase))
         .Where(r => string.IsNullOrWhiteSpace(selectedVibe) || r.VibeCode == selectedVibe)
         .Where(r => selectedBudget switch
         {
@@ -696,6 +804,8 @@
     private int totalNights => Math.Max(1, (checkoutDate.Date - checkinDate.Date).Days);
     private decimal roomSubtotal => (selectedRoom?.GiaMoiDem ?? 0) * totalNights;
     private decimal finalTotal => Math.Max(0, roomSubtotal - discountAmount);
+    private decimal depositRequired => Math.Round(finalTotal * 0.3m, 0);
+    private bool payDepositNow = true;
 
     private void SearchRooms() { }
 
@@ -708,26 +818,103 @@
 
     private void SelectDestinationAndScroll(string destination)
     {
-        selectedDestination = destination;
+        selectedDestination = NormalizeCityKey(destination, 0);
+    }
+
+    private void BookFromAiSuggestion(string cityKey)
+    {
+        var norm = NormalizeCityKey(cityKey, 0);
+        selectedDestination = norm;
+        var matchedRoom = allRoomTypes.FirstOrDefault(r => r.DiaDiem.Equals(norm, StringComparison.OrdinalIgnoreCase))
+                          ?? allRoomTypes.FirstOrDefault();
+        if (matchedRoom != null)
+        {
+            OpenBookingModal(matchedRoom);
+        }
+    }
+
+    private string voucherMessage = "";
+
+    private async Task QuickApplyVoucher(string code)
+    {
+        appliedVoucherCode = code;
+        await ApplyVoucher();
     }
 
     private void OpenBookingModal(RoomTypeItem room)
     {
         selectedRoom = room;
-        discountAmount = 0;
-        appliedVoucherCode = "";
+        voucherMessage = "";
         bookingSuccess = false;
         bookingErrorMessage = null;
+        if (checkinDate < DateTime.Today)
+        {
+            checkinDate = DateTime.Today;
+        }
+        if (checkoutDate <= checkinDate)
+        {
+            checkoutDate = checkinDate.AddDays(1);
+        }
         if (Session.CurrentUser.IsLoggedIn)
         {
             guestName = Session.CurrentUser.HoTen;
             guestEmail = Session.CurrentUser.Email;
         }
         isBookingModalOpen = true;
+
+        if (!string.IsNullOrWhiteSpace(appliedVoucherCode))
+        {
+            _ = ApplyVoucher();
+        }
+    }
+
+    private async Task OnCheckinDateChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var newCheckin))
+        {
+            if (newCheckin < DateTime.Today)
+            {
+                newCheckin = DateTime.Today;
+            }
+            checkinDate = newCheckin;
+            if (checkoutDate <= checkinDate)
+            {
+                checkoutDate = checkinDate.AddDays(1);
+            }
+            if (!string.IsNullOrWhiteSpace(appliedVoucherCode))
+            {
+                await ApplyVoucher();
+            }
+        }
+    }
+
+    private async Task OnCheckoutDateChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var newCheckout))
+        {
+            if (newCheckout <= checkinDate)
+            {
+                newCheckout = checkinDate.AddDays(1);
+            }
+            checkoutDate = newCheckout;
+            if (!string.IsNullOrWhiteSpace(appliedVoucherCode))
+            {
+                await ApplyVoucher();
+            }
+        }
+    }
+
+    private void SyncDates()
+    {
+        if (checkinDate < DateTime.Today)
+            checkinDate = DateTime.Today;
+        if (checkoutDate <= checkinDate)
+            checkoutDate = checkinDate.AddDays(1);
     }
 
     private async Task ApplyVoucher()
     {
+        voucherMessage = "";
         if (selectedRoom == null) return;
         var code = (appliedVoucherCode ?? "").Trim().ToUpperInvariant();
         if (string.IsNullOrEmpty(code))
@@ -736,36 +923,85 @@
             return;
         }
 
+        if (code == "WELCOM2026") code = "WELCOME2026";
+        appliedVoucherCode = code;
+
         try
         {
             var now = GioVN.Now;
             var v = await Db.MaGiamGia.AsNoTracking()
+                .Include(x => x.MaChiNhanhNavigation)
                 .FirstOrDefaultAsync(x => x.MaCode.ToUpper() == code && x.DangHoatDong && x.HieuLucDen >= now && x.SoLanDaDung < x.GioiHanSuDung);
 
-            if (v != null && (!v.GiaTriDatPhongToiThieu.HasValue || roomSubtotal >= v.GiaTriDatPhongToiThieu.Value))
+            if (v != null)
             {
+                if (v.MaChiNhanh.HasValue && selectedRoom.MaChiNhanh > 0 && v.MaChiNhanh.Value != selectedRoom.MaChiNhanh)
+                {
+                    discountAmount = 0;
+                    var branchName = v.MaChiNhanhNavigation?.TenChiNhanh ?? $"Chi nhánh #{v.MaChiNhanh.Value}";
+                    voucherMessage = $"Mã giảm giá '{code}' chỉ áp dụng tại {branchName}.";
+                    return;
+                }
+
+                if (v.GiaTriDatPhongToiThieu.HasValue && roomSubtotal < v.GiaTriDatPhongToiThieu.Value)
+                {
+                    discountAmount = 0;
+                    voucherMessage = $"Đơn hàng tối thiểu {v.GiaTriDatPhongToiThieu.Value:N0} đ để dùng mã {code}.";
+                    return;
+                }
+
                 var raw = StatusMapper.IsPercentDiscount(v.LoaiGiamGia)
                     ? roomSubtotal * v.GiaTriGiamGia / 100m
                     : v.GiaTriGiamGia;
                 if (StatusMapper.IsPercentDiscount(v.LoaiGiamGia) && v.GiamToiDa.HasValue && raw > v.GiamToiDa.Value)
                     raw = v.GiamToiDa.Value;
                 discountAmount = Math.Min(raw, roomSubtotal);
+                voucherMessage = $"Áp dụng mã {code} thành công! Đã giảm -{discountAmount:N0} VND.";
                 return;
             }
         }
         catch { }
 
         if (code.Equals("WELCOME2026", StringComparison.OrdinalIgnoreCase))
-            discountAmount = roomSubtotal * 0.15m;
+        {
+            if (roomSubtotal < 1000000m)
+            {
+                discountAmount = 0;
+                voucherMessage = "Đơn hàng tối thiểu 1.000.000 đ để dùng mã WELCOME2026.";
+            }
+            else
+            {
+                discountAmount = roomSubtotal * 0.15m;
+                voucherMessage = $"Áp dụng mã WELCOME2026 thành công! Đã giảm -{discountAmount:N0} VND (-15%).";
+            }
+        }
         else if (code.Equals("SUMMERLUXURY", StringComparison.OrdinalIgnoreCase))
-            discountAmount = 300000;
+        {
+            if (roomSubtotal < 2500000m)
+            {
+                discountAmount = 0;
+                voucherMessage = "Đơn hàng tối thiểu 2.500.000 đ để dùng mã SUMMERLUXURY.";
+            }
+            else
+            {
+                discountAmount = 300000;
+                voucherMessage = "Áp dụng mã SUMMERLUXURY thành công! Đã giảm -300.000 VND.";
+            }
+        }
         else
+        {
             discountAmount = 0;
+            voucherMessage = $"Mã giảm giá '{code}' không hợp lệ hoặc đã hết hạn.";
+        }
     }
 
     private void CopyVoucher(string code)
     {
         appliedVoucherCode = code;
+        if (selectedRoom != null)
+        {
+            _ = ApplyVoucher();
+        }
     }
 
     private async Task SubmitBookingAsync()
@@ -791,6 +1027,35 @@
         try
         {
             await using var transaction = await Db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+
+            var now = DateTime.UtcNow;
+            var holdExpiryCutoff = now.AddMinutes(-15);
+
+            // Tự động giải phóng các đơn giữ chỗ tạm 0đ đã quá 15 phút chưa đặt cọc (Chống spam giữ phòng ảo)
+            var expiredHolds = await Db.DatPhongs
+                .Include(b => b.ChiTietDatPhongs)
+                    .ThenInclude(ct => ct.MaPhongNavigation)
+                .Where(b => b.TrangThai == "Pending" && b.TienDatCoc <= 0 && b.NgayTao < holdExpiryCutoff)
+                .ToListAsync();
+
+            foreach (var expired in expiredHolds)
+            {
+                expired.TrangThai = "Cancelled";
+                expired.LyDoHuy = "Tự động hủy giữ chỗ do quá 15 phút chưa thanh toán tiền đặt cọc";
+                expired.NgayCapNhat = now;
+                foreach (var ct in expired.ChiTietDatPhongs)
+                {
+                    ct.TrangThai = "Cancelled";
+                    if (ct.MaPhongNavigation != null && ct.MaPhongNavigation.TrangThai == "Reserved")
+                    {
+                        ct.MaPhongNavigation.TrangThai = "Available";
+                    }
+                }
+            }
+            if (expiredHolds.Any())
+            {
+                await Db.SaveChangesAsync();
+            }
 
             var loaiPhong = await Db.LoaiPhongs.FirstOrDefaultAsync(l => l.MaId == selectedRoom.Id)
                 ?? await Db.LoaiPhongs.FirstOrDefaultAsync(l => l.DangHoatDong);
@@ -828,19 +1093,51 @@
                     x.MaCode.ToUpper() == code && x.DangHoatDong && x.HieuLucDen >= GioVN.Now && x.SoLanDaDung < x.GioiHanSuDung);
                 if (v != null)
                 {
-                    v.SoLanDaDung += 1;
+                    if (v.MaChiNhanh.HasValue && selectedRoom.MaChiNhanh > 0 && v.MaChiNhanh.Value != selectedRoom.MaChiNhanh)
+                    {
+                        await transaction.RollbackAsync();
+                        bookingErrorMessage = $"Mã giảm giá '{code}' chỉ áp dụng tại chi nhánh tương ứng.";
+                        return;
+                    }
+
+                    if (v.GiaTriDatPhongToiThieu.HasValue && roomSubtotal < v.GiaTriDatPhongToiThieu.Value)
+                    {
+                        await transaction.RollbackAsync();
+                        bookingErrorMessage = $"Đơn đặt phòng phải đạt tối thiểu {v.GiaTriDatPhongToiThieu.Value:N0} đ để dùng mã {code}.";
+                        return;
+                    }
+
+                    if (Db.Database.IsRelational())
+                    {
+                        var rowsAffected = await Db.Database.ExecuteSqlInterpolatedAsync(
+                            $"UPDATE MaGiamGia SET SoLanDaDung = SoLanDaDung + 1 WHERE MaId = {v.MaId} AND SoLanDaDung < GioiHanSuDung AND DangHoatDong = 1");
+                        if (rowsAffected == 0)
+                        {
+                            await transaction.RollbackAsync();
+                            bookingErrorMessage = "Mã giảm giá vừa hết lượt sử dụng. Vui lòng thử lại.";
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        v.SoLanDaDung += 1;
+                    }
+
                     voucherId = v.MaId;
                 }
             }
 
-            var now = DateTime.UtcNow;
             var userId = Session.CurrentUser.IsLoggedIn && Session.CurrentUser.Id > 0
                 ? (int?)Session.CurrentUser.Id
                 : null;
 
+            var actualDeposit = payDepositNow ? depositRequired : 0m;
+            var initialStatus = payDepositNow ? "Confirmed" : "Pending";
+
             var booking = new DatPhong
             {
                 MaDatPhong = $"DP-WEB-{now:yyMMddHHmmss}",
+                MaChiNhanh = selectedRoom.MaChiNhanh > 0 ? selectedRoom.MaChiNhanh : (loaiPhong?.MaChiNhanh ?? 1),
                 MaNguoiDung = userId,
                 NguoiTao = userId,
                 TenKhach = guestName.Trim(),
@@ -848,10 +1145,12 @@
                 EmailKhach = string.IsNullOrWhiteSpace(guestEmail) ? null : guestEmail.Trim(),
                 MaGiamGia = voucherId,
                 KenhDatPhong = "web",
-                TrangThai = "Pending",
+                TrangThai = initialStatus,
                 TongTien = finalTotal,
-                TienDatCoc = 0,
-                GhiChu = $"Đặt phòng trực tuyến ({selectedRoom.TenLoai}, {totalNights} đêm)",
+                TienDatCoc = actualDeposit,
+                GhiChu = payDepositNow
+                    ? $"Đặt phòng trực tuyến ({selectedRoom.TenLoai}, {totalNights} đêm) — Đã đặt cọc 30% qua VietQR/VNPAY"
+                    : $"Đặt phòng trực tuyến ({selectedRoom.TenLoai}, {totalNights} đêm) — Giữ chỗ tạm thời 15 phút",
                 NgayTao = now,
                 NgayCapNhat = now
             };
@@ -873,7 +1172,7 @@
                 });
             }
 
-            Db.HoaDons.Add(new HoaDon
+            var hoaDon = new HoaDon
             {
                 MaDatPhong = booking.MaId,
                 TongTienPhong = roomSubtotal,
@@ -884,7 +1183,22 @@
                 TongThanhToan = finalTotal,
                 TrangThai = "Pending",
                 NgayTao = now
-            });
+            };
+            Db.HoaDons.Add(hoaDon);
+            await Db.SaveChangesAsync();
+
+            if (payDepositNow && actualDeposit > 0)
+            {
+                Db.ThanhToans.Add(new ThanhToan
+                {
+                    MaHoaDon = hoaDon.MaId,
+                    PhuongThucThanhToan = "VNPay",
+                    SoTienDaThanhToan = actualDeposit,
+                    MaGiaoDich = $"COC-{booking.MaDatPhong}",
+                    TrangThai = "Success",
+                    NgayThanhToan = now
+                });
+            }
 
             if (assignedRoom != null && checkinDate.Date == DateTime.Today)
             {
@@ -907,10 +1221,18 @@
             bookingCode = booking.MaId;
             bookingCodeText = booking.MaDatPhong;
             bookingSuccess = true;
+
+            try
+            {
+                await LocalStorage.SetAsync("dacn_recent_code", booking.MaDatPhong);
+                await LocalStorage.SetAsync("dacn_recent_contact", !string.IsNullOrWhiteSpace(booking.Sdtkhach) ? booking.Sdtkhach : (booking.EmailKhach ?? ""));
+            }
+            catch { }
         }
         catch (Exception ex)
         {
-            bookingErrorMessage = $"Không thể lưu đơn đặt phòng: {ex.Message}";
+            var detail = ex.InnerException != null ? $"{ex.Message} -> {ex.InnerException.Message}" : ex.Message;
+            bookingErrorMessage = $"Không thể lưu đơn đặt phòng: {detail}";
         }
         finally
         {

@@ -11,6 +11,8 @@ public partial class DuBaoNhuCauDatPhongAi
 
     public int? MaLoaiPhong { get; set; }
 
+    public int MaChiNhanh { get; set; } = 1;
+
     public int SoDatPhongDuBao { get; set; }
 
     public decimal? TyLeLapDayDuBao { get; set; }
@@ -22,4 +24,6 @@ public partial class DuBaoNhuCauDatPhongAi
     public string? GhiChuDuBao { get; set; }
 
     public virtual LoaiPhong? MaLoaiPhongNavigation { get; set; }
+
+    public virtual ChiNhanh? MaChiNhanhNavigation { get; set; }
 }

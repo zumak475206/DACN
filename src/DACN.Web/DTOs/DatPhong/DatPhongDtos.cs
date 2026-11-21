@@ -5,6 +5,7 @@ namespace DACN.Web.DTOs.DatPhong;
 public class TaoDatPhongRequest
 {
     public int? MaNguoiDung { get; set; }
+    public int? MaChiNhanh { get; set; }
 
     [MaxLength(255, ErrorMessage = "Tên khách hàng tối đa 255 ký tự.")]
     public string? TenKhach { get; set; }
@@ -56,10 +57,23 @@ public class GanPhongRequest
     public int MaPhong { get; set; }
 }
 
+public class TraCuuDatPhongRequest
+{
+    [Required(ErrorMessage = "Vui lòng nhập mã đặt phòng.")]
+    [MaxLength(50, ErrorMessage = "Mã đặt phòng tối đa 50 ký tự.")]
+    public string MaDatPhong { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Vui lòng nhập số điện thoại hoặc email đặt phòng.")]
+    [MaxLength(255, ErrorMessage = "Thông tin liên hệ tối đa 255 ký tự.")]
+    public string ThongTinLienHe { get; set; } = string.Empty;
+}
+
 public class DatPhongDto
 {
     public int MaId { get; set; }
     public string MaDatPhong { get; set; } = string.Empty;
+    public int? MaChiNhanh { get; set; }
+    public string? TenChiNhanh { get; set; }
     public string? TenKhach { get; set; }
     public string? SdtKhach { get; set; }
     public string? EmailKhach { get; set; }

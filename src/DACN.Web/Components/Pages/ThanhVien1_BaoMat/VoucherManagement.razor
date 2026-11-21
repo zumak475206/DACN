@@ -75,7 +75,17 @@
                     <label class="form-label small fw-bold">Giới Hạn Lượt Dùng</label>
                     <input type="number" class="form-control hotel-input" @bind="formLimit" />
                 </div>
-                <div class="col-6 col-md-3 d-flex align-items-end gap-2">
+                <div class="col-6 col-md-3">
+                    <label class="form-label small fw-bold">Phạm Vi Chi Nhánh</label>
+                    <select class="form-select hotel-input" @bind="formBranchId">
+                        <option value="">Toàn chuỗi (Tất cả chi nhánh)</option>
+                        @foreach (var b in branches)
+                        {
+                            <option value="@b.MaId">@b.TenChiNhanh (@b.TinhThanh)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-12 col-md-6 d-flex align-items-end gap-2">
                     <button class="hotel-btn hotel-btn-primary w-100" @onclick="CreateVoucherAsync">Lưu Voucher</button>
                     <button class="hotel-btn hotel-btn-outline" @onclick="() => showForm = false">Hủy</button>
                 </div>
@@ -97,6 +107,7 @@
             <thead>
                 <tr>
                     <th>Mã Code</th>
+                    <th>Phạm Vi Chi Nhánh</th>
                     <th>Mức Giảm</th>
                     <th>Đơn Tối Thiểu</th>
                     <th>Giảm Tối Đa</th>
@@ -111,6 +122,20 @@
                 {
                     <tr>
                         <td><span class="badge bg-dark font-monospace fs-6 px-2 py-1">@v.MaCode</span></td>
+                        <td>
+                            @if (v.MaChiNhanhNavigation != null)
+                            {
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-2 py-1">
+                                    <i class="bi bi-geo-alt-fill me-1"></i>@v.MaChiNhanhNavigation.TenChiNhanh
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary bg-opacity-25 text-dark px-2 py-1">
+                                    <i class="bi bi-globe me-1"></i>Toàn chuỗi
+                                </span>
+                            }
+                        </td>
                         <td class="fw-bold text-primary">
                             @(StatusMapper.IsPercentDiscount(v.LoaiGiamGia) ? $"{v.GiaTriGiamGia:N0}%" : $"{v.GiaTriGiamGia:N0} ₫")
                         </td>
@@ -143,8 +168,10 @@
 
 @code {
     private List<MaGiamGium> vouchers = new();
+    private List<ChiNhanh> branches = new();
     private bool showForm = false;
     private string formCode = "";
+    private int? formBranchId;
     private string formType = "percent";
     private decimal formValue = 15;
     private decimal formMinOrder = 1_000_000;
@@ -167,7 +194,27 @@
 
     private async Task LoadVouchersAsync()
     {
-        vouchers = await Db.MaGiamGia.AsNoTracking().OrderByDescending(v => v.NgayTao).ToListAsync();
+        try
+        {
+            vouchers = await Db.MaGiamGia
+                .AsNoTracking()
+                .Include(v => v.MaChiNhanhNavigation)
+                .OrderByDescending(v => v.NgayTao)
+                .ToListAsync();
+            branches = await Db.ChiNhanhs
+                .AsNoTracking()
+                .Where(c => c.DangHoatDong)
+                .OrderBy(c => c.MaId)
+                .ToListAsync();
+        }
+        catch
+        {
+            vouchers = await Db.MaGiamGia
+                .AsNoTracking()
+                .OrderByDescending(v => v.NgayTao)
+                .ToListAsync();
+            branches = new();
+        }
     }
 
     private async Task CreateVoucherAsync()
@@ -206,6 +253,7 @@
         var v = new MaGiamGium
         {
             MaCode = code,
+            MaChiNhanh = formBranchId.HasValue && formBranchId.Value > 0 ? formBranchId.Value : null,
             LoaiGiamGia = StatusMapper.NormalizeLoaiGiamGia(formType),
             GiaTriGiamGia = formValue,
             GiaTriDatPhongToiThieu = formMinOrder,
@@ -220,9 +268,10 @@
 
         Db.MaGiamGia.Add(v);
         await Db.SaveChangesAsync();
-        await AuditService.GhiNhanAsync("TAO_VOUCHER", "MaGiamGia", v.MaId.ToString(), $"Phát hành mã '{v.MaCode}'", Session.CurrentUser.Id, Session.CurrentUser.Email, "127.0.0.1", true);
+        await AuditService.GhiNhanAsync("TAO_VOUCHER", "MaGiamGia", v.MaId.ToString(), $"Phát hành mã '{v.MaCode}' (Chi nhánh: {formBranchId?.ToString() ?? "Toàn chuỗi"})", Session.CurrentUser.Id, Session.CurrentUser.Email, "127.0.0.1", true);
 
         formCode = "";
+        formBranchId = null;
         showForm = false;
         await LoadVouchersAsync();
         isError = false;

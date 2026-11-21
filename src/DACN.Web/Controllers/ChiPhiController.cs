@@ -31,7 +31,7 @@ public class ChiPhiController(DACNContext db, IAuditService auditService) : Cont
     [HttpGet]
     public async Task<ActionResult<ApiResponse<object>>> DanhSach([FromQuery] string? trangThai = null)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageExpenses))
             return Forbid();
 
         var query = db.ChiPhiVanHanhs
@@ -70,7 +70,7 @@ public class ChiPhiController(DACNContext db, IAuditService auditService) : Cont
     [HttpPost]
     public async Task<ActionResult<ApiResponse<object>>> Tao([FromBody] TaoChiPhiRequest req)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageExpenses))
             return Forbid();
 
         var userId = User.GetUserId() ?? 1;
@@ -103,16 +103,30 @@ public class ChiPhiController(DACNContext db, IAuditService auditService) : Cont
     [HttpPut("{id:int}/duyet")]
     public async Task<ActionResult<ApiResponse<object>>> DuyetChiPhi(int id, [FromQuery] string trangThai = "Approved")
     {
-        if (!User.IsManagerOrAdmin() && !User.HasPermission("ManageExpenses"))
+        if (!User.IsManagerOrAdmin())
             return Forbid();
 
         var cp = await db.ChiPhiVanHanhs.FindAsync(id);
         if (cp == null)
             return NotFound(ApiResponse<object>.Fail("Không tìm thấy khoản chi phí."));
 
+        var currentUserId = User.GetUserId();
+        if (cp.NguoiGhiNhan == currentUserId)
+            return BadRequest(ApiResponse<object>.Fail("Nguyên tắc kiểm soát (SoD): Người lập phiếu chi không được phép tự phê duyệt khoản chi của chính mình."));
+
         cp.TrangThai = StatusMapper.NormalizeChiPhiTrangThai(trangThai);
-        cp.NguoiPheDuyet = User.GetUserId();
+        cp.NguoiPheDuyet = currentUserId;
         await db.SaveChangesAsync();
+
+        await auditService.GhiNhanAsync(
+            hanhDong: "DUYET_CHI_PHI_VAN_HANH",
+            doiTuong: "ChiPhiVanHanh",
+            khoaChinh: cp.MaId.ToString(),
+            noiDung: $"Phê duyệt khoản chi phí #{cp.MaId} ('{cp.MoTa}', {cp.SoTien:N0} VNĐ) sang trạng thái '{cp.TrangThai}'",
+            maNguoiDung: currentUserId,
+            email: User.FindFirst(ClaimTypes.Email)?.Value,
+            diaChiIp: HttpContext.Connection.RemoteIpAddress?.ToString(),
+            thanhCong: true);
 
         return Ok(ApiResponse<object>.Ok(new { cp.MaId, cp.TrangThai }, $"Đã cập nhật trạng thái chi phí sang '{cp.TrangThai}'."));
     }

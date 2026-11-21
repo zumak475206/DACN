@@ -28,7 +28,7 @@ public class VaiTroController(DACNContext db, IAuditService auditService) : Cont
     [HttpGet]
     public async Task<ActionResult<ApiResponse<object>>> DanhSachVaiTro()
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageUsers) && !User.IsManagerOrAdmin())
             return Forbid();
 
         var roles = await db.VaiTros
@@ -50,7 +50,7 @@ public class VaiTroController(DACNContext db, IAuditService auditService) : Cont
     [HttpGet("quyen-han")]
     public async Task<ActionResult<ApiResponse<object>>> DanhSachQuyenHan()
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageUsers) && !User.IsManagerOrAdmin())
             return Forbid();
 
         var perms = await db.QuyenHans

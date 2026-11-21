@@ -23,7 +23,7 @@ public class NguoiDungController(DACNContext db, IAuditService auditService) : C
         [FromQuery] bool? trangThai = null,
         [FromQuery] string? loaiNguoiDung = null)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageUsers) && !User.IsManagerOrAdmin())
             return Forbid();
 
         var query = db.NguoiDungs.AsNoTracking().Include(u => u.MaVaiTroNavigation).AsQueryable();
@@ -94,7 +94,7 @@ public class NguoiDungController(DACNContext db, IAuditService auditService) : C
     public async Task<ActionResult<ApiResponse<object>>> CapNhat(int id, [FromBody] CapNhatHoSoRequest req)
     {
         var currentUserId = User.GetUserId();
-        if (!User.IsStaffOrAdmin() && id != currentUserId)
+        if (!User.HasPermission(Quyen.ManageUsers) && id != currentUserId)
             return Forbid();
 
         var u = await db.NguoiDungs.FindAsync(id);
@@ -229,7 +229,7 @@ public class NguoiDungController(DACNContext db, IAuditService auditService) : C
     [HttpGet("thong-ke")]
     public async Task<ActionResult<ApiResponse<object>>> ThongKe()
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageUsers) && !User.IsManagerOrAdmin())
             return Forbid();
 
         var stats = new

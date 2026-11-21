@@ -1,5 +1,6 @@
 @page "/frontdesk/bookings"
 @inject DACNContext Db
+@inject UserSessionService Session
 
 <PageTitle>Room Rack & Walk-in — TV2</PageTitle>
 
@@ -22,6 +23,26 @@
 @if (!string.IsNullOrWhiteSpace(successMessage))
 {
     <div class="alert alert-success" role="status">@successMessage</div>
+}
+
+@if (Session.CurrentUser.Role is "Admin" or "Manager")
+{
+    <div class="d-flex align-items-center gap-2 mb-3 p-2 bg-white rounded-3 shadow-sm border flex-wrap">
+        <span class="small fw-bold text-dark"><i class="bi bi-buildings-fill text-primary me-1"></i> Chi nhánh:</span>
+        <div class="btn-group btn-group-sm">
+            <button type="button" class="btn @(selectedBranchId == 0 ? "btn-dark fw-bold" : "btn-outline-secondary")" @onclick="() => FilterBranchAsync(0)">🏨 Toàn Chuỗi</button>
+            <button type="button" class="btn @(selectedBranchId == 1 ? "btn-primary fw-bold" : "btn-outline-primary")" @onclick="() => FilterBranchAsync(1)">🌊 Đà Nẵng</button>
+            <button type="button" class="btn @(selectedBranchId == 2 ? "btn-info text-white fw-bold" : "btn-outline-info")" @onclick="() => FilterBranchAsync(2)">🌴 Phú Quốc</button>
+            <button type="button" class="btn @(selectedBranchId == 3 ? "btn-success fw-bold" : "btn-outline-success")" @onclick="() => FilterBranchAsync(3)">🌲 Đà Lạt</button>
+        </div>
+    </div>
+}
+else
+{
+    <div class="mb-3 px-3 py-2 bg-white border-start border-4 border-primary rounded shadow-sm d-flex align-items-center justify-content-between">
+        <span class="small text-muted"><i class="bi bi-geo-alt-fill text-primary me-1"></i> Sơ đồ buồng phòng tại: <strong class="text-dark">@Session.CurrentUser.TenChiNhanh</strong></span>
+        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 small">FrontDesk Isolation</span>
+    </div>
 }
 
 <div class="row g-3 mb-4">
@@ -173,7 +194,14 @@
                     {
                         var detail = booking.ChiTietDatPhongs.FirstOrDefault();
                         <tr>
-                            <td><strong>@booking.MaDatPhong</strong><div class="small text-muted">@booking.NgayTao.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div></td>
+                            <td>
+                                <strong>@booking.MaDatPhong</strong>
+                                @if (booking.MaChiNhanhNavigation != null)
+                                {
+                                    <span class="badge bg-info bg-opacity-10 text-primary border border-primary border-opacity-25 small ms-1">@booking.MaChiNhanhNavigation.TenChiNhanh</span>
+                                }
+                                <div class="small text-muted">@booking.NgayTao.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                            </td>
                             <td><strong>@(booking.TenKhach ?? booking.MaNguoiDungNavigation?.HoTen ?? "Khách")</strong><div class="small text-muted">@(booking.Sdtkhach ?? booking.MaNguoiDungNavigation?.SoDienThoai)</div></td>
                             <td>@(detail?.MaPhongNavigation?.SoPhong ?? "Chưa xếp")</td>
                             <td>@(detail?.NgayNhanPhongDuKien.ToString("dd/MM/yyyy") ?? "—") — @(detail?.NgayTraPhongDuKien.ToString("dd/MM/yyyy") ?? "—")</td>
@@ -216,7 +244,22 @@
         : Math.Max(0, (checkOutDate.Date - checkInDate.Date).Days) * selectedRoom.MaLoaiPhongNavigation.GiaCoBan;
     private IEnumerable<int> floors => rooms.Where(r => r.Tang.HasValue).Select(r => r.Tang!.Value).Distinct().OrderBy(x => x);
 
-    protected override Task OnInitializedAsync() => LoadDataAsync();
+    private int selectedBranchId = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Session.CurrentUser.Role is not ("Admin" or "Manager"))
+        {
+            selectedBranchId = Session.CurrentUser.MaChiNhanh;
+        }
+        await LoadDataAsync();
+    }
+
+    private async Task FilterBranchAsync(int branchId)
+    {
+        selectedBranchId = branchId;
+        await LoadDataAsync();
+    }
 
     private async Task LoadDataAsync()
     {
@@ -227,12 +270,23 @@
         walkInCount = 0;
         try
         {
-            rooms = await Db.Phongs.AsNoTracking()
-                .Include(p => p.MaLoaiPhongNavigation)
-                .OrderBy(p => p.Tang).ThenBy(p => p.SoPhong)
-                .ToListAsync();
-            walkInCount = await Db.DatPhongs.CountAsync(booking => booking.KenhDatPhong == "walk_in");
-            bookings = await Db.DatPhongs.AsNoTracking()
+            var effectiveBranchId = (Session.CurrentUser.Role is "Admin" or "Manager")
+                ? selectedBranchId
+                : Session.CurrentUser.MaChiNhanh;
+
+            var roomQuery = Db.Phongs.AsNoTracking().Include(p => p.MaLoaiPhongNavigation).AsQueryable();
+            var bookingQuery = Db.DatPhongs.AsNoTracking().AsQueryable();
+
+            if (effectiveBranchId > 0)
+            {
+                roomQuery = roomQuery.Where(p => p.MaChiNhanh == effectiveBranchId);
+                bookingQuery = bookingQuery.Where(b => b.MaChiNhanh == effectiveBranchId);
+            }
+
+            rooms = await roomQuery.OrderBy(p => p.Tang).ThenBy(p => p.SoPhong).ToListAsync();
+            walkInCount = await bookingQuery.CountAsync(booking => booking.KenhDatPhong == "walk_in");
+            bookings = await bookingQuery
+                .Include(b => b.MaChiNhanhNavigation)
                 .Include(b => b.MaNguoiDungNavigation)
                 .Include(b => b.ChiTietDatPhongs).ThenInclude(ct => ct.MaPhongNavigation)
                 .OrderByDescending(b => b.NgayTao)
@@ -330,6 +384,7 @@
             var booking = new DatPhong
             {
                 MaDatPhong = $"WI{now:yyMMddHHmmss}{Guid.NewGuid():N}",
+                MaChiNhanh = room.MaChiNhanh,
                 TenKhach = guestName.Trim(),
                 Sdtkhach = guestPhone.Trim(),
                 EmailKhach = string.IsNullOrWhiteSpace(guestEmail) ? null : guestEmail.Trim(),

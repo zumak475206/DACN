@@ -1,0 +1,728 @@
+@page "/admin/branches"
+@using DACN.Infrastructure.Data
+@using DACN.Web.Common
+@using DACN.Web.Services
+@using Microsoft.EntityFrameworkCore
+@inject DACNContext Db
+@inject UserSessionService Session
+@inject IAuditService AuditService
+@inject IGeoService GeoService
+@inject NavigationManager Nav
+
+<PageTitle>Quản Trị Chuỗi Chi Nhánh & Phòng — TV1</PageTitle>
+
+<PageHeader Title="Quản Trị Chuỗi Chi Nhánh & Danh Mục Phòng"
+            Subtitle="Mở rộng chi nhánh mới, cấu hình tọa độ GPS địa lý, cập nhật trạng thái và tạo phòng trực tiếp theo từng cơ sở"
+            Icon="bi bi-buildings-fill"
+            MemberTag="TV1 — QUẢN TRỊ CHUỖI"
+            MemberTagClass="member-tag-tv1">
+    <Actions>
+        @if (activeTab == "branches")
+        {
+            <button class="hotel-btn hotel-btn-primary" @onclick="OpenCreateBranchForm">
+                <i class="bi bi-plus-lg"></i> Thêm Chi Nhánh Mới
+            </button>
+        }
+        else
+        {
+            <button class="hotel-btn hotel-btn-primary" @onclick="OpenCreateRoomForm">
+                <i class="bi bi-door-open-fill"></i> Thêm Phòng Mới
+            </button>
+        }
+    </Actions>
+</PageHeader>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert @(isError ? "alert-danger" : "alert-success") alert-dismissible fade show py-2 small mb-3">
+        <i class="bi @(isError ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill") me-1"></i> @statusMessage
+        <button type="button" class="btn-close py-2" @onclick="() => statusMessage = null"></button>
+    </div>
+}
+
+<!-- Tab Navigation -->
+<ul class="nav nav-pills mb-4 gap-2 border-bottom pb-3">
+    <li class="nav-item">
+        <button class="nav-link @(activeTab == "branches" ? "active fw-bold" : "text-muted")" @onclick='() => activeTab = "branches"'>
+            <i class="bi bi-buildings me-1"></i> Danh Sách Chi Nhánh Khách Sạn (@branches.Count)
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link @(activeTab == "rooms" ? "active fw-bold" : "text-muted")" @onclick='() => activeTab = "rooms"'>
+            <i class="bi bi-door-closed-fill me-1"></i> Quản Lý & Tạo Phòng Theo Cơ Sở (@totalRooms phòng)
+        </button>
+    </li>
+</ul>
+
+@if (activeTab == "branches")
+{
+    @if (showBranchForm)
+    {
+        <div class="hotel-card mb-4 border-primary">
+            <div class="hotel-card-header bg-light">
+                <div class="hotel-card-title">
+                    <i class="bi @(editingBranchId.HasValue ? "bi-pencil-square" : "bi-plus-circle-fill") text-primary"></i>
+                    <span>@(editingBranchId.HasValue ? "Cập Nhật Thông Tin Chi Nhánh" : "Mở Thêm Chi Nhánh Mới")</span>
+                </div>
+            </div>
+            <div class="hotel-card-body">
+                <div class="row g-3">
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small fw-bold">Mã Chi Nhánh (Code) *</label>
+                        <input class="form-control hotel-input text-uppercase" placeholder="VD: CN-QUYNHON" @bind="formBranchCode" disabled="@editingBranchId.HasValue" />
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <label class="form-label small fw-bold">Tên Chi Nhánh Khách Sạn *</label>
+                        <input class="form-control hotel-input" placeholder="VD: GrandStay Quy Nhơn Oceanfront Resort" @bind="formBranchName" />
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-bold">Tiêu Chuẩn Sao</label>
+                        <select class="form-select hotel-input" @bind="formBranchStars">
+                            <option value="3">3 Sao ⭐⭐⭐</option>
+                            <option value="4">4 Sao ⭐⭐⭐⭐</option>
+                            <option value="5">5 Sao ⭐⭐⭐⭐⭐</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-bold">Vùng Miền *</label>
+                        <select class="form-select hotel-input" @bind="formBranchRegion">
+                            <option value="south">Miền Nam (south)</option>
+                            <option value="central">Miền Trung (central)</option>
+                            <option value="north">Miền Bắc (north)</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-bold">Tỉnh / Thành Phố *</label>
+                        <input class="form-control hotel-input" placeholder="VD: Bình Định" @bind="formBranchCity" />
+                    </div>
+                    <div class="col-12 col-md-8">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label small fw-bold mb-0">Địa Chỉ Chi Tiết *</label>
+                            <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2 fw-bold" style="font-size: 0.76rem;" @onclick="AutoDetectGpsFromAddress" disabled="@isGeocoding">
+                                <i class="bi @(isGeocoding ? "bi-hourglass-split" : "bi-crosshair") me-1"></i>
+                                @(isGeocoding ? "Đang tra cứu GPS..." : "📍 Tự động tra GPS từ địa chỉ")
+                            </button>
+                        </div>
+                        <input class="form-control hotel-input" placeholder="VD: 12 An Dương Vương, TP. Quy Nhơn hoặc Du Coffee, Củ Chi..." @bind="formBranchAddress" />
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small fw-bold">Vĩ Độ GPS (Latitude) *</label>
+                        <input type="number" step="0.00000001" class="form-control hotel-input" placeholder="VD: 13.7833" @bind="formBranchLat" />
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small fw-bold">Kinh Độ GPS (Longitude) *</label>
+                        <input type="number" step="0.00000001" class="form-control hotel-input" placeholder="VD: 109.2167" @bind="formBranchLng" />
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small fw-bold">Hotline Liên Hệ</label>
+                        <input class="form-control hotel-input" placeholder="VD: 0256 3888 999" @bind="formBranchPhone" />
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small fw-bold">Email Chi Nhánh</label>
+                        <input class="form-control hotel-input" placeholder="quynhon@bookingstay.vn" @bind="formBranchEmail" />
+                    </div>
+                    <div class="col-12 col-md-8">
+                        <label class="form-label small fw-bold">Link Ảnh Đại Diện (URL)</label>
+                        <input class="form-control hotel-input" placeholder="https://..." @bind="formBranchImage" />
+                    </div>
+                    <div class="col-12 col-md-4 d-flex align-items-end gap-2">
+                        <button class="hotel-btn hotel-btn-primary w-100" @onclick="SaveBranchAsync">
+                            <i class="bi bi-save me-1"></i> Lưu Chi Nhánh
+                        </button>
+                        <button class="hotel-btn hotel-btn-outline" @onclick="() => showBranchForm = false">Hủy</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="row g-3 mb-4">
+        @foreach (var b in branches)
+        {
+            <div class="col-12 col-md-6 col-lg-6">
+                <div class="hotel-card h-100 position-relative border-top border-4 @(b.DangHoatDong ? "border-primary" : "border-secondary")">
+                    <div class="hotel-card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <span class="badge bg-light text-dark border me-1">@b.MaChiNhanhCode</span>
+                                <span class="badge @(b.VungMien == "south" ? "bg-success" : (b.VungMien == "central" ? "bg-info" : "bg-warning text-dark"))">
+                                    @(b.VungMien == "south" ? "Miền Nam" : (b.VungMien == "central" ? "Miền Trung" : "Miền Bắc"))
+                                </span>
+                            </div>
+                            <span class="badge @(b.DangHoatDong ? "bg-success" : "bg-secondary")">
+                                @(b.DangHoatDong ? "Đang Hoạt Động" : "Tạm Ngưng")
+                            </span>
+                        </div>
+
+                        <h5 class="fw-bold mb-1 text-primary">@b.TenChiNhanh</h5>
+                        <div class="text-warning small mb-2">
+                            @for (int i = 0; i < b.SoSao; i++)
+                            {
+                                <span>⭐</span>
+                            }
+                        </div>
+
+                        <p class="small text-muted mb-2">
+                            <i class="bi bi-geo-alt-fill text-danger me-1"></i> @b.DiaChiChiTiet
+                        </p>
+
+                        <div class="p-2 bg-light rounded small mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Tọa độ GPS:</span>
+                                <span class="font-monospace fw-bold">@(b.ViDo?.ToString("F4") ?? "N/A"), @(b.KinhDo?.ToString("F4") ?? "N/A")</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Hotline:</span>
+                                <span>@b.SoDienThoai</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted">Quy mô phòng:</span>
+                                <span class="fw-bold text-success">@b.Phongs.Count phòng</span>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top gap-1 flex-wrap">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => EditBranch(b)">
+                                <i class="bi bi-pencil-square me-1"></i> Sửa
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" title="Tự động chuẩn hóa lại tọa độ GPS theo địa chỉ" @onclick="() => AutoFixBranchGpsAsync(b)">
+                                <i class="bi bi-geo-alt"></i> Tra GPS
+                            </button>
+                            <button class="btn btn-sm btn-outline-info" @onclick='() => SwitchToRoomsTab(b.MaId)'>
+                                <i class="bi bi-door-closed me-1"></i> Xem & Thêm Phòng (@b.Phongs.Count)
+                            </button>
+                            <button class="btn btn-sm @(b.DangHoatDong ? "btn-outline-warning" : "btn-outline-success")" @onclick="() => ToggleBranchStatusAsync(b)">
+                                @(b.DangHoatDong ? "Tạm Ngưng" : "Kích Hoạt")
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <!-- Tab 2: Quản Lý Phòng Theo Chi Nhánh -->
+    <div class="hotel-card mb-4">
+        <div class="hotel-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-filter-circle-fill text-primary"></i>
+                <span class="fw-bold">Lọc Theo Chi Nhánh:</span>
+                <select class="form-select form-select-sm hotel-input" style="width: 280px;" @bind="selectedBranchFilter" @bind:after="LoadRoomsAsync">
+                    <option value="0">Tất Cả Chi Nhánh (@totalRooms phòng)</option>
+                    @foreach (var b in branches)
+                    {
+                        <option value="@b.MaId">@b.TenChiNhanh (@b.TinhThanh)</option>
+                    }
+                </select>
+            </div>
+            <button class="hotel-btn hotel-btn-primary" @onclick="OpenCreateRoomForm">
+                <i class="bi bi-plus-lg"></i> Thêm Phòng Mới
+            </button>
+        </div>
+
+        @if (showRoomForm)
+        {
+            <div class="p-3 bg-light border-bottom">
+                <h6 class="fw-bold text-primary mb-3">
+                    <i class="bi @(editingRoomId.HasValue ? "bi-pencil-square" : "bi-plus-circle") me-1"></i>
+                    @(editingRoomId.HasValue ? "Chỉnh Sửa Thông Tin Phòng" : "Thêm Phòng Mới Vào Cơ Sở")
+                </h6>
+                <div class="row g-3">
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small fw-bold">Chi Nhánh Trực Thuộc *</label>
+                        <select class="form-select hotel-input" @bind="formRoomBranchId">
+                            @foreach (var b in branches)
+                            {
+                                <option value="@b.MaId">@b.TenChiNhanh</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-bold">Số Phòng *</label>
+                        <input class="form-control hotel-input text-uppercase" placeholder="VD: VT-103" @bind="formRoomNumber" />
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small fw-bold">Loại Phòng *</label>
+                        <select class="form-select hotel-input" @bind="formRoomTypeId">
+                            @foreach (var lp in roomTypes)
+                            {
+                                <option value="@lp.MaId">@lp.Ten (@(lp.GiaCoBan.ToString("N0")) đ/đêm)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-bold">Tầng</label>
+                        <input type="number" class="form-control hotel-input" @bind="formRoomFloor" />
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-bold">Trạng Thái</label>
+                        <select class="form-select hotel-input" @bind="formRoomStatus">
+                            <option value="Available">Available (Trống)</option>
+                            <option value="Occupied">Occupied (Đang ở)</option>
+                            <option value="Maintenance">Maintenance (Bảo trì)</option>
+                        </select>
+                    </div>
+                    <div class="col-12 d-flex justify-content-end gap-2">
+                        <button class="hotel-btn hotel-btn-primary" @onclick="SaveRoomAsync">
+                            <i class="bi bi-save me-1"></i> Lưu Phòng
+                        </button>
+                        <button class="hotel-btn hotel-btn-outline" @onclick="() => showRoomForm = false">Hủy</button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="table-responsive">
+            <table class="table hotel-table mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Số Phòng</th>
+                        <th>Chi Nhánh Khách Sạn</th>
+                        <th>Loại Phòng</th>
+                        <th>Tầng</th>
+                        <th>Giá Cơ Bản</th>
+                        <th>Trạng Thái Buồng</th>
+                        <th>Vệ Sinh</th>
+                        <th class="text-end">Thao Tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (filteredRooms.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                Không tìm thấy phòng nào phù hợp với bộ lọc chi nhánh.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var r in filteredRooms)
+                        {
+                            <tr>
+                                <td>
+                                    <span class="fw-bold text-primary font-monospace">@r.SoPhong</span>
+                                </td>
+                                <td>
+                                    <span class="small fw-bold">@(r.MaChiNhanhNavigation?.TenChiNhanh ?? "Cơ sở " + r.MaChiNhanh)</span>
+                                    <div class="text-muted" style="font-size: 0.72rem;">@(r.MaChiNhanhNavigation?.TinhThanh)</div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark border">@(r.MaLoaiPhongNavigation?.Ten ?? "Loại " + r.MaLoaiPhong)</span>
+                                </td>
+                                <td>Tầng @(r.Tang ?? 1)</td>
+                                <td>
+                                    <strong class="text-success">@(r.MaLoaiPhongNavigation?.GiaCoBan.ToString("N0") ?? "N/A") đ</strong>
+                                </td>
+                                <td>
+                                    <span class="badge @(r.TrangThai == "Available" ? "bg-success" : (r.TrangThai == "Occupied" ? "bg-info text-dark" : "bg-danger"))">
+                                        @r.TrangThai
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge @(r.TrangThaiVeSinh == "Clean" ? "bg-success" : "bg-warning text-dark")">
+                                        @r.TrangThaiVeSinh
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary me-1" title="Chỉnh sửa" @onclick="() => EditRoom(r)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" title="Xóa phòng" @onclick="() => DeleteRoomAsync(r)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private string activeTab = "branches";
+    private List<ChiNhanh> branches = new();
+    private List<Phong> rooms = new();
+    private List<Phong> filteredRooms = new();
+    private List<LoaiPhong> roomTypes = new();
+    private int totalRooms = 0;
+    private int selectedBranchFilter = 0;
+
+    private string? statusMessage;
+    private bool isError;
+
+    // Form Chi Nhánh
+    private bool showBranchForm = false;
+    private bool isGeocoding = false;
+    private int? editingBranchId;
+    private string formBranchCode = "";
+    private string formBranchName = "";
+    private string formBranchCity = "";
+    private string formBranchAddress = "";
+    private int formBranchStars = 4;
+    private string formBranchRegion = "south";
+    private decimal? formBranchLat;
+    private decimal? formBranchLng;
+    private string formBranchPhone = "";
+    private string formBranchEmail = "";
+    private string formBranchImage = "";
+
+    // Form Phòng
+    private bool showRoomForm = false;
+    private int? editingRoomId;
+    private int formRoomBranchId = 1;
+    private string formRoomNumber = "";
+    private int formRoomTypeId = 1;
+    private int formRoomFloor = 1;
+    private string formRoomStatus = "Available";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBranchesAsync();
+        await LoadRoomsAsync();
+        roomTypes = await Db.LoaiPhongs.AsNoTracking().Where(lp => lp.DangHoatDong).ToListAsync();
+        if (roomTypes.Any()) formRoomTypeId = roomTypes.First().MaId;
+    }
+
+    private async Task LoadBranchesAsync()
+    {
+        branches = await Db.ChiNhanhs
+            .Include(c => c.Phongs)
+            .AsNoTracking()
+            .OrderBy(c => c.MaId)
+            .ToListAsync();
+        totalRooms = branches.Sum(b => b.Phongs.Count);
+    }
+
+    private async Task LoadRoomsAsync()
+    {
+        var q = Db.Phongs
+            .Include(p => p.MaLoaiPhongNavigation)
+            .Include(p => p.MaChiNhanhNavigation)
+            .AsNoTracking();
+
+        if (selectedBranchFilter > 0)
+        {
+            q = q.Where(p => p.MaChiNhanh == selectedBranchFilter);
+        }
+
+        filteredRooms = await q.OrderBy(p => p.MaChiNhanh).ThenBy(p => p.SoPhong).ToListAsync();
+    }
+
+    private void OpenCreateBranchForm()
+    {
+        editingBranchId = null;
+        formBranchCode = "";
+        formBranchName = "";
+        formBranchCity = "";
+        formBranchAddress = "";
+        formBranchStars = 4;
+        formBranchRegion = "south";
+        formBranchLat = 10.3460m;
+        formBranchLng = 107.0843m;
+        formBranchPhone = "";
+        formBranchEmail = "";
+        formBranchImage = "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80";
+        showBranchForm = true;
+    }
+
+    private void EditBranch(ChiNhanh b)
+    {
+        editingBranchId = b.MaId;
+        formBranchCode = b.MaChiNhanhCode;
+        formBranchName = b.TenChiNhanh;
+        formBranchCity = b.TinhThanh;
+        formBranchAddress = b.DiaChiChiTiet;
+        formBranchStars = b.SoSao;
+        formBranchRegion = b.VungMien ?? "south";
+        formBranchLat = b.ViDo;
+        formBranchLng = b.KinhDo;
+        formBranchPhone = b.SoDienThoai;
+        formBranchEmail = b.EmailLienHe;
+        formBranchImage = b.HinhAnhDaiDien ?? "";
+        showBranchForm = true;
+    }
+
+    private async Task AutoDetectGpsFromAddress()
+    {
+        if (string.IsNullOrWhiteSpace(formBranchAddress) && string.IsNullOrWhiteSpace(formBranchCity))
+        {
+            statusMessage = "Vui lòng nhập Tỉnh/Thành phố hoặc Địa chỉ trước khi tra cứu tọa độ!";
+            isError = true;
+            return;
+        }
+
+        try
+        {
+            isGeocoding = true;
+            var res = await GeoService.TraCuuToaDoTuDiaChiAsync(formBranchAddress, formBranchCity);
+            if (res.HasValue)
+            {
+                formBranchLat = (decimal)res.Value.Lat;
+                formBranchLng = (decimal)res.Value.Lng;
+                formBranchRegion = res.Value.VungMien;
+                statusMessage = $"Đã tự động định vị GPS: {res.Value.DisplayName} (Vĩ độ: {res.Value.Lat:F4}, Kinh độ: {res.Value.Lng:F4}, Vùng: {res.Value.VungMien.ToUpper()})";
+                isError = false;
+            }
+            else
+            {
+                statusMessage = "Không thể tìm thấy tọa độ cho địa chỉ này, vui lòng nhập thủ công.";
+                isError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Lỗi khi tra cứu tọa độ: " + ex.Message;
+            isError = true;
+        }
+        finally
+        {
+            isGeocoding = false;
+        }
+    }
+
+    private async Task AutoFixBranchGpsAsync(ChiNhanh b)
+    {
+        try
+        {
+            var res = await GeoService.TraCuuToaDoTuDiaChiAsync(b.DiaChiChiTiet, b.TinhThanh);
+            if (res.HasValue)
+            {
+                var branch = await Db.ChiNhanhs.FindAsync(b.MaId);
+                if (branch != null)
+                {
+                    branch.ViDo = (decimal)res.Value.Lat;
+                    branch.KinhDo = (decimal)res.Value.Lng;
+                    branch.VungMien = res.Value.VungMien;
+                    await Db.SaveChangesAsync();
+                    statusMessage = $"Đã tự động chuẩn hóa tọa độ cho '{b.TenChiNhanh}': {res.Value.DisplayName} ({res.Value.Lat:F4}, {res.Value.Lng:F4})";
+                    isError = false;
+                    await LoadBranchesAsync();
+                }
+            }
+            else
+            {
+                statusMessage = $"Không tìm thấy tọa độ cho chi nhánh '{b.TenChiNhanh}'.";
+                isError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Lỗi khi cập nhật tọa độ: " + ex.Message;
+            isError = true;
+        }
+    }
+
+    private async Task SaveBranchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(formBranchName) || string.IsNullOrWhiteSpace(formBranchCity))
+        {
+            statusMessage = "Vui lòng nhập đầy đủ tên chi nhánh và tỉnh thành!";
+            isError = true;
+            return;
+        }
+
+        try
+        {
+            if (editingBranchId.HasValue)
+            {
+                var branch = await Db.ChiNhanhs.FindAsync(editingBranchId.Value);
+                if (branch == null) return;
+
+                branch.TenChiNhanh = formBranchName.Trim();
+                branch.TinhThanh = formBranchCity.Trim();
+                branch.DiaChiChiTiet = formBranchAddress.Trim();
+                branch.SoSao = formBranchStars;
+                branch.VungMien = formBranchRegion;
+                branch.ViDo = formBranchLat;
+                branch.KinhDo = formBranchLng;
+                branch.SoDienThoai = formBranchPhone.Trim();
+                branch.EmailLienHe = formBranchEmail.Trim();
+                branch.HinhAnhDaiDien = string.IsNullOrWhiteSpace(formBranchImage) ? null : formBranchImage.Trim();
+
+                await Db.SaveChangesAsync();
+                statusMessage = $"Đã cập nhật thông tin chi nhánh '{branch.TenChiNhanh}' thành công!";
+                isError = false;
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(formBranchCode))
+                {
+                    statusMessage = "Vui lòng nhập mã chi nhánh (Code)!";
+                    isError = true;
+                    return;
+                }
+
+                var newBranch = new ChiNhanh
+                {
+                    MaChiNhanhCode = formBranchCode.Trim().ToUpper(),
+                    TenChiNhanh = formBranchName.Trim(),
+                    TinhThanh = formBranchCity.Trim(),
+                    DiaChiChiTiet = formBranchAddress.Trim(),
+                    SoSao = formBranchStars,
+                    VungMien = formBranchRegion,
+                    ViDo = formBranchLat,
+                    KinhDo = formBranchLng,
+                    SoDienThoai = formBranchPhone.Trim(),
+                    EmailLienHe = formBranchEmail.Trim(),
+                    HinhAnhDaiDien = string.IsNullOrWhiteSpace(formBranchImage) ? null : formBranchImage.Trim(),
+                    DangHoatDong = true,
+                    NgayTao = DateTime.UtcNow
+                };
+
+                Db.ChiNhanhs.Add(newBranch);
+                await Db.SaveChangesAsync();
+                statusMessage = $"Đã mở thêm chi nhánh mới '{newBranch.TenChiNhanh}' thành công!";
+                isError = false;
+            }
+
+            showBranchForm = false;
+            await LoadBranchesAsync();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Lỗi khi lưu chi nhánh: " + ex.Message;
+            isError = true;
+        }
+    }
+
+    private async Task ToggleBranchStatusAsync(ChiNhanh b)
+    {
+        try
+        {
+            var branch = await Db.ChiNhanhs.FindAsync(b.MaId);
+            if (branch != null)
+            {
+                branch.DangHoatDong = !branch.DangHoatDong;
+                await Db.SaveChangesAsync();
+                statusMessage = $"Đã {(branch.DangHoatDong ? "kích hoạt" : "tạm ngưng")} hoạt động chi nhánh '{branch.TenChiNhanh}'.";
+                isError = false;
+                await LoadBranchesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Lỗi khi đổi trạng thái: " + ex.Message;
+            isError = true;
+        }
+    }
+
+    private void SwitchToRoomsTab(int branchId)
+    {
+        selectedBranchFilter = branchId;
+        formRoomBranchId = branchId;
+        activeTab = "rooms";
+        _ = LoadRoomsAsync();
+    }
+
+    private void OpenCreateRoomForm()
+    {
+        editingRoomId = null;
+        formRoomNumber = "";
+        formRoomFloor = 1;
+        formRoomStatus = "Available";
+        if (selectedBranchFilter > 0) formRoomBranchId = selectedBranchFilter;
+        showRoomForm = true;
+    }
+
+    private void EditRoom(Phong r)
+    {
+        editingRoomId = r.MaId;
+        formRoomBranchId = r.MaChiNhanh;
+        formRoomNumber = r.SoPhong;
+        formRoomTypeId = r.MaLoaiPhong;
+        formRoomFloor = r.Tang ?? 1;
+        formRoomStatus = r.TrangThai;
+        showRoomForm = true;
+    }
+
+    private async Task SaveRoomAsync()
+    {
+        if (string.IsNullOrWhiteSpace(formRoomNumber))
+        {
+            statusMessage = "Vui lòng nhập số phòng!";
+            isError = true;
+            return;
+        }
+
+        try
+        {
+            if (editingRoomId.HasValue)
+            {
+                var room = await Db.Phongs.FindAsync(editingRoomId.Value);
+                if (room != null)
+                {
+                    room.SoPhong = formRoomNumber.Trim().ToUpper();
+                    room.MaChiNhanh = formRoomBranchId;
+                    room.MaLoaiPhong = formRoomTypeId;
+                    room.Tang = formRoomFloor;
+                    room.TrangThai = formRoomStatus;
+                    await Db.SaveChangesAsync();
+                    statusMessage = $"Đã cập nhật phòng {room.SoPhong} thành công!";
+                    isError = false;
+                }
+            }
+            else
+            {
+                var newRoom = new Phong
+                {
+                    SoPhong = formRoomNumber.Trim().ToUpper(),
+                    MaChiNhanh = formRoomBranchId,
+                    MaLoaiPhong = formRoomTypeId,
+                    Tang = formRoomFloor,
+                    TrangThai = formRoomStatus,
+                    TrangThaiVeSinh = "Clean",
+                    NgayTao = DateTime.UtcNow
+                };
+
+                Db.Phongs.Add(newRoom);
+                await Db.SaveChangesAsync();
+                statusMessage = $"Đã thêm phòng {newRoom.SoPhong} vào cơ sở thành công!";
+                isError = false;
+            }
+
+            showRoomForm = false;
+            await LoadBranchesAsync();
+            await LoadRoomsAsync();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Lỗi khi lưu phòng: " + ex.Message;
+            isError = true;
+        }
+    }
+
+    private async Task DeleteRoomAsync(Phong r)
+    {
+        try
+        {
+            var hasBookings = await Db.ChiTietDatPhongs.AnyAsync(ct => ct.MaPhong == r.MaId);
+            if (hasBookings)
+            {
+                statusMessage = $"Không thể xóa phòng {r.SoPhong} vì đã có lịch sử đặt phòng! Bạn có thể chuyển sang trạng thái 'Maintenance' (Bảo trì).";
+                isError = true;
+                return;
+            }
+
+            var room = await Db.Phongs.FindAsync(r.MaId);
+            if (room != null)
+            {
+                Db.Phongs.Remove(room);
+                await Db.SaveChangesAsync();
+                statusMessage = $"Đã xóa phòng {r.SoPhong} thành công.";
+                isError = false;
+                await LoadBranchesAsync();
+                await LoadRoomsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Lỗi khi xóa phòng: " + ex.Message;
+            isError = true;
+        }
+    }
+}

@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DACN.Web.Controllers;
 
+[Authorize]
 [Route("api/v1/phong")]
 [ApiController]
 public class PhongController(DACNContext db, IAuditService auditService) : ControllerBase
@@ -53,10 +54,12 @@ public class PhongController(DACNContext db, IAuditService auditService) : Contr
         }));
     }
 
-    [AllowAnonymous]
     [HttpGet("trang-thai")]
     public async Task<ActionResult<ApiResponse<object>>> TheoTrangThai()
     {
+        if (!User.IsStaffOrAdmin())
+            return Forbid();
+
         var data = await db.Phongs
             .AsNoTracking()
             .GroupBy(p => p.TrangThai)
@@ -69,7 +72,7 @@ public class PhongController(DACNContext db, IAuditService auditService) : Contr
     [HttpPut("{id:int}/trang-thai")]
     public async Task<ActionResult<ApiResponse<object>>> CapNhatTrangThai(int id, [FromBody] CapNhatTrangThaiPhongRequest req)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.UpdateRoomStatus))
             return Forbid();
 
         var p = await db.Phongs.FindAsync(id);
@@ -97,7 +100,7 @@ public class PhongController(DACNContext db, IAuditService auditService) : Contr
     [HttpPut("{id:int}/hoan-tat-ve-sinh")]
     public async Task<ActionResult<ApiResponse<object>>> HoanTatVeSinh(int id, [FromQuery] string? ghiChu = null)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.UpdateRoomStatus) && !User.HasPermission(Quyen.ManageHousekeeping))
             return Forbid();
 
         var p = await db.Phongs.FindAsync(id);

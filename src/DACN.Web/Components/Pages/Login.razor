@@ -71,6 +71,39 @@
                             <i class="bi bi-box-arrow-in-right me-1"></i> Đăng Nhập
                         </button>
 
+                        <!-- TÀI KHOẢN MẪU TEST NHANH THEO VAI TRÒ & CHI NHÁNH -->
+                        <div class="p-3 mb-3 rounded-3 border bg-light" style="font-size: 0.82rem;">
+                            <div class="fw-bold text-dark mb-2 d-flex align-items-center">
+                                <i class="bi bi-person-badge text-primary me-1"></i> Chọn nhanh tài khoản test mẫu:
+                            </div>
+                            <div class="d-flex flex-wrap gap-1">
+                                <button type="button" class="btn btn-sm btn-outline-dark py-1 px-2" @onclick='() => FillCredentials("admin@hotel.com", "Admin@123")'>
+                                    👑 Admin
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2" @onclick='() => FillCredentials("manager@hotel.com", "123456")'>
+                                    📊 Quản Lý
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2" @onclick='() => FillCredentials("nhanvien1@hotel.com", "123456")'>
+                                    🌊 Lễ tân Đà Nẵng
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-info py-1 px-2" @onclick='() => FillCredentials("letan_phuquoc@hotel.com", "123456")'>
+                                    🌴 Lễ tân Phú Quốc
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success py-1 px-2" @onclick='() => FillCredentials("letan_dalat@hotel.com", "123456")'>
+                                    🌲 Lễ tân Đà Lạt
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-warning text-dark py-1 px-2" @onclick='() => FillCredentials("housekeeper@hotel.com", "123456")'>
+                                    🧹 Buồng Phòng
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger py-1 px-2" @onclick='() => FillCredentials("accountant@hotel.com", "123456")'>
+                                    💰 Kế Toán
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" @onclick='() => FillCredentials("khachhang@gmail.com", "123456")'>
+                                    👤 Khách Hàng
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="text-center small text-muted">
                             Chưa có tài khoản?
                             <a href="javascript:void(0)" class="fw-bold text-primary text-decoration-none" @onclick="() => SwitchTab(true)">Đăng ký ngay</a>
@@ -139,6 +172,13 @@
     private string emailInput = "";
     private string passwordInput = "";
 
+    private void FillCredentials(string email, string pass)
+    {
+        emailInput = email;
+        passwordInput = pass;
+        loginMessage = "";
+    }
+
     private string regHoTen = "";
     private string regEmail = "";
     private string regSoDienThoai = "";
@@ -147,6 +187,16 @@
 
     private string loginMessage = "";
     private bool isSuccess = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            await SchemaMigrationRunner.EnsureLatestSchemaAsync(db, null);
+        }
+        catch { }
+    }
 
     protected override void OnParametersSet()
     {
@@ -174,11 +224,42 @@
             await using var db = await DbFactory.CreateDbContextAsync();
 
             var email = emailInput.Trim().ToLowerInvariant();
-            var user = await db.NguoiDungs
-                .AsNoTracking()
-                .Include(u => u.MaVaiTroNavigation)
-                    .ThenInclude(v => v!.MaQuyenHans)
-                .FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+            NguoiDung? user = null;
+            try
+            {
+                user = await db.NguoiDungs
+                    .AsNoTracking()
+                    .Include(u => u.MaChiNhanhNavigation)
+                    .Include(u => u.MaVaiTroNavigation)
+                        .ThenInclude(v => v!.MaQuyenHans)
+                    .FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+            }
+            catch (Exception ex) when (ex.Message.Contains("ChiNhanh") || (ex.InnerException != null && ex.InnerException.Message.Contains("ChiNhanh")))
+            {
+                try
+                {
+                    await SchemaMigrationRunner.EnsureLatestSchemaAsync(db, null);
+                }
+                catch { }
+
+                try
+                {
+                    user = await db.NguoiDungs
+                        .AsNoTracking()
+                        .Include(u => u.MaChiNhanhNavigation)
+                        .Include(u => u.MaVaiTroNavigation)
+                            .ThenInclude(v => v!.MaQuyenHans)
+                        .FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+                }
+                catch
+                {
+                    user = await db.NguoiDungs
+                        .AsNoTracking()
+                        .Include(u => u.MaVaiTroNavigation)
+                            .ThenInclude(v => v!.MaQuyenHans)
+                        .FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+                }
+            }
 
             if (user == null)
             {
@@ -201,10 +282,10 @@
             }
             catch
             {
-                passwordOk = Env.IsDevelopment() && (passwordInput == "Admin@123" || passwordInput == "123456" || passwordInput == "Admin@123456");
+                passwordOk = Env.IsDevelopment() && (passwordInput == "Admin@123" || passwordInput == "123456" || passwordInput == "Admin@123456" || passwordInput == "Password123!");
             }
 
-            if (!passwordOk && Env.IsDevelopment() && (passwordInput == "Admin@123" || passwordInput == "123456" || passwordInput == "Admin@123456"))
+            if (!passwordOk && Env.IsDevelopment() && (passwordInput == "Admin@123" || passwordInput == "123456" || passwordInput == "Admin@123456" || passwordInput == "Password123!"))
             {
                 passwordOk = true;
             }
@@ -219,12 +300,14 @@
 
             var roleName = user.MaVaiTroNavigation?.Ten ?? "Customer";
             var perms = user.MaVaiTroNavigation?.MaQuyenHans.Select(q => q.Ten).ToList() ?? new List<string>();
+            var branchId = user.MaChiNhanh ?? 1;
+            var branchName = user.MaChiNhanhNavigation?.TenChiNhanh ?? "GrandStay Đà Nẵng Beach Resort";
 
-            await AuditService.GhiNhanAsync("DANG_NHAP_WEB", "Auth", user.MaId.ToString(), $"Đăng nhập Web Portal ({roleName})", user.MaId, user.Email, "127.0.0.1", true);
+            await AuditService.GhiNhanAsync("DANG_NHAP_WEB", "Auth", user.MaId.ToString(), $"Đăng nhập Web Portal ({roleName} - {branchName})", user.MaId, user.Email, "127.0.0.1", true);
 
             await InvokeAsync(async () =>
             {
-                Session.SetUser(user.HoTen, user.Email, roleName, user.MaId, perms);
+                Session.SetUser(user.HoTen, user.Email, roleName, user.MaId, perms, branchId, branchName);
                 try
                 {
                     await LocalStorage.SetAsync(UserSessionService.StorageKey, Session.ToStoredSession());
@@ -312,6 +395,23 @@
 
             db.NguoiDungs.Add(newUser);
             await db.SaveChangesAsync();
+
+            // Tự động liên kết các đơn đặt phòng vãng lai của Email này vào tài khoản mới
+            try
+            {
+                var unlinkedBookings = await db.DatPhongs
+                    .Where(b => b.MaNguoiDung == null && b.EmailKhach != null && b.EmailKhach.ToLower() == email)
+                    .ToListAsync();
+                foreach (var ub in unlinkedBookings)
+                {
+                    ub.MaNguoiDung = newUser.MaId;
+                }
+                if (unlinkedBookings.Any())
+                {
+                    await db.SaveChangesAsync();
+                }
+            }
+            catch { }
 
             var perms = customerRole?.MaQuyenHans.Select(q => q.Ten).ToList() ?? new List<string> { Quyen.UseAIChatbot };
             await AuditService.GhiNhanAsync("DANG_KY_WEB", "Auth", newUser.MaId.ToString(), $"Đăng ký tài khoản khách hàng ({newUser.Email})", newUser.MaId, newUser.Email, "127.0.0.1", true);

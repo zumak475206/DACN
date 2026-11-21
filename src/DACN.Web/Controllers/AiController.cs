@@ -16,8 +16,12 @@ public class ChatAiRequest
     [Required(ErrorMessage = "Câu hỏi không được để trống.")]
     [MaxLength(1000)]
     public string CauHoi { get; set; } = string.Empty;
+    public double? ViDoKhach { get; set; }
+    public double? KinhDoKhach { get; set; }
+    public string? ThanhPhoKhach { get; set; }
 }
 
+[Authorize]
 [Route("api/v1/ai")]
 [ApiController]
 public class AiController(DACNContext db, GoiYDuLichService goiYService) : ControllerBase
@@ -27,7 +31,7 @@ public class AiController(DACNContext db, GoiYDuLichService goiYService) : Contr
     [HttpPost("chat")]
     public async Task<ActionResult<ApiResponse<ChatAiKetQuaDto>>> Chat([FromBody] ChatAiRequest req)
     {
-        var ketQua = await goiYService.ChatAsync(req.CauHoi, req.MaPhienChat, User.GetUserId());
+        var ketQua = await goiYService.ChatAsync(req.CauHoi, req.MaPhienChat, User.GetUserId(), req.ViDoKhach, req.KinhDoKhach, req.ThanhPhoKhach);
         return Ok(ApiResponse<ChatAiKetQuaDto>.Ok(ketQua));
     }
 
@@ -74,7 +78,7 @@ public class AiController(DACNContext db, GoiYDuLichService goiYService) : Contr
     [HttpGet("phien-chat")]
     public async Task<ActionResult<ApiResponse<object>>> DanhSachPhienChat()
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ViewAIPredictions) && !User.HasPermission(Quyen.ManageAIData) && !User.IsManagerOrAdmin())
             return Forbid();
 
         var sessions = await db.PhienChatAis

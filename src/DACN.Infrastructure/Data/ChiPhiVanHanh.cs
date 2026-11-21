@@ -23,9 +23,13 @@ public partial class ChiPhiVanHanh
 
     public string? DuongDanBienLai { get; set; }
 
+    public int MaChiNhanh { get; set; } = 1;
+
     public DateTime NgayTao { get; set; }
 
     public virtual NguoiDung NguoiGhiNhanNavigation { get; set; } = null!;
 
     public virtual NguoiDung? NguoiPheDuyetNavigation { get; set; }
+
+    public virtual ChiNhanh? MaChiNhanhNavigation { get; set; }
 }

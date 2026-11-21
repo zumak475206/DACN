@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DACN.Web.Controllers;
 
+[Authorize]
 [Route("api/v1/danh-gia")]
 [ApiController]
 public class DanhGiaController(DACNContext db, IAuditService auditService) : ControllerBase

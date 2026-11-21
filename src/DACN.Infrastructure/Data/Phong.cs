@@ -9,6 +9,8 @@ public partial class Phong
 
     public int MaLoaiPhong { get; set; }
 
+    public int MaChiNhanh { get; set; } = 1;
+
     public string SoPhong { get; set; } = null!;
 
     public int? Tang { get; set; }
@@ -24,6 +26,8 @@ public partial class Phong
     public virtual ICollection<ChiTietDatPhong> ChiTietDatPhongs { get; set; } = new List<ChiTietDatPhong>();
 
     public virtual LoaiPhong MaLoaiPhongNavigation { get; set; } = null!;
+
+    public virtual ChiNhanh? MaChiNhanhNavigation { get; set; }
 
     public virtual ICollection<NhatKyBuongPhong> NhatKyBuongPhongs { get; set; } = new List<NhatKyBuongPhong>();
 

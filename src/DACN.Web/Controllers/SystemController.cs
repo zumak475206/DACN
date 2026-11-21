@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DACN.Web.Controllers;
 
+[Authorize]
 [Route("api/v1/system")]
 [ApiController]
 public class SystemController(DACNContext db, IHostEnvironment env) : ControllerBase

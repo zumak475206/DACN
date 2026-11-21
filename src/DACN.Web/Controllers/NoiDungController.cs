@@ -48,6 +48,7 @@ public class TaoThongBaoRequest
     public string? LoaiThongBao { get; set; } = "System";
 }
 
+[Authorize]
 [Route("api/v1/noi-dung")]
 [ApiController]
 public class NoiDungController(DACNContext db, IAuditService auditService) : ControllerBase

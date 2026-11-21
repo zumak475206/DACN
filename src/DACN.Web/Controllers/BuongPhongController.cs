@@ -49,7 +49,7 @@ public class BuongPhongController(DACNContext db, IAuditService auditService) : 
     [HttpGet("nhiem-vu")]
     public async Task<ActionResult<ApiResponse<object>>> DanhSachNhiemVu([FromQuery] string? trangThai = null)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageHousekeeping) && !User.HasPermission(Quyen.UpdateRoomStatus))
             return Forbid();
 
         var query = db.NhatKyBuongPhongs
@@ -92,7 +92,7 @@ public class BuongPhongController(DACNContext db, IAuditService auditService) : 
     [HttpPost("phan-cong")]
     public async Task<ActionResult<ApiResponse<object>>> PhanCong([FromBody] PhanCongDonPhongRequest req)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageHousekeeping))
             return Forbid();
 
         var phong = await db.Phongs.FindAsync(req.MaPhong);
@@ -130,7 +130,7 @@ public class BuongPhongController(DACNContext db, IAuditService auditService) : 
     [HttpPut("nhiem-vu/{id:int}/trang-thai")]
     public async Task<ActionResult<ApiResponse<object>>> CapNhatTrangThaiNhiemVu(int id, [FromBody] CapNhatNhiemVuBuongPhongRequest req)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageHousekeeping) && !User.HasPermission(Quyen.UpdateRoomStatus))
             return Forbid();
 
         var log = await db.NhatKyBuongPhongs
@@ -232,7 +232,7 @@ public class BuongPhongController(DACNContext db, IAuditService auditService) : 
     [HttpPost("hu-hong")]
     public async Task<ActionResult<ApiResponse<object>>> GhiNhanHuHong([FromBody] GhiNhanHuHongRequest req)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageHousekeeping) && !User.HasPermission(Quyen.CheckInOut))
             return Forbid();
 
         var ct = await db.ChiTietDatPhongs

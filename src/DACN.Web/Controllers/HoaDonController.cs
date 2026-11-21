@@ -20,7 +20,7 @@ public class HoaDonController(DACNContext db, IConfiguration config, IAuditServi
     [HttpGet]
     public async Task<ActionResult<ApiResponse<List<HoaDonDto>>>> DanhSach([FromQuery] string? trangThai = null)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageInvoices) && !User.HasPermission(Quyen.ManagePayments))
             return Forbid();
 
         var query = db.HoaDons
@@ -78,7 +78,7 @@ public class HoaDonController(DACNContext db, IConfiguration config, IAuditServi
     [HttpPut("{id:int}/phu-thu")]
     public async Task<ActionResult<ApiResponse<HoaDonDto>>> CapNhatPhuThu(int id, [FromBody] CapNhatPhuThuRequest req)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageInvoices))
             return Forbid();
 
         var hd = await db.HoaDons
@@ -113,7 +113,7 @@ public class HoaDonController(DACNContext db, IConfiguration config, IAuditServi
     [HttpPost("thanh-toan")]
     public async Task<ActionResult<ApiResponse<HoaDonDto>>> ThanhToan([FromBody] TaoThanhToanRequest req)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManagePayments))
             return Forbid();
 
         var hd = await db.HoaDons

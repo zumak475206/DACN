@@ -29,6 +29,8 @@ public partial class LoaiPhong
 
     public bool DangHoatDong { get; set; }
 
+    public int MaChiNhanh { get; set; } = 1;
+
     public DateTime NgayTao { get; set; }
 
     public virtual ICollection<AnhPhong> AnhPhongs { get; set; } = new List<AnhPhong>();
@@ -40,6 +42,8 @@ public partial class LoaiPhong
     public virtual ICollection<DuBaoNhuCauDatPhongAi> DuBaoNhuCauDatPhongAis { get; set; } = new List<DuBaoNhuCauDatPhongAi>();
 
     public virtual ICollection<Phong> Phongs { get; set; } = new List<Phong>();
+
+    public virtual ChiNhanh? MaChiNhanhNavigation { get; set; }
 
     public virtual ICollection<TienNghi> MaTienNghis { get; set; } = new List<TienNghi>();
 }

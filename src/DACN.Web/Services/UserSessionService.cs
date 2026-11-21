@@ -9,6 +9,8 @@ public class CurrentUserInfo
     public string Email { get; set; } = "admin@hotel.com";
     public string Role { get; set; } = "Admin"; // Admin, Manager, FrontDesk, Housekeeping, Customer
     public HashSet<string> Permissions { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public int MaChiNhanh { get; set; } = 1;
+    public string TenChiNhanh { get; set; } = "GrandStay Đà Nẵng Beach Resort";
 
     public string RoleDisplayName => Role switch
     {
@@ -38,6 +40,8 @@ public class StoredUserSession
     public string Email { get; set; } = "";
     public string Role { get; set; } = "Customer";
     public List<string> Permissions { get; set; } = new();
+    public int MaChiNhanh { get; set; } = 1;
+    public string TenChiNhanh { get; set; } = "GrandStay Đà Nẵng Beach Resort";
     public bool IsLoggedIn { get; set; }
 }
 
@@ -64,7 +68,7 @@ public class UserSessionService
         };
     }
 
-    public void SetUser(string hoTen, string email, string role, int id = 1, IEnumerable<string>? permissions = null)
+    public void SetUser(string hoTen, string email, string role, int id = 1, IEnumerable<string>? permissions = null, int maChiNhanh = 1, string tenChiNhanh = "GrandStay Đà Nẵng Beach Resort")
     {
         var defaultPerms = GetDefaultPermissionsForRole(role);
         if (permissions != null)
@@ -80,6 +84,8 @@ public class UserSessionService
             Email = email,
             Role = NormalizeRoleCode(role),
             Permissions = defaultPerms,
+            MaChiNhanh = maChiNhanh > 0 ? maChiNhanh : 1,
+            TenChiNhanh = string.IsNullOrWhiteSpace(tenChiNhanh) ? "GrandStay Đà Nẵng Beach Resort" : tenChiNhanh,
             IsLoggedIn = true
         };
         IsRestored = true;
@@ -93,6 +99,8 @@ public class UserSessionService
         Email = CurrentUser.Email,
         Role = CurrentUser.Role,
         Permissions = CurrentUser.Permissions.ToList(),
+        MaChiNhanh = CurrentUser.MaChiNhanh,
+        TenChiNhanh = CurrentUser.TenChiNhanh,
         IsLoggedIn = CurrentUser.IsLoggedIn
     };
 
@@ -100,7 +108,7 @@ public class UserSessionService
     {
         if (stored is { IsLoggedIn: true } && !string.IsNullOrWhiteSpace(stored.Email))
         {
-            SetUser(stored.HoTen, stored.Email, stored.Role, stored.Id, stored.Permissions);
+            SetUser(stored.HoTen, stored.Email, stored.Role, stored.Id, stored.Permissions, stored.MaChiNhanh, stored.TenChiNhanh);
             return;
         }
         IsRestored = true;
@@ -150,15 +158,7 @@ public class UserSessionService
     public bool CanAccessFrontDesk() => CurrentUser.Role == "Admin" || CurrentUser.Role == "FrontDesk" || CurrentUser.Role == "Manager" || CurrentUser.Role == "Accountant" || HasPermission(Quyen.ManageBookings) || HasPermission(Quyen.ManageInvoices);
     public bool CanAccessHousekeeping() => CurrentUser.Role == "Admin" || CurrentUser.Role == "Housekeeping" || CurrentUser.Role == "Manager" || HasPermission(Quyen.ManageHousekeeping);
 
-    public string GetDefaultStaffRoute() => CurrentUser.Role switch
-    {
-        "Admin" => "/admin/dashboard",
-        "Manager" => "/ai-analytics/dashboard",
-        "FrontDesk" => "/frontdesk/bookings",
-        "Housekeeping" => "/housekeeping/rooms",
-        "Accountant" => "/frontdesk/services-billing",
-        _ => "/admin/dashboard"
-    };
+    public string GetDefaultStaffRoute() => "/admin/dashboard";
 
     private static string NormalizeRoleCode(string role)
     {

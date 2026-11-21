@@ -218,4 +218,116 @@ public class Tv1Tv4ApiTests
         body!.ThanhCong.Should().BeTrue();
         body.DuLieu.Should().NotBeNull();
     }
+
+    [Fact]
+    public async Task Rbac_Housekeeper_CannotCreateLoaiPhong_Returns403()
+    {
+        await using var factory = new DacnWebAppFactory();
+        var client = factory.CreateClient();
+        var housekeeperToken = CreateTestJwt(3, "Housekeeper", Quyen.ManageHousekeeping, Quyen.UpdateRoomStatus);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", housekeeperToken);
+
+        var resp = await client.PostAsJsonAsync("api/v1/loai-phong", new
+        {
+            Ten = "Phòng Hacked",
+            DuongDanRutGon = "phong-hacked",
+            GiaCoBan = 100_000,
+            SoNguoiLonToiDa = 2
+        });
+
+        resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Rbac_Accountant_CannotCheckInBooking_Returns403()
+    {
+        await using var factory = new DacnWebAppFactory();
+        var client = factory.CreateClient();
+        var accountantToken = CreateTestJwt(4, "Accountant", Quyen.ViewDashboard, Quyen.ManageInvoices, Quyen.ManagePayments, Quyen.ManageExpenses);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accountantToken);
+
+        var resp = await client.PutAsync("api/v1/dat-phong/1/check-in", null);
+        resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Rbac_Housekeeper_CannotViewFinancialDashboardKpi_Returns403()
+    {
+        await using var factory = new DacnWebAppFactory();
+        var client = factory.CreateClient();
+        var housekeeperToken = CreateTestJwt(3, "Housekeeper", Quyen.ManageHousekeeping, Quyen.UpdateRoomStatus);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", housekeeperToken);
+
+        var resp = await client.GetAsync("api/v1/dashboard/kpi");
+        resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Rbac_FrontDesk_CannotViewOrCreateExpenses_Returns403()
+    {
+        await using var factory = new DacnWebAppFactory();
+        var client = factory.CreateClient();
+        var frontDeskToken = CreateTestJwt(2, "Receptionist", Quyen.ManageBookings, Quyen.CheckInOut, Quyen.ManageInvoices, Quyen.ManagePayments, Quyen.OrderRoomService);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", frontDeskToken);
+
+        var getResp = await client.GetAsync("api/v1/chi-phi");
+        getResp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var postResp = await client.PostAsJsonAsync("api/v1/chi-phi", new
+        {
+            DanhMuc = "Vận hành",
+            MoTa = "Chi khống",
+            SoTien = 500_000
+        });
+        postResp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task SoD_Manager_CannotApproveOwnExpense_Returns400()
+    {
+        await using var factory = new DacnWebAppFactory();
+        int expenseId = 0;
+        factory.SeedDatabase(db =>
+        {
+            var cp = new ChiPhiVanHanh
+            {
+                DanhMuc = "Bảo trì",
+                MoTa = "Sửa điều hòa tầng 3",
+                SoTien = 1_500_000m,
+                NgayChi = DateOnly.FromDateTime(DateTime.UtcNow),
+                NguoiGhiNhan = 5, // Manager (UserId = 5) tự lập phiếu
+                TrangThai = "Pending",
+                NgayTao = DateTime.UtcNow
+            };
+            db.ChiPhiVanHanhs.Add(cp);
+            db.SaveChanges();
+            expenseId = cp.MaId;
+        });
+
+        var client = factory.CreateClient();
+        var managerToken = CreateTestJwt(5, "Manager", Quyen.ManageExpenses);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", managerToken);
+
+        // Manager (UserId = 5) cố tình tự duyệt phiếu chi do chính mình tạo -> Bị chặn bởi nguyên tắc 4 mắt (SoD)
+        var resp = await client.PutAsync($"api/v1/chi-phi/{expenseId}/duyet?trangThai=Approved", null);
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Bola_Receptionist_CannotUpdateAdminProfile_Returns403()
+    {
+        await using var factory = new DacnWebAppFactory();
+        var client = factory.CreateClient();
+        var receptionistToken = CreateTestJwt(2, "Receptionist", Quyen.ManageBookings, Quyen.CheckInOut);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", receptionistToken);
+
+        // Lễ tân (ID = 2) cố tình gửi PUT để sửa hồ sơ của Admin (ID = 1)
+        var resp = await client.PutAsJsonAsync("api/v1/nguoi-dung/1", new
+        {
+            HoTen = "Hacked Admin Name",
+            SoDienThoai = "0999999999"
+        });
+
+        resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
 }

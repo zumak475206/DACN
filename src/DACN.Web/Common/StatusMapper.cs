@@ -115,9 +115,9 @@ public static class StatusMapper
         return v switch
         {
             "pending" or "cho_xac_nhan" or "confirmed" or "da_xac_nhan" => "Pending",
-            "active" or "dang_o" or "checkedin" => "Active",
-            "checkedout" or "checked_out" or "hoan_thanh" => "CheckedOut",
-            "cancelled" or "canceled" or "da_huy" => "Cancelled",
+            "active" or "dang_o" or "checkedin" or "checked_in" or "da_nhan_phong" => "Active",
+            "checkedout" or "checked_out" or "hoan_thanh" or "da_tra_phong" => "CheckedOut",
+            "cancelled" or "canceled" or "da_huy" or "huy" => "Cancelled",
             _ => "Pending"
         };
     }

@@ -15,6 +15,8 @@ public partial class DACNContext : DbContext
 
     public virtual DbSet<BaiViet> BaiViets { get; set; }
 
+    public virtual DbSet<ChiNhanh> ChiNhanhs { get; set; }
+
     public virtual DbSet<ChiPhiVanHanh> ChiPhiVanHanhs { get; set; }
 
     public virtual DbSet<ChiTietDatPhong> ChiTietDatPhongs { get; set; }
@@ -28,6 +30,8 @@ public partial class DACNContext : DbContext
     public virtual DbSet<DatPhong> DatPhongs { get; set; }
 
     public virtual DbSet<DiaDiemThamQuan> DiaDiemThamQuans { get; set; }
+
+    public virtual DbSet<DiaDiemChiNhanh> DiaDiemChiNhanhs { get; set; }
 
     public virtual DbSet<DichVu> DichVus { get; set; }
 
@@ -120,6 +124,27 @@ public partial class DACNContext : DbContext
                 .HasConstraintName("FK_Articles_Users");
         });
 
+        modelBuilder.Entity<ChiNhanh>(entity =>
+        {
+            entity.HasKey(e => e.MaId).HasName("PK_ChiNhanh");
+            entity.ToTable("ChiNhanh");
+            entity.HasIndex(e => e.MaChiNhanhCode, "UQ_ChiNhanh_Code").IsUnique();
+            entity.Property(e => e.MaId).HasColumnName("MaID");
+            entity.Property(e => e.MaChiNhanhCode).HasMaxLength(20).IsUnicode(false);
+            entity.Property(e => e.TenChiNhanh).HasMaxLength(255);
+            entity.Property(e => e.TinhThanh).HasMaxLength(100);
+            entity.Property(e => e.DiaChiChiTiet).HasMaxLength(500);
+            entity.Property(e => e.SoDienThoai).HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.EmailLienHe).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.HinhAnhDaiDien).HasMaxLength(500);
+            entity.Property(e => e.SoSao).HasDefaultValue(4);
+            entity.Property(e => e.ViDo).HasColumnType("decimal(10, 8)");
+            entity.Property(e => e.KinhDo).HasColumnType("decimal(11, 8)");
+            entity.Property(e => e.VungMien).HasMaxLength(20).IsUnicode(false).HasDefaultValue("central");
+            entity.Property(e => e.DangHoatDong).HasDefaultValue(true);
+            entity.Property(e => e.NgayTao).HasDefaultValueSql("(getdate())").HasColumnType("datetime");
+        });
+
         modelBuilder.Entity<ChiPhiVanHanh>(entity =>
         {
             entity.HasKey(e => e.MaId).HasName("PK_Operating_Expenses");
@@ -129,6 +154,7 @@ public partial class DACNContext : DbContext
             entity.HasIndex(e => new { e.NgayChi, e.TrangThai }, "IX_OperatingExpenses_date_status");
 
             entity.Property(e => e.MaId).HasColumnName("MaID");
+            entity.Property(e => e.MaChiNhanh).HasDefaultValue(1);
             entity.Property(e => e.DanhMuc)
                 .HasMaxLength(100)
                 .IsUnicode(true);
@@ -141,6 +167,12 @@ public partial class DACNContext : DbContext
                 .HasMaxLength(20)
                 .IsUnicode(false)
                 .HasDefaultValue("Pending");
+
+            entity.HasOne(d => d.MaChiNhanhNavigation).WithMany(p => p.ChiPhiVanHanhs)
+                .HasForeignKey(d => d.MaChiNhanh)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ChiPhiVanHanh_ChiNhanh");
 
             entity.HasOne(d => d.NguoiGhiNhanNavigation).WithMany(p => p.ChiPhiVanHanhNguoiGhiNhanNavigations)
                 .HasForeignKey(d => d.NguoiGhiNhan)
@@ -260,6 +292,7 @@ public partial class DACNContext : DbContext
             entity.HasIndex(e => e.MaDatPhong, "UQ_Bookings_booking_code").IsUnique();
 
             entity.Property(e => e.MaId).HasColumnName("MaID");
+            entity.Property(e => e.MaChiNhanh).HasDefaultValue(1);
             entity.Property(e => e.EmailKhach).HasMaxLength(255);
             entity.Property(e => e.GhiChu).HasMaxLength(500);
             entity.Property(e => e.KenhDatPhong)
@@ -288,6 +321,12 @@ public partial class DACNContext : DbContext
                 .HasForeignKey(d => d.MaGiamGia)
                 .HasConstraintName("FK_Bookings_Vouchers");
 
+            entity.HasOne(d => d.MaChiNhanhNavigation).WithMany(p => p.DatPhongs)
+                .HasForeignKey(d => d.MaChiNhanh)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_DatPhong_ChiNhanh");
+
             entity.HasOne(d => d.MaNguoiDungNavigation).WithMany(p => p.DatPhongMaNguoiDungNavigations)
                 .HasForeignKey(d => d.MaNguoiDung)
                 .HasConstraintName("FK_Bookings_Users");
@@ -313,6 +352,40 @@ public partial class DACNContext : DbContext
             entity.Property(e => e.PhongCach).HasMaxLength(200);
             entity.Property(e => e.Ten).HasMaxLength(255);
             entity.Property(e => e.ViDo).HasColumnType("decimal(10, 8)");
+            entity.Property(e => e.TinhThanh).HasMaxLength(100);
+            entity.Property(e => e.KhuVuc).HasMaxLength(20).IsUnicode(false);
+            entity.Property(e => e.TheLoai).HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.NgoaiTroi).HasDefaultValue(true);
+            entity.Property(e => e.LaBienDao).HasDefaultValue(false);
+            entity.Property(e => e.PhuongTienTiepCan).HasMaxLength(30).IsUnicode(false).HasDefaultValue("duong_bo");
+            entity.Property(e => e.ThangDepTu).HasDefaultValue(1);
+            entity.Property(e => e.ThangDepDen).HasDefaultValue(12);
+            entity.Property(e => e.GiaVeThamKhao).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.GioMoCua).HasMaxLength(100);
+            entity.Property(e => e.DiemBienTap).HasColumnType("decimal(3, 2)").HasDefaultValue(4.50m);
+            entity.Property(e => e.NguonDuLieu).HasMaxLength(100);
+            entity.Property(e => e.MaNguonNgoai).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.NgayXacMinh).HasColumnType("datetime");
+        });
+
+        modelBuilder.Entity<DiaDiemChiNhanh>(entity =>
+        {
+            entity.HasKey(e => new { e.MaDiaDiem, e.MaChiNhanh }).HasName("PK_DiaDiem_ChiNhanh");
+
+            entity.ToTable("DiaDiem_ChiNhanh");
+
+            entity.Property(e => e.KhoangCachKm)
+                .HasColumnType("decimal(7, 2)")
+                .HasColumnName("KhoangCach_km");
+            entity.Property(e => e.LaChiNhanhGanNhat).HasDefaultValue(true);
+
+            entity.HasOne(d => d.MaDiaDiemNavigation).WithMany(p => p.DiaDiemChiNhanhs)
+                .HasForeignKey(d => d.MaDiaDiem)
+                .HasConstraintName("FK_DiaDiemChiNhanh_DiaDiem");
+
+            entity.HasOne(d => d.MaChiNhanhNavigation).WithMany(p => p.DiaDiemChiNhanhs)
+                .HasForeignKey(d => d.MaChiNhanh)
+                .HasConstraintName("FK_DiaDiemChiNhanh_ChiNhanh");
         });
 
         modelBuilder.Entity<DichVu>(entity =>
@@ -322,6 +395,7 @@ public partial class DACNContext : DbContext
             entity.ToTable("DichVu");
 
             entity.Property(e => e.MaId).HasColumnName("MaID");
+            entity.Property(e => e.MaChiNhanh).HasDefaultValue(1);
             entity.Property(e => e.DangHoatDong).HasDefaultValue(true);
             entity.Property(e => e.DonViTinh).HasMaxLength(50);
             entity.Property(e => e.GiaDichVu).HasColumnType("decimal(18, 2)");
@@ -331,6 +405,10 @@ public partial class DACNContext : DbContext
                 .HasForeignKey(d => d.MaDanhMucDichVu)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Services_Categories");
+
+            entity.HasOne(d => d.MaChiNhanhNavigation).WithMany(p => p.DichVus)
+                .HasForeignKey(d => d.MaChiNhanh)
+                .HasConstraintName("FK_DichVu_ChiNhanh");
         });
 
         modelBuilder.Entity<DonDichVu>(entity =>
@@ -375,6 +453,12 @@ public partial class DACNContext : DbContext
                 .HasForeignKey(d => d.MaLoaiPhong)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_AIBookingDemand_RoomTypes");
+
+            entity.HasOne(d => d.MaChiNhanhNavigation).WithMany(p => p.DuBaoNhuCauDatPhongAis)
+                .HasForeignKey(d => d.MaChiNhanh)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_DuBaoAI_ChiNhanh");
         });
 
         modelBuilder.Entity<DuDoanHuyPhongAi>(entity =>
@@ -518,6 +602,7 @@ public partial class DACNContext : DbContext
             entity.HasIndex(e => e.DuongDanRutGon, "UQ_Room_Types_slug").IsUnique();
 
             entity.Property(e => e.MaId).HasColumnName("MaID");
+            entity.Property(e => e.MaChiNhanh).HasDefaultValue(1);
             entity.Property(e => e.DangHoatDong).HasDefaultValue(true);
             entity.Property(e => e.DienTichM2).HasColumnName("DienTich_m2");
             entity.Property(e => e.DuongDanRutGon)
@@ -532,6 +617,12 @@ public partial class DACNContext : DbContext
             entity.Property(e => e.SoNguoiLonToiDa).HasDefaultValue(2);
             entity.Property(e => e.SoTreEmToiDa).HasDefaultValue(1);
             entity.Property(e => e.Ten).HasMaxLength(255);
+
+            entity.HasOne(d => d.MaChiNhanhNavigation).WithMany(p => p.LoaiPhongs)
+                .HasForeignKey(d => d.MaChiNhanh)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_LoaiPhong_ChiNhanh");
 
             entity.HasMany(d => d.MaTienNghis).WithMany(p => p.MaLoaiPhongs)
                 .UsingEntity<Dictionary<string, object>>(
@@ -556,6 +647,7 @@ public partial class DACNContext : DbContext
             entity.HasIndex(e => e.MaCode, "UQ_Vouchers_code").IsUnique();
 
             entity.Property(e => e.MaId).HasColumnName("MaID");
+            entity.Property(e => e.MaChiNhanh).HasDefaultValue(1);
             entity.Property(e => e.DangHoatDong).HasDefaultValue(true);
             entity.Property(e => e.GiaTriDatPhongToiThieu)
                 .HasDefaultValue(0m)
@@ -572,6 +664,10 @@ public partial class DACNContext : DbContext
             entity.Property(e => e.NgayTao)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
+
+            entity.HasOne(d => d.MaChiNhanhNavigation).WithMany(p => p.MaGiamGia)
+                .HasForeignKey(d => d.MaChiNhanh)
+                .HasConstraintName("FK_MaGiamGia_ChiNhanh");
         });
 
         modelBuilder.Entity<MatMatHuHong>(entity =>
@@ -639,6 +735,11 @@ public partial class DACNContext : DbContext
                 .HasColumnType("datetime");
             entity.Property(e => e.SoDienThoai).HasMaxLength(50);
             entity.Property(e => e.TrangThai).HasDefaultValue(true);
+            entity.Property(e => e.MaChiNhanh).HasDefaultValue(1);
+
+            entity.HasOne(d => d.MaChiNhanhNavigation).WithMany(p => p.NguoiDungs)
+                .HasForeignKey(d => d.MaChiNhanh)
+                .HasConstraintName("FK_NguoiDung_ChiNhanh");
 
             entity.HasOne(d => d.MaHangThanhVienNavigation).WithMany(p => p.NguoiDungs)
                 .HasForeignKey(d => d.MaHangThanhVien)
@@ -727,9 +828,10 @@ public partial class DACNContext : DbContext
 
             entity.HasIndex(e => new { e.TrangThai, e.TrangThaiVeSinh }, "IX_Rooms_status_cleaning");
 
-            entity.HasIndex(e => e.SoPhong, "UQ_Rooms_room_number").IsUnique();
+            entity.HasIndex(e => new { e.MaChiNhanh, e.SoPhong }, "UQ_Phong_ChiNhanh_SoPhong").IsUnique();
 
             entity.Property(e => e.MaId).HasColumnName("MaID");
+            entity.Property(e => e.MaChiNhanh).HasDefaultValue(1);
             entity.Property(e => e.NgayTao)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
@@ -749,6 +851,12 @@ public partial class DACNContext : DbContext
                 .HasForeignKey(d => d.MaLoaiPhong)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Rooms_RoomTypes");
+
+            entity.HasOne(d => d.MaChiNhanhNavigation).WithMany(p => p.Phongs)
+                .HasForeignKey(d => d.MaChiNhanh)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Phong_ChiNhanh");
         });
 
         modelBuilder.Entity<QuyenHan>(entity =>

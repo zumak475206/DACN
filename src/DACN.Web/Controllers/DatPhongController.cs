@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace DACN.Web.Controllers;
 
+[Authorize]
 [Route("api/v1/dat-phong")]
 [ApiController]
 public class DatPhongController(DACNContext db, IAuditService auditService) : ControllerBase
@@ -22,11 +23,12 @@ public class DatPhongController(DACNContext db, IAuditService auditService) : Co
     public async Task<ActionResult<ApiResponse<KetQuaPhanTrang<DatPhongDto>>>> DanhSach(
         [FromQuery] PhanTrangRequest req, [FromQuery] string? trangThai = null)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageBookings) && !User.HasPermission(Quyen.CheckInOut))
             return Forbid();
 
         var query = db.DatPhongs
             .AsNoTracking()
+            .Include(d => d.MaChiNhanhNavigation)
             .Include(d => d.ChiTietDatPhongs).ThenInclude(ct => ct.MaLoaiPhongNavigation)
             .Include(d => d.ChiTietDatPhongs).ThenInclude(ct => ct.MaPhongNavigation)
             .AsQueryable();
@@ -55,6 +57,7 @@ public class DatPhongController(DACNContext db, IAuditService auditService) : Co
     {
         var d = await db.DatPhongs
             .AsNoTracking()
+            .Include(x => x.MaChiNhanhNavigation)
             .Include(x => x.ChiTietDatPhongs).ThenInclude(ct => ct.MaLoaiPhongNavigation)
             .Include(x => x.ChiTietDatPhongs).ThenInclude(ct => ct.MaPhongNavigation)
             .FirstOrDefaultAsync(x => x.MaId == id);
@@ -78,6 +81,7 @@ public class DatPhongController(DACNContext db, IAuditService auditService) : Co
 
         var rawData = await db.DatPhongs
             .AsNoTracking()
+            .Include(d => d.MaChiNhanhNavigation)
             .Include(d => d.ChiTietDatPhongs).ThenInclude(ct => ct.MaLoaiPhongNavigation)
             .Include(d => d.ChiTietDatPhongs).ThenInclude(ct => ct.MaPhongNavigation)
             .Where(d => d.MaNguoiDung == currentUserId.Value)
@@ -86,6 +90,32 @@ public class DatPhongController(DACNContext db, IAuditService auditService) : Co
         var data = rawData.Select(MapDatPhong).ToList();
 
         return Ok(ApiResponse<List<DatPhongDto>>.Ok(data));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("tra-cuu")]
+    public async Task<ActionResult<ApiResponse<DatPhongDto>>> TraCuuKhachVangLai([FromBody] TraCuuDatPhongRequest req)
+    {
+        var code = req.MaDatPhong.Trim().ToUpperInvariant();
+        var contact = req.ThongTinLienHe.Trim().ToLowerInvariant();
+        var normalizedPhone = contact.Replace(" ", "").Replace("-", "").Replace(".", "");
+
+        var candidates = await db.DatPhongs
+            .AsNoTracking()
+            .Include(x => x.MaChiNhanhNavigation)
+            .Include(x => x.ChiTietDatPhongs).ThenInclude(ct => ct.MaLoaiPhongNavigation)
+            .Include(x => x.ChiTietDatPhongs).ThenInclude(ct => ct.MaPhongNavigation)
+            .Where(x => x.MaDatPhong.ToUpper() == code)
+            .ToListAsync();
+
+        var match = candidates.FirstOrDefault(x =>
+            (!string.IsNullOrWhiteSpace(x.EmailKhach) && x.EmailKhach.Trim().ToLowerInvariant() == contact)
+            || (!string.IsNullOrWhiteSpace(x.Sdtkhach) && x.Sdtkhach.Replace(" ", "").Replace("-", "").Replace(".", "").ToLowerInvariant() == normalizedPhone));
+
+        if (match == null)
+            return NotFound(ApiResponse<DatPhongDto>.Fail("Không tìm thấy đơn đặt phòng khớp với Mã đặt phòng và Thông tin liên hệ đã nhập."));
+
+        return Ok(ApiResponse<DatPhongDto>.Ok(MapDatPhong(match), "Tra cứu đơn đặt phòng thành công."));
     }
 
     [AllowAnonymous]
@@ -136,11 +166,15 @@ public class DatPhongController(DACNContext db, IAuditService auditService) : Co
 
                 var soNgay = (item.NgayTraPhong.Date - item.NgayNhanPhong.Date).Days;
 
+                var holdExpiryCutoff = now.AddMinutes(-15);
                 var soPhongDangDung = await db.ChiTietDatPhongs.CountAsync(ct =>
                     ct.MaLoaiPhong == item.MaLoaiPhong
                     && ct.TrangThai != "Cancelled" && ct.TrangThai != "da_huy"
                     && ct.NgayNhanPhongDuKien < item.NgayTraPhong
-                    && ct.NgayTraPhongDuKien > item.NgayNhanPhong);
+                    && ct.NgayTraPhongDuKien > item.NgayNhanPhong
+                    && !(ct.MaDatPhongNavigation.TrangThai == "Pending"
+                         && ct.MaDatPhongNavigation.TienDatCoc <= 0
+                         && ct.MaDatPhongNavigation.NgayTao < holdExpiryCutoff));
 
                 var soPhongCoSan = await db.Phongs.CountAsync(p =>
                     p.MaLoaiPhong == item.MaLoaiPhong
@@ -165,8 +199,26 @@ public class DatPhongController(DACNContext db, IAuditService auditService) : Co
                 });
             }
 
+            var targetBranchId = req.MaChiNhanh;
+            if (!targetBranchId.HasValue && chiTietList.Any())
+            {
+                var firstLpId = chiTietList.First().MaLoaiPhong;
+                var lp = await db.LoaiPhongs.AsNoTracking().FirstOrDefaultAsync(l => l.MaId == firstLpId);
+                targetBranchId = lp?.MaChiNhanh ?? 1;
+            }
+            else if (!targetBranchId.HasValue)
+            {
+                targetBranchId = 1;
+            }
+
             if (voucher != null)
             {
+                if (voucher.MaChiNhanh.HasValue && voucher.MaChiNhanh.Value != targetBranchId.Value)
+                {
+                    if (tx != null) await tx.RollbackAsync();
+                    return BadRequest(ApiResponse<DatPhongDto>.Fail("Mã giảm giá này chỉ áp dụng cho chi nhánh tương ứng."));
+                }
+
                 if (voucher.GiaTriDatPhongToiThieu.HasValue && tongTien < voucher.GiaTriDatPhongToiThieu.Value)
                     return BadRequest(ApiResponse<DatPhongDto>.Fail($"Đơn hàng phải đạt tối thiểu {voucher.GiaTriDatPhongToiThieu:N0} VNĐ để áp dụng mã giảm giá này."));
 
@@ -198,6 +250,7 @@ public class DatPhongController(DACNContext db, IAuditService auditService) : Co
             var datPhong = new DatPhong
             {
                 MaDatPhong = maDatPhong,
+                MaChiNhanh = targetBranchId.Value,
                 MaNguoiDung = maNguoiDung,
                 TenKhach = req.TenKhach,
                 Sdtkhach = req.SdtKhach,
@@ -250,6 +303,7 @@ public class DatPhongController(DACNContext db, IAuditService auditService) : Co
                 thanhCong: true);
 
             var result = await db.DatPhongs
+                .Include(d => d.MaChiNhanhNavigation)
                 .Include(d => d.ChiTietDatPhongs).ThenInclude(ct => ct.MaLoaiPhongNavigation)
                 .FirstAsync(d => d.MaId == datPhong.MaId);
 
@@ -266,7 +320,7 @@ public class DatPhongController(DACNContext db, IAuditService auditService) : Co
     [HttpPut("{id:int}/xac-nhan")]
     public async Task<ActionResult<ApiResponse<object>>> XacNhanDatPhong(int id, [FromQuery] bool daThuCoc = false)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageBookings))
             return Forbid();
 
         var d = await db.DatPhongs.Include(x => x.ChiTietDatPhongs).FirstOrDefaultAsync(x => x.MaId == id);
@@ -320,14 +374,28 @@ public class DatPhongController(DACNContext db, IAuditService auditService) : Co
         if (d == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy đặt phòng."));
 
         var currentUserId = User.GetUserId();
-        if (!User.IsStaffOrAdmin() && d.MaNguoiDung != currentUserId)
+        var canManageBookings = User.HasPermission(Quyen.ManageBookings);
+        if (!canManageBookings && d.MaNguoiDung != currentUserId)
             return Forbid();
 
         if (StatusMapper.IsBookingCancelled(d.TrangThai))
             return BadRequest(ApiResponse<object>.Fail("Đặt phòng đã bị hủy trước đó."));
 
-        if (!User.IsStaffOrAdmin() && (StatusMapper.IsBookingCheckedIn(d.TrangThai) || StatusMapper.IsBookingCheckedOut(d.TrangThai)))
+        if (!canManageBookings && (StatusMapper.IsBookingCheckedIn(d.TrangThai) || StatusMapper.IsBookingCheckedOut(d.TrangThai)))
             return BadRequest(ApiResponse<object>.Fail("Không thể hủy đơn đặt phòng đang lưu trú hoặc đã hoàn thành."));
+
+        if (!canManageBookings && d.ChiTietDatPhongs.Any())
+        {
+            var minutesSinceCreated = (DateTime.UtcNow - d.NgayTao).TotalMinutes;
+            var earliestCheckin = d.ChiTietDatPhongs.Min(ct => ct.NgayNhanPhongDuKien).Date.AddHours(14);
+            var hoursUntilCheckin = (earliestCheckin - DateTime.UtcNow).TotalHours;
+
+            if (minutesSinceCreated > 15 && hoursUntilCheckin < 48)
+            {
+                return BadRequest(ApiResponse<object>.Fail(
+                    "Theo chính sách khách sạn, đơn chỉ được miễn phí hủy trực tuyến trước 48 giờ so với giờ nhận phòng (14:00) hoặc trong vòng 15 phút sau khi đặt. Vui lòng liên hệ Lễ tân qua Hotline 1900 6868."));
+            }
+        }
 
         d.TrangThai = "Cancelled";
         d.LyDoHuy = req.LyDoHuy;
@@ -366,7 +434,7 @@ public class DatPhongController(DACNContext db, IAuditService auditService) : Co
     [HttpPut("chi-tiet/{chiTietId:int}/gan-phong")]
     public async Task<ActionResult<ApiResponse<object>>> GanPhong(int chiTietId, [FromBody] GanPhongRequest req)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageBookings) && !User.HasPermission(Quyen.CheckInOut))
             return Forbid();
 
         var ct = await db.ChiTietDatPhongs
@@ -423,7 +491,7 @@ public class DatPhongController(DACNContext db, IAuditService auditService) : Co
     [HttpPut("{id:int}/check-in")]
     public async Task<ActionResult<ApiResponse<object>>> CheckIn(int id)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.CheckInOut))
             return Forbid();
 
         var d = await db.DatPhongs
@@ -483,7 +551,7 @@ public class DatPhongController(DACNContext db, IAuditService auditService) : Co
     [HttpPut("{id:int}/check-out")]
     public async Task<ActionResult<ApiResponse<object>>> CheckOut(int id)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.CheckInOut))
             return Forbid();
 
         var d = await db.DatPhongs
@@ -534,6 +602,8 @@ public class DatPhongController(DACNContext db, IAuditService auditService) : Co
     private static DatPhongDto MapDatPhong(DatPhong d) => new()
     {
         MaId = d.MaId, MaDatPhong = d.MaDatPhong,
+        MaChiNhanh = d.MaChiNhanh,
+        TenChiNhanh = d.MaChiNhanhNavigation?.TenChiNhanh,
         TenKhach = d.TenKhach, SdtKhach = d.Sdtkhach, EmailKhach = d.EmailKhach,
         KenhDatPhong = d.KenhDatPhong, TrangThai = d.TrangThai,
         TongTien = d.TongTien, TienDatCoc = d.TienDatCoc,

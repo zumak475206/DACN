@@ -27,7 +27,11 @@ public partial class MaGiamGium
 
     public bool DangHoatDong { get; set; }
 
+    public int? MaChiNhanh { get; set; }
+
     public DateTime NgayTao { get; set; }
 
     public virtual ICollection<DatPhong> DatPhongs { get; set; } = new List<DatPhong>();
+
+    public virtual ChiNhanh? MaChiNhanhNavigation { get; set; }
 }

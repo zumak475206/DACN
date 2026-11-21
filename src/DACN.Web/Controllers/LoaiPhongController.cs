@@ -1,16 +1,19 @@
+using System.Security.Claims;
 using DACN.Infrastructure.Data;
 using DACN.Web.Common;
 using DACN.Web.DTOs.Common;
 using DACN.Web.DTOs.Phong;
+using DACN.Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace DACN.Web.Controllers;
 
+[Authorize]
 [Route("api/v1/loai-phong")]
 [ApiController]
-public class LoaiPhongController(DACNContext db) : ControllerBase
+public class LoaiPhongController(DACNContext db, IAuditService auditService) : ControllerBase
 {
     [AllowAnonymous]
     [HttpGet]
@@ -121,7 +124,7 @@ public class LoaiPhongController(DACNContext db) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ApiResponse<LoaiPhongDto>>> Tao([FromBody] TaoLoaiPhongRequest req)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageRooms))
             return Forbid();
 
         if (await db.LoaiPhongs.AnyAsync(lp => lp.DuongDanRutGon == req.DuongDanRutGon))
@@ -139,6 +142,16 @@ public class LoaiPhongController(DACNContext db) : ControllerBase
         db.LoaiPhongs.Add(lp);
         await db.SaveChangesAsync();
 
+        await auditService.GhiNhanAsync(
+            hanhDong: "TAO_LOAI_PHONG",
+            doiTuong: "LoaiPhong",
+            khoaChinh: lp.MaId.ToString(),
+            noiDung: $"Tạo loại phòng mới '{lp.Ten}' (Giá cơ bản: {lp.GiaCoBan:N0} VNĐ)",
+            maNguoiDung: User.GetUserId(),
+            email: User.FindFirst(ClaimTypes.Email)?.Value,
+            diaChiIp: HttpContext.Connection.RemoteIpAddress?.ToString(),
+            thanhCong: true);
+
         return Ok(ApiResponse<LoaiPhongDto>.Ok(new LoaiPhongDto { MaId = lp.MaId, Ten = lp.Ten, GiaCoBan = lp.GiaCoBan, DangHoatDong = true }, "Tạo loại phòng thành công."));
     }
 
@@ -146,7 +159,7 @@ public class LoaiPhongController(DACNContext db) : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<ActionResult<ApiResponse<object>>> CapNhat(int id, [FromBody] TaoLoaiPhongRequest req)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageRooms))
             return Forbid();
 
         var lp = await db.LoaiPhongs.FindAsync(id);
@@ -157,6 +170,17 @@ public class LoaiPhongController(DACNContext db) : ControllerBase
         lp.DienTichM2 = (int?)req.DienTichM2; lp.LoaiGiuong = req.LoaiGiuong;
         lp.HuongNhin = req.HuongNhin; lp.MoTa = req.MoTa; lp.NoiDung = req.NoiDung;
         await db.SaveChangesAsync();
+
+        await auditService.GhiNhanAsync(
+            hanhDong: "CAP_NHAT_LOAI_PHONG",
+            doiTuong: "LoaiPhong",
+            khoaChinh: lp.MaId.ToString(),
+            noiDung: $"Cập nhật loại phòng '{lp.Ten}' (Giá cơ bản: {lp.GiaCoBan:N0} VNĐ)",
+            maNguoiDung: User.GetUserId(),
+            email: User.FindFirst(ClaimTypes.Email)?.Value,
+            diaChiIp: HttpContext.Connection.RemoteIpAddress?.ToString(),
+            thanhCong: true);
+
         return Ok(ApiResponse<object>.Ok(null!, "Cập nhật thành công."));
     }
 
@@ -164,13 +188,24 @@ public class LoaiPhongController(DACNContext db) : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<ActionResult<ApiResponse<object>>> Xoa(int id)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageRooms))
             return Forbid();
 
         var lp = await db.LoaiPhongs.FindAsync(id);
         if (lp == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy loại phòng."));
         lp.DangHoatDong = false;
         await db.SaveChangesAsync();
+
+        await auditService.GhiNhanAsync(
+            hanhDong: "XOA_LOAI_PHONG",
+            doiTuong: "LoaiPhong",
+            khoaChinh: lp.MaId.ToString(),
+            noiDung: $"Vô hiệu hóa loại phòng '{lp.Ten}'",
+            maNguoiDung: User.GetUserId(),
+            email: User.FindFirst(ClaimTypes.Email)?.Value,
+            diaChiIp: HttpContext.Connection.RemoteIpAddress?.ToString(),
+            thanhCong: true);
+
         return Ok(ApiResponse<object>.Ok(null!, "Đã vô hiệu hóa loại phòng."));
     }
 }

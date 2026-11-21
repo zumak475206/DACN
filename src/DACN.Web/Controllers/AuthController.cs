@@ -14,6 +14,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace DACN.Web.Controllers;
 
+[Authorize]
 [Route("api/v1/auth")]
 [ApiController]
 [EnableRateLimiting("auth-policy")]

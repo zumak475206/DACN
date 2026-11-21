@@ -1,11 +1,15 @@
 ﻿@page "/my-bookings"
+@page "/mybookings"
+@page "/my-booking"
+@page "/tra-cuu-don"
 @layout CustomerLayout
 @inject DACNContext Db
 @inject UserSessionService Session
 @inject IAuditService AuditService
+@inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
 @implements IDisposable
 
-<PageTitle>Lịch Sử Đặt Phòng — Grand Hotel Da Nang</PageTitle>
+<PageTitle>Đơn Đặt Phòng Của Tôi — BookingStay.AI</PageTitle>
 
 <div class="container my-5">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
@@ -26,6 +30,75 @@
         </div>
     }
 
+    @if (depositSuccess)
+    {
+        <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+            <i class="bi bi-qr-code-scan me-2"></i> Đã thanh toán tiền cọc 30% thành công qua VietQR / VNPAY! Đơn đặt phòng của quý khách đã được xác nhận giữ phòng chắc chắn.
+            <button type="button" class="btn-close" @onclick="() => depositSuccess = false"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(actionErrorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @actionErrorMessage
+            <button type="button" class="btn-close" @onclick="() => actionErrorMessage = null"></button>
+        </div>
+    }
+
+    @if (!Session.CurrentUser.IsLoggedIn)
+    {
+        @if (!string.IsNullOrWhiteSpace(recentDeviceCode))
+        {
+            <div class="alert alert-info border shadow-sm mb-3 py-2 px-3 d-flex flex-wrap align-items-center justify-content-between rounded-3">
+                <div class="d-flex align-items-center mb-1 mb-md-0">
+                    <i class="bi bi-laptop fs-5 text-primary me-2"></i>
+                    <div>
+                        <span class="small fw-semibold">Phát hiện đơn vừa đặt gần đây trên thiết bị này:</span>
+                        <strong class="font-monospace text-primary ms-1">@recentDeviceCode</strong>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary px-3 py-1 fw-bold rounded-pill" @onclick="QuickFillRecentBooking">
+                    <i class="bi bi-lightning-charge-fill me-1"></i> Điền & Tra cứu ngay
+                </button>
+            </div>
+        }
+
+        <div class="hotel-card border shadow-sm mb-4 p-4" style="background: #F8FAFC;">
+            <div class="row g-3 align-items-end">
+                <div class="col-12">
+                    <h5 class="fw-bold text-dark mb-1">
+                        <i class="bi bi-shield-lock-fill text-primary me-2"></i>Tra Cứu Đơn Đặt Phòng Vãng Lai
+                    </h5>
+                    <p class="small text-muted mb-0">
+                        Để bảo mật thông tin cá nhân, quý khách chưa đăng nhập vui lòng nhập <strong>Mã đặt phòng</strong> (hoặc mã ngắn / đuôi mã) và <strong>Số điện thoại / Email</strong> đã dùng khi đặt phòng.
+                    </p>
+                </div>
+                <div class="col-12 col-md-5">
+                    <label class="form-label small fw-bold">Mã xác nhận đặt phòng *</label>
+                    <input type="text" class="hotel-input w-100" placeholder="VD: DP-WEB-2611201530 hoặc #DP-0014" @bind="lookupBookingCode" />
+                </div>
+                <div class="col-12 col-md-5">
+                    <label class="form-label small fw-bold">Số điện thoại hoặc Email đặt phòng *</label>
+                    <input type="text" class="hotel-input w-100" placeholder="VD: 0905123456 hoặc email@gmail.com" @bind="lookupContact" />
+                </div>
+                <div class="col-12 col-md-2">
+                    <button type="button" class="hotel-btn hotel-btn-primary w-100 py-2 fw-bold" @onclick="LookupGuestBookingAsync">
+                        <i class="bi bi-search me-1"></i> Tra Cứu
+                    </button>
+                </div>
+                <div class="col-12 d-flex flex-wrap justify-content-between align-items-center pt-2 mt-2 border-top">
+                    <span class="small text-muted">
+                        <i class="bi bi-lightbulb-fill text-warning me-1"></i> Không nhớ toàn bộ mã? Bạn có thể nhập <strong>6 số cuối</strong> hoặc <strong>#DP-0014</strong>.
+                    </span>
+                    <button type="button" class="btn btn-link text-decoration-none small fw-bold text-primary p-0" @onclick="OpenForgotCodeModal">
+                        <i class="bi bi-key-fill me-1"></i> Quên mã đặt phòng? Nhận OTP qua Email / SĐT
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
     <div class="hotel-card border shadow-sm">
         <div class="hotel-card-header">
             <div class="hotel-card-title">
@@ -33,7 +106,7 @@
                 <span>Danh Sách Kỳ Nghỉ Của Quý Khách</span>
             </div>
             <span class="hotel-badge hotel-badge-info">
-                @(Session.CurrentUser.IsLoggedIn ? $"{Session.CurrentUser.HoTen} ({Session.CurrentUser.Email})" : "Khách chưa đăng nhập")
+                @(Session.CurrentUser.IsLoggedIn ? $"{Session.CurrentUser.HoTen} ({Session.CurrentUser.Email})" : (verifiedGuestBookingId.HasValue ? "Đã xác thực mã tra cứu" : (!string.IsNullOrWhiteSpace(verifiedGuestContact) ? $"Đã xác thực OTP ({verifiedGuestContact})" : "Khách chưa đăng nhập")))
             </span>
         </div>
         <div class="hotel-card-body p-0">
@@ -56,7 +129,14 @@
                         {
                             <tr>
                                 <td colspan="8" class="text-center py-4 text-muted">
-                                    Quý khách chưa có đơn đặt phòng nào. Hãy chọn phòng tại Trang chủ để bắt đầu kỳ nghỉ!
+                                    @if (!Session.CurrentUser.IsLoggedIn)
+                                    {
+                                        <span>Vui lòng nhập <strong>Mã đặt phòng</strong> và <strong>Số điện thoại / Email</strong> ở khung tra cứu bên trên, hoặc <a href="/login" class="fw-bold text-primary">Đăng nhập</a> để xem lịch sử kỳ nghỉ.</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Quý khách chưa có đơn đặt phòng nào. Hãy chọn phòng tại Trang chủ để bắt đầu kỳ nghỉ!</span>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -77,11 +157,17 @@
                                 </td>
                                 <td>@b.Guests người</td>
                                 <td class="fw-bold">@b.Total.ToString("N0") đ</td>
-                                <td class="fw-bold text-success">@b.Deposit.ToString("N0") đ</td>
+                                <td class="fw-bold @(b.Deposit > 0 ? "text-success" : "text-warning")">
+                                    @b.Deposit.ToString("N0") đ
+                                    @if (b.Deposit <= 0 && b.Status == "da_xac_nhan")
+                                    {
+                                        <div class="small text-warning fw-normal">Giữ chỗ 15p</div>
+                                    }
+                                </td>
                                 <td>
                                     @if (b.Status == "da_xac_nhan")
                                     {
-                                        <span class="hotel-badge hotel-badge-success">Chờ nhận phòng</span>
+                                        <span class="hotel-badge hotel-badge-success">@(b.Deposit > 0 ? "Đã xác nhận cọc" : "Chờ đặt cọc")</span>
                                     }
                                     else if (b.Status == "da_nhan_phong")
                                     {
@@ -97,18 +183,23 @@
                                     }
                                 </td>
                                 <td class="text-end">
-                                    @if (b.Status == "da_xac_nhan")
-                                    {
-                                        <button class="hotel-btn hotel-btn-outline text-danger py-1 px-2" style="font-size: 0.8rem;" @onclick="() => CancelBookingAsync(b.Id)">
-                                            <i class="bi bi-x-circle me-1"></i> Hủy Phòng
+                                    <div class="d-flex justify-content-end gap-1 flex-wrap">
+                                        @if (b.Status == "da_xac_nhan" && b.Deposit <= 0)
+                                        {
+                                            <button class="hotel-btn hotel-btn-primary py-1 px-2" style="font-size: 0.78rem;" @onclick="() => PayDepositOnlineAsync(b.Id)">
+                                                <i class="bi bi-qr-code-scan me-1"></i> Đặt Cọc 30%
+                                            </button>
+                                        }
+                                        <button class="hotel-btn hotel-btn-outline py-1 px-2" style="font-size: 0.78rem;" @onclick="() => OpenInvoiceModalAsync(b.Id)">
+                                            <i class="bi bi-receipt me-1"></i> Hóa đơn
                                         </button>
-                                    }
-                                    else
-                                    {
-                                        <button class="hotel-btn hotel-btn-outline py-1 px-2" style="font-size: 0.8rem;">
-                                            <i class="bi bi-receipt"></i> Hóa đơn
-                                        </button>
-                                    }
+                                        @if (b.Status == "da_xac_nhan")
+                                        {
+                                            <button class="hotel-btn hotel-btn-outline text-danger py-1 px-2" style="font-size: 0.78rem;" @onclick="() => CancelBookingAsync(b.Id)">
+                                                <i class="bi bi-x-circle me-1"></i> Hủy Phòng
+                                            </button>
+                                        }
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -119,8 +210,223 @@
     </div>
 </div>
 
+@if (isInvoiceModalOpen && selectedInvoice != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.55); z-index: 2500;">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-header text-white" style="background: #003B95;">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-receipt-cutoff me-2"></i> Chi Tiết Bảng Kê Hóa Đơn &amp; Dịch Vụ — @selectedInvoice.BookingCode
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => isInvoiceModalOpen = false"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3 mb-3 pb-3 border-bottom small">
+                        <div class="col-6 col-md-4">
+                            <span class="text-muted d-block">Khách hàng:</span>
+                            <strong class="text-dark">@selectedInvoice.GuestName</strong>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <span class="text-muted d-block">Hạng phòng &amp; Số phòng:</span>
+                            <strong class="text-dark">@selectedInvoice.RoomType @(string.IsNullOrWhiteSpace(selectedInvoice.RoomNumber) ? "" : $"(#{selectedInvoice.RoomNumber})")</strong>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <span class="text-muted d-block">Thời gian lưu trú:</span>
+                            <strong class="text-dark">@selectedInvoice.Checkin → @selectedInvoice.Checkout</strong>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold text-dark mb-2"><i class="bi bi-list-check text-primary me-1"></i> 1. Bóc Tách Chi Phí Kỳ Nghỉ</h6>
+                    <div class="p-3 rounded-3 border mb-3" style="background: #F8FAFC;">
+                        <div class="d-flex justify-content-between small mb-2">
+                            <span>Tiền phòng lưu trú:</span>
+                            <span class="fw-semibold">@selectedInvoice.RoomTotal.ToString("N0") đ</span>
+                        </div>
+                        <div class="d-flex justify-content-between small mb-2">
+                            <span>Tổng dịch vụ phòng (Room Service):</span>
+                            <span class="fw-semibold">@selectedInvoice.ServiceTotal.ToString("N0") đ</span>
+                        </div>
+                        @if (selectedInvoice.Surcharge > 0)
+                        {
+                            <div class="d-flex justify-content-between small mb-2 text-warning">
+                                <span>Phụ thu (@(selectedInvoice.SurchargeReason ?? "Phát sinh")):</span>
+                                <span class="fw-semibold">+@selectedInvoice.Surcharge.ToString("N0") đ</span>
+                            </div>
+                        }
+                        @if (selectedInvoice.Discount > 0)
+                        {
+                            <div class="d-flex justify-content-between small mb-2 text-success">
+                                <span>Giảm giá Voucher ưu đãi:</span>
+                                <span class="fw-semibold">-@selectedInvoice.Discount.ToString("N0") đ</span>
+                            </div>
+                        }
+                        <hr class="my-2" />
+                        <div class="d-flex justify-content-between fw-bold text-primary">
+                            <span>Tổng cộng thanh toán:</span>
+                            <span>@selectedInvoice.GrandTotal.ToString("N0") đ</span>
+                        </div>
+                        <div class="d-flex justify-content-between small text-success fw-semibold mt-1">
+                            <span>Đã thanh toán / Đặt cọc:</span>
+                            <span>@selectedInvoice.PaidAmount.ToString("N0") đ</span>
+                        </div>
+                        <div class="d-flex justify-content-between small text-danger fw-bold mt-1">
+                            <span>Còn phải thanh toán khi trả phòng:</span>
+                            <span>@Math.Max(0, selectedInvoice.GrandTotal - selectedInvoice.PaidAmount).ToString("N0") đ</span>
+                        </div>
+                    </div>
+
+                    @if (selectedInvoice.ServiceItems.Any())
+                    {
+                        <h6 class="fw-bold text-dark mb-2"><i class="bi bi-cup-hot text-primary me-1"></i> 2. Danh Sách Dịch Vụ Đã Sử Dụng</h6>
+                        <div class="table-responsive border rounded-3 mb-2">
+                            <table class="table table-sm mb-0 small">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tên Dịch Vụ</th>
+                                        <th class="text-center">SL</th>
+                                        <th class="text-end">Đơn Giá</th>
+                                        <th class="text-end">Thành Tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var sv in selectedInvoice.ServiceItems)
+                                    {
+                                        <tr>
+                                            <td>@sv.ServiceName</td>
+                                            <td class="text-center">@sv.Quantity</td>
+                                            <td class="text-end">@sv.UnitPrice.ToString("N0") đ</td>
+                                            <td class="text-end fw-semibold">@((sv.Quantity * sv.UnitPrice).ToString("N0")) đ</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary btn-sm px-4" @onclick="() => isInvoiceModalOpen = false">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (isForgotCodeModalOpen)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow border-0 rounded-4">
+                <div class="modal-header bg-primary text-white border-0">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-key-fill me-2"></i>Khôi Phục Mã & Tra Cứu Đơn Qua OTP
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => isForgotCodeModalOpen = false"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="small text-muted mb-3">
+                        Nếu bạn không nhớ mã đặt phòng, vui lòng nhập <strong>Số điện thoại</strong> hoặc <strong>Email</strong> đã dùng khi đặt phòng. Hệ thống sẽ gửi mã OTP xác thực để bạn mở khóa toàn bộ đơn phòng của mình.
+                    </p>
+
+                    @if (!string.IsNullOrWhiteSpace(otpErrorMessage))
+                    {
+                        <div class="alert alert-danger py-2 px-3 small mb-3">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i> @otpErrorMessage
+                        </div>
+                    }
+
+                    @if (otpSent)
+                    {
+                        <div class="alert alert-success py-2 px-3 small mb-3">
+                            <i class="bi bi-check-circle-fill me-1"></i> Mã OTP đã được gửi đến <strong>@recoveryContact</strong>!
+                            <div class="mt-1 text-muted">
+                                (Mã thử nghiệm hệ thống: <strong class="text-primary font-monospace fs-6">@generatedOtp</strong> - Hiệu lực 5 phút)
+                            </div>
+                        </div>
+
+                        <div class="mb-3 text-center">
+                            <label class="form-label small fw-bold">Nhập mã OTP (6 chữ số) *</label>
+                            <input type="text" class="form-control text-center font-monospace fs-4 fw-bold mx-auto" 
+                                   style="max-width: 220px; letter-spacing: 4px;" 
+                                   placeholder="------" 
+                                   maxlength="6" 
+                                   @bind="inputOtp" />
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary w-50 py-2 small" @onclick="SendRecoveryOtpAsync">
+                                <i class="bi bi-arrow-clockwise me-1"></i> Gửi lại OTP
+                            </button>
+                            <button type="button" class="btn btn-primary w-50 py-2 fw-bold" @onclick="VerifyRecoveryOtpAsync">
+                                <i class="bi bi-unlock-fill me-1"></i> Mở Khóa Đơn
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Số điện thoại hoặc Email đặt phòng *</label>
+                            <input type="text" class="form-control" placeholder="VD: 0905123456 hoặc khachhang@gmail.com" @bind="recoveryContact" />
+                        </div>
+
+                        <button type="button" class="btn btn-primary w-100 py-2 fw-bold" @onclick="SendRecoveryOtpAsync">
+                            <i class="bi bi-send-fill me-1"></i> Gửi Mã Xác Thực OTP
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private bool cancelSuccess = false;
+    private bool depositSuccess = false;
+    private string? actionErrorMessage;
+
+    private string lookupBookingCode = "";
+    private string lookupContact = "";
+    private int? verifiedGuestBookingId;
+    private string? verifiedGuestContact;
+
+    private bool isForgotCodeModalOpen = false;
+    private string recoveryContact = "";
+    private bool otpSent = false;
+    private string? generatedOtp;
+    private string inputOtp = "";
+    private string? otpErrorMessage;
+    private DateTime? otpExpiresAt;
+
+    private string? recentDeviceCode;
+    private string? recentDeviceContact;
+
+    private bool isInvoiceModalOpen = false;
+    private InvoiceDetailViewModel? selectedInvoice;
+
+    private class ServiceLineItem
+    {
+        public string ServiceName { get; set; } = "";
+        public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+    }
+
+    private class InvoiceDetailViewModel
+    {
+        public string BookingCode { get; set; } = "";
+        public string GuestName { get; set; } = "";
+        public string RoomType { get; set; } = "";
+        public string? RoomNumber { get; set; }
+        public string Checkin { get; set; } = "";
+        public string Checkout { get; set; } = "";
+        public decimal RoomTotal { get; set; }
+        public decimal ServiceTotal { get; set; }
+        public decimal Discount { get; set; }
+        public decimal Surcharge { get; set; }
+        public string? SurchargeReason { get; set; }
+        public decimal GrandTotal { get; set; }
+        public decimal PaidAmount { get; set; }
+        public List<ServiceLineItem> ServiceItems { get; set; } = new();
+    }
 
     private class MyBookingItem
     {
@@ -143,10 +449,116 @@
         await LoadMyBookingsAsync();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !Session.CurrentUser.IsLoggedIn)
+        {
+            try
+            {
+                var codeRes = await LocalStorage.GetAsync<string>("dacn_recent_code");
+                var contactRes = await LocalStorage.GetAsync<string>("dacn_recent_contact");
+
+                if (codeRes.Success && !string.IsNullOrWhiteSpace(codeRes.Value))
+                {
+                    recentDeviceCode = codeRes.Value;
+                    recentDeviceContact = contactRes.Success ? contactRes.Value : "";
+                    StateHasChanged();
+                }
+            }
+            catch { }
+        }
+    }
+
+    private void QuickFillRecentBooking()
+    {
+        if (!string.IsNullOrWhiteSpace(recentDeviceCode))
+        {
+            lookupBookingCode = recentDeviceCode;
+            if (!string.IsNullOrWhiteSpace(recentDeviceContact))
+            {
+                lookupContact = recentDeviceContact;
+            }
+            _ = LookupGuestBookingAsync();
+        }
+    }
+
+    private void OpenForgotCodeModal()
+    {
+        otpErrorMessage = null;
+        otpSent = false;
+        inputOtp = "";
+        generatedOtp = null;
+        recoveryContact = !string.IsNullOrWhiteSpace(lookupContact) ? lookupContact : (!string.IsNullOrWhiteSpace(recentDeviceContact) ? recentDeviceContact : "");
+        isForgotCodeModalOpen = true;
+    }
+
+    private async Task SendRecoveryOtpAsync()
+    {
+        otpErrorMessage = null;
+        inputOtp = "";
+        var contact = (recoveryContact ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(contact))
+        {
+            otpErrorMessage = "Vui lòng nhập Số điện thoại hoặc Email đã dùng khi đặt phòng.";
+            return;
+        }
+
+        var normalizedPhone = contact.Replace(" ", "").Replace("-", "").Replace(".", "").ToLowerInvariant();
+        var normalizedEmail = contact.ToLowerInvariant();
+
+        var hasBooking = await Db.DatPhongs.AnyAsync(b =>
+            (!string.IsNullOrWhiteSpace(b.EmailKhach) && b.EmailKhach.ToLower() == normalizedEmail)
+            || (!string.IsNullOrWhiteSpace(b.Sdtkhach) && b.Sdtkhach.Replace(" ", "").Replace("-", "").Replace(".", "").ToLower() == normalizedPhone));
+
+        if (!hasBooking)
+        {
+            otpErrorMessage = "Không tìm thấy dữ liệu đặt phòng nào khớp với Số điện thoại / Email này.";
+            return;
+        }
+
+        generatedOtp = Random.Shared.Next(100000, 999999).ToString();
+        otpExpiresAt = DateTime.UtcNow.AddMinutes(5);
+        otpSent = true;
+
+        await AuditService.GhiNhanAsync(
+            "YEU_CAU_OTP_KHOI_PHUC",
+            "DatPhong",
+            "0",
+            $"Khách yêu cầu OTP tra cứu đơn qua {contact}",
+            null,
+            contact,
+            "127.0.0.1",
+            true);
+    }
+
+    private async Task VerifyRecoveryOtpAsync()
+    {
+        otpErrorMessage = null;
+        if (string.IsNullOrWhiteSpace(inputOtp) || inputOtp.Trim() != generatedOtp)
+        {
+            otpErrorMessage = "Mã OTP không chính xác. Vui lòng kiểm tra lại.";
+            return;
+        }
+
+        if (otpExpiresAt.HasValue && DateTime.UtcNow > otpExpiresAt.Value)
+        {
+            otpErrorMessage = "Mã OTP đã hết hiệu lực (quá 5 phút). Vui lòng gửi lại OTP mới.";
+            return;
+        }
+
+        verifiedGuestContact = recoveryContact.Trim();
+        verifiedGuestBookingId = null;
+        isForgotCodeModalOpen = false;
+
+        await LoadMyBookingsAsync();
+    }
+
     private void OnSessionChanged()
     {
         _ = InvokeAsync(async () =>
         {
+            verifiedGuestBookingId = null;
+            verifiedGuestContact = null;
             await LoadMyBookingsAsync();
             StateHasChanged();
         });
@@ -155,6 +567,89 @@
     public void Dispose()
     {
         Session.OnChange -= OnSessionChanged;
+    }
+
+    private async Task LookupGuestBookingAsync()
+    {
+        actionErrorMessage = null;
+        cancelSuccess = false;
+        depositSuccess = false;
+
+        var code = (lookupBookingCode ?? "").Trim().ToUpperInvariant();
+        var contact = (lookupContact ?? "").Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(contact))
+        {
+            actionErrorMessage = "Vui lòng nhập đầy đủ Mã đặt phòng và Số điện thoại (hoặc Email) để tra cứu.";
+            return;
+        }
+
+        var normalizedPhone = contact.Replace(" ", "").Replace("-", "").Replace(".", "");
+
+        // Hỗ trợ tra cứu linh hoạt:
+        // 1. Mã chuẩn DP-WEB-...
+        // 2. Mã ngắn dạng #DP-0014, DP-14, hoặc số ID 14
+        // 3. 6 số cuối của mã đặt phòng (VD: 122038)
+        int? idCandidate = null;
+        if (code.StartsWith("#DP-") && int.TryParse(code.Substring(4), out int id1)) idCandidate = id1;
+        else if (code.StartsWith("DP-") && int.TryParse(code.Substring(3), out int id2)) idCandidate = id2;
+        else if (int.TryParse(code, out int id3) && id3 < 10000) idCandidate = id3;
+
+        var candidates = await Db.DatPhongs
+            .AsNoTracking()
+            .Include(b => b.ChiTietDatPhongs)
+                .ThenInclude(ct => ct.MaLoaiPhongNavigation)
+            .Where(b => b.MaDatPhong.ToUpper() == code
+                     || (idCandidate.HasValue && b.MaId == idCandidate.Value)
+                     || (code.Length >= 6 && b.MaDatPhong.EndsWith(code)))
+            .ToListAsync();
+
+        var match = candidates.FirstOrDefault(b =>
+            (!string.IsNullOrWhiteSpace(b.EmailKhach) && b.EmailKhach.Trim().ToLowerInvariant() == contact)
+            || (!string.IsNullOrWhiteSpace(b.Sdtkhach) && b.Sdtkhach.Replace(" ", "").Replace("-", "").Replace(".", "").ToLowerInvariant() == normalizedPhone));
+
+        if (match == null)
+        {
+            verifiedGuestBookingId = null;
+            verifiedGuestContact = null;
+            myBookings.Clear();
+            actionErrorMessage = "Không tìm thấy đơn đặt phòng khớp với Mã đặt phòng và Thông tin liên hệ đã nhập.";
+            return;
+        }
+
+        verifiedGuestBookingId = match.MaId;
+        verifiedGuestContact = null;
+        await LoadMyBookingsAsync();
+    }
+
+    private bool IsAuthorizedToAccessBooking(DatPhong booking)
+    {
+        if (Session.CurrentUser.IsLoggedIn)
+        {
+            if (Session.CurrentUser.Role != "Customer")
+                return true;
+
+            var userId = Session.CurrentUser.Id;
+            var email = Session.CurrentUser.Email.Trim().ToLowerInvariant();
+            return booking.MaNguoiDung == userId
+                || (!string.IsNullOrWhiteSpace(booking.EmailKhach) && booking.EmailKhach.Trim().ToLowerInvariant() == email);
+        }
+
+        if (verifiedGuestBookingId.HasValue && booking.MaId == verifiedGuestBookingId.Value)
+            return true;
+
+        if (!string.IsNullOrWhiteSpace(verifiedGuestContact))
+        {
+            var normPhone = verifiedGuestContact.Replace(" ", "").Replace("-", "").Replace(".", "").ToLowerInvariant();
+            var normEmail = verifiedGuestContact.Trim().ToLowerInvariant();
+
+            var bPhone = (booking.Sdtkhach ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToLowerInvariant();
+            var bEmail = (booking.EmailKhach ?? "").Trim().ToLowerInvariant();
+
+            return (!string.IsNullOrWhiteSpace(bEmail) && bEmail == normEmail)
+                || (!string.IsNullOrWhiteSpace(bPhone) && bPhone == normPhone);
+        }
+
+        return false;
     }
 
     private async Task LoadMyBookingsAsync()
@@ -167,17 +662,36 @@
                     .ThenInclude(ct => ct.MaLoaiPhongNavigation)
                 .AsQueryable();
 
-            if (Session.CurrentUser.IsLoggedIn && Session.CurrentUser.Role == "Customer")
+            if (Session.CurrentUser.IsLoggedIn)
             {
-                var userId = Session.CurrentUser.Id;
-                var email = Session.CurrentUser.Email.Trim().ToLowerInvariant();
-                query = query.Where(b =>
-                    b.MaNguoiDung == userId
-                    || (b.EmailKhach != null && b.EmailKhach.ToLower() == email));
+                if (Session.CurrentUser.Role == "Customer")
+                {
+                    var userId = Session.CurrentUser.Id;
+                    var email = Session.CurrentUser.Email.Trim().ToLowerInvariant();
+                    query = query.Where(b =>
+                        b.MaNguoiDung == userId
+                        || (b.EmailKhach != null && b.EmailKhach.ToLower() == email));
+                }
             }
-            else if (!Session.CurrentUser.IsLoggedIn)
+            else if (verifiedGuestBookingId.HasValue)
             {
-                query = query.Where(b => b.KenhDatPhong == "web");
+                var guestBookingId = verifiedGuestBookingId.Value;
+                query = query.Where(b => b.MaId == guestBookingId);
+            }
+            else if (!string.IsNullOrWhiteSpace(verifiedGuestContact))
+            {
+                var normContact = verifiedGuestContact.Trim().ToLowerInvariant();
+                var normPhone = verifiedGuestContact.Replace(" ", "").Replace("-", "").Replace(".", "").ToLowerInvariant();
+
+                query = query.Where(b =>
+                    (b.EmailKhach != null && b.EmailKhach.ToLower() == normContact)
+                    || (b.Sdtkhach != null && (b.Sdtkhach == normContact || b.Sdtkhach.Replace(" ", "").Replace("-", "").Replace(".", "").ToLower() == normPhone)));
+            }
+            else
+            {
+                // Chặn rò rỉ dữ liệu khi khách vãng lai chưa xác thực Mã đơn + SĐT/Email
+                myBookings.Clear();
+                return;
             }
 
             var dbList = await query
@@ -218,8 +732,136 @@
         catch { }
     }
 
+    private async Task PayDepositOnlineAsync(int id)
+    {
+        actionErrorMessage = null;
+        depositSuccess = false;
+        try
+        {
+            var booking = await Db.DatPhongs
+                .Include(b => b.ChiTietDatPhongs)
+                .FirstOrDefaultAsync(b => b.MaId == id);
+
+            if (booking == null || !IsAuthorizedToAccessBooking(booking))
+            {
+                actionErrorMessage = "Bạn không có quyền thao tác trên đơn đặt phòng này.";
+                return;
+            }
+
+            var depositAmt = Math.Round(booking.TongTien * 0.3m, 0);
+            booking.TienDatCoc = depositAmt;
+            booking.TrangThai = "Confirmed";
+            booking.NgayCapNhat = DateTime.UtcNow;
+
+            var hd = await Db.HoaDons.Include(h => h.ThanhToans).FirstOrDefaultAsync(h => h.MaDatPhong == booking.MaId);
+            if (hd != null && !hd.ThanhToans.Any(t => t.MaGiaoDich != null && t.MaGiaoDich.StartsWith("COC-")))
+            {
+                Db.ThanhToans.Add(new ThanhToan
+                {
+                    MaHoaDon = hd.MaId,
+                    PhuongThucThanhToan = "VNPay",
+                    SoTienDaThanhToan = depositAmt,
+                    MaGiaoDich = $"COC-{booking.MaDatPhong}",
+                    TrangThai = "Success",
+                    NgayThanhToan = DateTime.UtcNow
+                });
+            }
+
+            await Db.SaveChangesAsync();
+
+            await AuditService.GhiNhanAsync(
+                "DAT_COC_TRUC_TUYEN",
+                "DatPhong",
+                booking.MaId.ToString(),
+                $"Khách thanh toán cọc 30% ({depositAmt:N0} đ) cho đơn {booking.MaDatPhong}",
+                Session.CurrentUser.IsLoggedIn ? Session.CurrentUser.Id : null,
+                booking.EmailKhach,
+                "127.0.0.1",
+                true);
+
+            depositSuccess = true;
+            await LoadMyBookingsAsync();
+        }
+        catch (Exception ex)
+        {
+            actionErrorMessage = $"Không thể xử lý đặt cọc: {ex.Message}";
+        }
+    }
+
+    private async Task OpenInvoiceModalAsync(int id)
+    {
+        actionErrorMessage = null;
+        try
+        {
+            var booking = await Db.DatPhongs
+                .AsNoTracking()
+                .Include(b => b.ChiTietDatPhongs)
+                    .ThenInclude(ct => ct.MaLoaiPhongNavigation)
+                .Include(b => b.ChiTietDatPhongs)
+                    .ThenInclude(ct => ct.MaPhongNavigation)
+                .Include(b => b.ChiTietDatPhongs)
+                    .ThenInclude(ct => ct.DonDichVus)
+                        .ThenInclude(d => d.ChiTietDonDichVus)
+                            .ThenInclude(ctd => ctd.MaDichVuNavigation)
+                .FirstOrDefaultAsync(b => b.MaId == id);
+
+            if (booking == null || !IsAuthorizedToAccessBooking(booking))
+            {
+                actionErrorMessage = "Bạn không có quyền xem hóa đơn của đơn đặt phòng này.";
+                return;
+            }
+
+            var hd = await Db.HoaDons
+                .AsNoTracking()
+                .Include(h => h.ThanhToans)
+                .FirstOrDefaultAsync(h => h.MaDatPhong == booking.MaId);
+
+            var firstDetail = booking.ChiTietDatPhongs.FirstOrDefault();
+            var serviceItems = booking.ChiTietDatPhongs
+                .SelectMany(ct => ct.DonDichVus)
+                .Where(d => d.TrangThai != "Cancelled")
+                .SelectMany(d => d.ChiTietDonDichVus)
+                .Select(item => new ServiceLineItem
+                {
+                    ServiceName = item.MaDichVuNavigation?.Ten ?? $"Dịch vụ #{item.MaDichVu}",
+                    Quantity = item.SoLuong,
+                    UnitPrice = item.DonGia
+                })
+                .ToList();
+
+            var paidFromTransactions = hd?.ThanhToans
+                .Where(t => StatusMapper.IsPaymentSuccess(t.TrangThai))
+                .Sum(t => t.SoTienDaThanhToan) ?? 0m;
+
+            selectedInvoice = new InvoiceDetailViewModel
+            {
+                BookingCode = booking.MaDatPhong,
+                GuestName = booking.TenKhach ?? "Quý khách",
+                RoomType = firstDetail?.MaLoaiPhongNavigation?.Ten ?? "Phòng tiêu chuẩn",
+                RoomNumber = firstDetail?.MaPhongNavigation?.SoPhong,
+                Checkin = firstDetail?.NgayNhanPhongDuKien.ToString("dd/MM/yyyy") ?? booking.NgayTao.ToString("dd/MM/yyyy"),
+                Checkout = firstDetail?.NgayTraPhongDuKien.ToString("dd/MM/yyyy") ?? booking.NgayTao.AddDays(1).ToString("dd/MM/yyyy"),
+                RoomTotal = hd?.TongTienPhong ?? booking.TongTien,
+                ServiceTotal = hd?.TongTienDichVu ?? serviceItems.Sum(x => x.Quantity * x.UnitPrice),
+                Discount = hd?.TienGiamGia ?? 0m,
+                Surcharge = hd?.TienPhuThu ?? 0m,
+                SurchargeReason = hd?.LyDoPhuThu,
+                GrandTotal = hd?.TongThanhToan ?? booking.TongTien,
+                PaidAmount = Math.Max(booking.TienDatCoc, paidFromTransactions),
+                ServiceItems = serviceItems
+            };
+            isInvoiceModalOpen = true;
+        }
+        catch (Exception ex)
+        {
+            actionErrorMessage = $"Không thể tải chi tiết hóa đơn: {ex.Message}";
+        }
+    }
+
     private async Task CancelBookingAsync(int id)
     {
+        actionErrorMessage = null;
+        cancelSuccess = false;
         try
         {
             var booking = await Db.DatPhongs
@@ -228,8 +870,29 @@
                 .FirstOrDefaultAsync(b => b.MaId == id);
 
             if (booking == null) return;
+
+            if (!IsAuthorizedToAccessBooking(booking))
+            {
+                actionErrorMessage = "Bạn không có quyền hủy đơn đặt phòng của khách hàng khác.";
+                return;
+            }
+
             var norm = StatusMapper.NormalizeDatPhongTrangThai(booking.TrangThai);
             if (norm is not ("Pending" or "Confirmed")) return;
+
+            var isStaff = Session.CurrentUser.IsLoggedIn && Session.CurrentUser.Role != "Customer";
+            if (!isStaff && booking.ChiTietDatPhongs.Any())
+            {
+                var minutesSinceCreated = (DateTime.UtcNow - booking.NgayTao).TotalMinutes;
+                var earliestCheckin = booking.ChiTietDatPhongs.Min(ct => ct.NgayNhanPhongDuKien).Date.AddHours(14);
+                var hoursUntilCheckin = (earliestCheckin - DateTime.UtcNow).TotalHours;
+
+                if (minutesSinceCreated > 15 && hoursUntilCheckin < 48)
+                {
+                    actionErrorMessage = "Theo chính sách khách sạn, đơn chỉ được miễn phí hủy trực tuyến trước 48 giờ so với giờ nhận phòng (14:00) hoặc trong vòng 15 phút sau khi đặt. Vui lòng liên hệ Lễ tân qua Hotline 1900 6868.";
+                    return;
+                }
+            }
 
             booking.TrangThai = "Cancelled";
             booking.LyDoHuy = "Khách hàng yêu cầu hủy trực tuyến trên Cổng Khách Hàng";
@@ -242,6 +905,12 @@
                 {
                     ct.MaPhongNavigation.TrangThai = "Available";
                 }
+            }
+
+            var hd = await Db.HoaDons.FirstOrDefaultAsync(h => h.MaDatPhong == booking.MaId);
+            if (hd != null && StatusMapper.IsInvoicePending(hd.TrangThai))
+            {
+                hd.TrangThai = "Cancelled";
             }
 
             await Db.SaveChangesAsync();

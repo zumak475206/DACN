@@ -21,7 +21,11 @@ public partial class DichVu
 
     public bool DangHoatDong { get; set; }
 
+    public int? MaChiNhanh { get; set; }
+
     public virtual ICollection<ChiTietDonDichVu> ChiTietDonDichVus { get; set; } = new List<ChiTietDonDichVu>();
 
     public virtual DanhMucDichVu MaDanhMucDichVuNavigation { get; set; } = null!;
+
+    public virtual ChiNhanh? MaChiNhanhNavigation { get; set; }
 }

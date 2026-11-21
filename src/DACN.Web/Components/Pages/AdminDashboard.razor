@@ -1,178 +1,1598 @@
 ﻿@page "/admin/dashboard"
 @page "/staff"
 @inject DACNContext Db
+@inject UserSessionService Session
+@inject IAuditService AuditService
+@inject NavigationManager Nav
+@implements IDisposable
 
-<PageTitle>Trung Tâm Điều Hành Ca Trực — Staff Hub</PageTitle>
+<PageTitle>@GetPageTitle() — Grand Hotel Da Nang</PageTitle>
 
-<PageHeader Title="Tổng Quan Ca Trực Khách Sạn" 
-            Subtitle="Trung tâm điều phối thông minh kết nối 4 phân hệ nghiệp vụ dành cho Ban Quản Lý & Nhân Viên"
-            Icon="bi bi-grid-1x2-fill">
+<PageHeader Title="@GetHeaderTitle()" 
+            Subtitle="@GetHeaderSubtitle()" 
+            Icon="@GetHeaderIcon()">
     <Actions>
         <button class="hotel-btn hotel-btn-outline" @onclick="LoadStatsAsync">
             <i class="bi bi-arrow-clockwise"></i> Làm mới
         </button>
-        <a href="frontdesk/bookings" class="hotel-btn hotel-btn-primary">
-            <i class="bi bi-plus-circle"></i> Đặt Phòng Nhanh
-        </a>
+        @if (activePerspective == "FrontDesk" || activePerspective == "Admin")
+        {
+            <a href="frontdesk/bookings" class="hotel-btn hotel-btn-primary">
+                <i class="bi bi-plus-circle"></i> Đặt Phòng Nhanh
+            </a>
+        }
+        else if (activePerspective == "Housekeeping")
+        {
+            <a href="housekeeping/tasks" class="hotel-btn hotel-btn-primary">
+                <i class="bi bi-journal-plus"></i> Giao Ca Dọn
+            </a>
+        }
+        else if (activePerspective == "Accountant")
+        {
+            <a href="frontdesk/expenses" class="hotel-btn hotel-btn-primary">
+                <i class="bi bi-plus-circle"></i> Lập Phiếu Chi
+            </a>
+        }
+        else if (activePerspective == "Manager")
+        {
+            <a href="ai-analytics/dashboard" class="hotel-btn hotel-btn-primary">
+                <i class="bi bi-pie-chart-fill"></i> Báo Cáo BI
+            </a>
+        }
     </Actions>
 </PageHeader>
 
-<!-- 4 Chỉ số nghiệp vụ nhanh đại diện cho 4 phân hệ -->
-<div class="row g-3 mb-4">
-    <div class="col-12 col-sm-6 col-xl-3">
-        <StatCard Title="Khách Đang Ở (Tiền Sảnh)" 
-                  Value="@($"{occupiedCount} / {rooms.Count}")" 
-                  Description="Công suất phòng: 75%" 
-                  Icon="bi bi-door-open-fill" 
-                  Variant="info" />
+@if (actionSuccessMessage != null)
+{
+    <div class="alert alert-success alert-dismissible fade show mb-4 shadow-sm" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i> @actionSuccessMessage
+        <button type="button" class="btn-close" @onclick="() => actionSuccessMessage = null"></button>
     </div>
-    <div class="col-12 col-sm-6 col-xl-3">
-        <StatCard Title="Phòng Cần Dọn (Buồng Phòng)" 
-                  Value="@($"{cleaningCount} Phòng")" 
-                  Description="Đang phân công dọn dẹp" 
-                  Icon="bi bi-brush-fill" 
-                  Variant="warning" />
-    </div>
-    <div class="col-12 col-sm-6 col-xl-3">
-        <StatCard Title="Dự Báo Nhu Cầu AI (AI Core)" 
-                  Value="+32% Tăng" 
-                  Description="Cao điểm du lịch cuối tuần" 
-                  Icon="bi bi-cpu-fill" 
-                  Variant="ai" />
-    </div>
-    <div class="col-12 col-sm-6 col-xl-3">
-        <StatCard Title="Tài Khoản & RBAC (Bảo Mật)" 
-                  Value="8 Tài Khoản" 
-                  Description="Hệ thống bảo mật an toàn" 
-                  Icon="bi bi-shield-check" 
-                  Variant="success" />
-    </div>
-</div>
+}
 
-<!-- 4 KHỐI PHÂN HỆ NGHIỆP VỤ CỦA 4 THÀNH VIÊN -->
-<div class="row g-4 mb-4">
-    <!-- Phân hệ 3: Tiền sảnh -->
-    <div class="col-12 col-lg-6">
-        <div class="hotel-card h-100">
-            <div class="hotel-card-header">
-                <div class="hotel-card-title">
-                    <span class="member-tag member-tag-tv3">THÀNH VIÊN 3</span>
-                    <span>Tiền Sảnh, Đặt Phòng & Dịch Vụ</span>
-                </div>
-                <a href="frontdesk/bookings" class="hotel-btn hotel-btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
-                    Truy cập <i class="bi bi-arrow-right"></i>
-                </a>
+<!-- THANH CHUYỂN ĐỔI GÓC NHÌN & CHI NHÁNH CHUỖI KHÁCH SẠN -->
+@if (Session.CurrentUser.Role is "Admin" or "Manager")
+{
+    <div class="card border-0 shadow-sm rounded-3 mb-4 p-3 bg-white">
+        <!-- BỘ LỌC CHI NHÁNH CHUỖI HỆ THỐNG -->
+        <div class="d-flex align-items-center gap-2 mb-3 pb-3 border-bottom flex-wrap">
+            <div class="fw-bold text-dark d-flex align-items-center me-2">
+                <i class="bi bi-buildings-fill text-primary me-2"></i> Chi Nhánh Khách Sạn:
             </div>
-            <div class="hotel-card-body">
-                <p class="text-muted" style="font-size: 0.875rem;">
-                    Quản lý sơ đồ phòng khách sạn (Room Rack), quy trình Check-in, Check-out, gọi dịch vụ phòng và lập hóa đơn thanh toán.
-                </p>
-                <div class="d-flex gap-2">
-                    <a href="frontdesk/bookings" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-calendar-check me-1"></i> Sơ đồ phòng</a>
-                    <a href="frontdesk/checkin-out" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-box-arrow-in-right me-1"></i> Check-in/out</a>
-                    <a href="frontdesk/services-billing" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-receipt me-1"></i> Hóa đơn & Thu tiền</a>
+            <div class="btn-group btn-group-sm flex-wrap" role="group">
+                <button type="button" class="btn @(selectedBranchId == 0 ? "btn-dark fw-bold px-3" : "btn-outline-secondary px-3")" @onclick="() => SetBranch(0)">
+                    🏨 Toàn Hệ Thống Chuỗi
+                </button>
+                <button type="button" class="btn @(selectedBranchId == 1 ? "btn-primary fw-bold px-3" : "btn-outline-primary px-3")" @onclick="() => SetBranch(1)">
+                    🌊 GrandStay Đà Nẵng
+                </button>
+                <button type="button" class="btn @(selectedBranchId == 2 ? "btn-info text-white fw-bold px-3" : "btn-outline-info px-3")" @onclick="() => SetBranch(2)">
+                    🌴 GrandStay Phú Quốc
+                </button>
+                <button type="button" class="btn @(selectedBranchId == 3 ? "btn-success fw-bold px-3" : "btn-outline-success px-3")" @onclick="() => SetBranch(3)">
+                    🌲 GrandStay Đà Lạt
+                </button>
+            </div>
+            @if (selectedBranchId > 0)
+            {
+                <span class="badge bg-warning text-dark px-2 py-1 ms-auto">
+                    <i class="bi bi-funnel-fill me-1"></i> Đang xem: @(selectedBranchId == 2 ? "GrandStay Phú Quốc" : selectedBranchId == 3 ? "GrandStay Đà Lạt" : "GrandStay Đà Nẵng")
+                </span>
+            }
+            else
+            {
+                <span class="badge bg-secondary text-white px-2 py-1 ms-auto">
+                    <i class="bi bi-globe-americas me-1"></i> Số liệu tổng hợp toàn chuỗi
+                </span>
+            }
+        </div>
+
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2">
+            <div class="d-flex align-items-center">
+                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 me-2 px-2 py-1">
+                    <i class="bi bi-eye-fill me-1"></i> Chế Độ Giám Sát Phân Hệ
+                </span>
+                <span class="small text-muted">
+                    Tài khoản <strong>@Session.CurrentUser.RoleDisplayName</strong> có quyền xem bảng điều khiển của từng bộ phận ca trực:
+                </span>
+            </div>
+            <div class="btn-group btn-group-sm flex-wrap" role="group">
+                <button type="button" class="btn @(activePerspective == "Admin" ? "btn-primary fw-bold" : "btn-outline-secondary")" @onclick='() => SetPerspective("Admin")'>
+                    <i class="bi bi-shield-lock-fill me-1"></i> Toàn Cảnh (Admin)
+                </button>
+                <button type="button" class="btn @(activePerspective == "FrontDesk" ? "btn-primary fw-bold" : "btn-outline-secondary")" @onclick='() => SetPerspective("FrontDesk")'>
+                    <i class="bi bi-bell-fill me-1"></i> Tiền Sảnh (Lễ Tân)
+                </button>
+                <button type="button" class="btn @(activePerspective == "Housekeeping" ? "btn-primary fw-bold" : "btn-outline-secondary")" @onclick='() => SetPerspective("Housekeeping")'>
+                    <i class="bi bi-brush-fill me-1"></i> Buồng Phòng
+                </button>
+                <button type="button" class="btn @(activePerspective == "Accountant" ? "btn-primary fw-bold" : "btn-outline-secondary")" @onclick='() => SetPerspective("Accountant")'>
+                    <i class="bi bi-cash-coin me-1"></i> Kế Toán
+                </button>
+                <button type="button" class="btn @(activePerspective == "Manager" ? "btn-primary fw-bold" : "btn-outline-secondary")" @onclick='() => SetPerspective("Manager")'>
+                    <i class="bi bi-graph-up-arrow me-1"></i> Giám Đốc (BI & AI)
+                </button>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- BANNER KHÓA CƠ SỞ CHO NHÂN VIÊN CA TRỰC -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4 p-3 bg-white border-start border-4 border-primary">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-primary px-3 py-2 fs-6">
+                    <i class="bi bi-geo-alt-fill me-1"></i> Chi nhánh công tác: @Session.CurrentUser.TenChiNhanh
+                </span>
+                <span class="text-muted small">
+                    Hệ thống tự động khóa và bảo mật dữ liệu phòng, đơn khách và dịch vụ theo chi nhánh của bạn.
+                </span>
+            </div>
+            <span class="badge bg-light text-dark border px-3 py-2">
+                Mã Cơ Sở: <strong>CN-@(Session.CurrentUser.MaChiNhanh == 2 ? "PHUQUOC" : Session.CurrentUser.MaChiNhanh == 3 ? "DALAT" : "DANANG")</strong>
+            </span>
+        </div>
+    </div>
+}
+
+@* ========================================================================= *@
+@* 1. GIAO DIỆN TIỀN SẢNH & LỄ TÂN (FRONT DESK VIEW)                          *@
+@* ========================================================================= *@
+@if (activePerspective == "FrontDesk")
+{
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Khách Check-in Hôm Nay" 
+                      Value="@($"{frontDeskCheckIns.Count} Đơn")" 
+                      Description="Dự kiến nhận phòng hôm nay" 
+                      Icon="bi bi-box-arrow-in-right" 
+                      Variant="info" />
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Khách Check-out Hôm Nay" 
+                      Value="@($"{frontDeskCheckOuts.Count} Đơn")" 
+                      Description="Dự kiến trả phòng hôm nay" 
+                      Icon="bi bi-box-arrow-left" 
+                      Variant="warning" />
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Phòng Sạch Sẵn Sàng" 
+                      Value="@($"{cleanAvailableCount} / {rooms.Count}")" 
+                      Description="Chìa khóa sẵn sàng bàn giao" 
+                      Icon="bi bi-door-open-fill" 
+                      Variant="success" />
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Tiền Thu Trong Ca" 
+                      Value="@($"{todayRevenue:N0} đ")" 
+                      Description="Thanh toán thành công hôm nay" 
+                      Icon="bi bi-cash-stack" 
+                      Variant="accent" />
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-12 col-lg-8">
+            <div class="hotel-card h-100 shadow-sm">
+                <div class="hotel-card-header d-flex justify-content-between align-items-center">
+                    <div class="hotel-card-title">
+                        <i class="bi bi-calendar2-week text-primary me-2"></i>
+                        <span>Danh Sách Khách Nhận & Trả Phòng Ca Trực</span>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn @(frontDeskFilter == "all" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => frontDeskFilter = "all"'>
+                            Tất cả (@frontDeskBookings.Count)
+                        </button>
+                        <button type="button" class="btn @(frontDeskFilter == "checkin" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => frontDeskFilter = "checkin"'>
+                            Đến (@frontDeskCheckIns.Count)
+                        </button>
+                        <button type="button" class="btn @(frontDeskFilter == "checkout" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => frontDeskFilter = "checkout"'>
+                            Đi (@frontDeskCheckOuts.Count)
+                        </button>
+                    </div>
+                </div>
+                <div class="hotel-card-body p-0">
+                    <div class="table-responsive">
+                        <table class="hotel-table">
+                            <thead>
+                                <tr>
+                                    <th>Mã Đơn</th>
+                                    <th>Khách Hàng</th>
+                                    <th>Phòng & Hạng</th>
+                                    <th>Nghiệp Vụ</th>
+                                    <th>Cọc / Tổng Tiền</th>
+                                    <th class="text-end">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (!FilteredFrontDeskBookings.Any())
+                                {
+                                    <tr>
+                                        <td colspan="6" class="text-center py-4 text-muted">
+                                            Không có lượt khách nào cần nhận hoặc trả phòng theo bộ lọc hiện tại.
+                                        </td>
+                                    </tr>
+                                }
+                                @foreach (var item in FilteredFrontDeskBookings.Take(8))
+                                {
+                                    <tr>
+                                        <td>
+                                            <span class="fw-bold font-monospace text-primary">@item.BookingCode</span>
+                                        </td>
+                                        <td>
+                                            <div class="fw-bold">@item.GuestName</div>
+                                            <small class="text-muted">@item.GuestPhone</small>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold">@(item.RoomNumber != null ? $"Phòng {item.RoomNumber}" : "Chưa xếp phòng")</div>
+                                            <small class="text-muted">@item.RoomName</small>
+                                        </td>
+                                        <td>
+                                            @if (item.Direction == "CheckIn")
+                                            {
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                                    <i class="bi bi-box-arrow-in-right me-1"></i>Nhận phòng
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1">
+                                                    <i class="bi bi-box-arrow-left me-1"></i>Trả phòng
+                                                </span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="fw-bold text-dark">@item.Total.ToString("N0") đ</div>
+                                            <small class="text-success">Cọc: @item.Deposit.ToString("N0") đ</small>
+                                        </td>
+                                        <td class="text-end">
+                                            @if (item.Direction == "CheckIn")
+                                            {
+                                                <a href="frontdesk/checkin-out" class="hotel-btn hotel-btn-primary py-1 px-2 small">
+                                                    <i class="bi bi-check2-circle me-1"></i>Check-in
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <a href="frontdesk/services-billing" class="hotel-btn hotel-btn-outline py-1 px-2 small">
+                                                    <i class="bi bi-receipt me-1"></i>Hóa đơn
+                                                </a>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <!-- Room Rack Mini -->
+            <div class="hotel-card mb-4 shadow-sm">
+                <div class="hotel-card-header">
+                    <div class="hotel-card-title">
+                        <i class="bi bi-grid-3x3-gap text-primary me-2"></i>
+                        <span>Sơ Đồ Tình Trạng Buồng Phòng</span>
+                    </div>
+                </div>
+                <div class="hotel-card-body">
+                    <div class="d-flex justify-content-between mb-2 small">
+                        <span>Đang có khách ở:</span>
+                        <strong class="text-primary">@occupiedCount phòng (@(rooms.Count > 0 ? (occupiedCount * 100 / rooms.Count) : 0)%)</strong>
+                    </div>
+                    <div class="progress mb-3" style="height: 8px;">
+                        <div class="progress-bar bg-primary" style="width: @(rooms.Count > 0 ? (occupiedCount * 100 / rooms.Count) : 0)%"></div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mb-2 small">
+                        <span>Trống sạch đón khách:</span>
+                        <strong class="text-success">@cleanAvailableCount phòng</strong>
+                    </div>
+                    <div class="progress mb-3" style="height: 8px;">
+                        <div class="progress-bar bg-success" style="width: @(rooms.Count > 0 ? (cleanAvailableCount * 100 / rooms.Count) : 0)%"></div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mb-2 small">
+                        <span>Chờ dọn vệ sinh:</span>
+                        <strong class="text-warning">@cleaningCount phòng</strong>
+                    </div>
+                    <div class="progress mb-3" style="height: 8px;">
+                        <div class="progress-bar bg-warning" style="width: @(rooms.Count > 0 ? (cleaningCount * 100 / rooms.Count) : 0)%"></div>
+                    </div>
+
+                    <a href="frontdesk/bookings" class="hotel-btn hotel-btn-outline w-100 text-center mt-2">
+                        <i class="bi bi-calendar-check me-1"></i> Mở Sơ Đồ Room Rack Toàn Diện
+                    </a>
+                </div>
+            </div>
+
+            <!-- Phím tắt lễ tân -->
+            <div class="hotel-card shadow-sm">
+                <div class="hotel-card-header">
+                    <div class="hotel-card-title">
+                        <i class="bi bi-lightning-charge text-warning me-2"></i>
+                        <span>Tác Vụ Lễ Tân Nhanh</span>
+                    </div>
+                </div>
+                <div class="hotel-card-body d-flex flex-column gap-2">
+                    <a href="frontdesk/bookings" class="btn btn-light border text-start py-2 d-flex align-items-center">
+                        <i class="bi bi-plus-square-fill text-primary fs-5 me-3"></i>
+                        <div>
+                            <div class="fw-bold small text-dark">Đặt Phòng Trực Tiếp Tại Quầy</div>
+                            <small class="text-muted">Nhập thông tin khách vãng lai nhận phòng ngay</small>
+                        </div>
+                    </a>
+                    <a href="frontdesk/checkin-out" class="btn btn-light border text-start py-2 d-flex align-items-center">
+                        <i class="bi bi-person-check-fill text-success fs-5 me-3"></i>
+                        <div>
+                            <div class="fw-bold small text-dark">Quầy Check-in / Check-out</div>
+                            <small class="text-muted">Bàn giao chìa khóa và xác nhận trả phòng</small>
+                        </div>
+                    </a>
+                    <a href="frontdesk/services-billing" class="btn btn-light border text-start py-2 d-flex align-items-center">
+                        <i class="bi bi-receipt-cutoff text-info fs-5 me-3"></i>
+                        <div>
+                            <div class="fw-bold small text-dark">Lập Hóa Đơn Dịch Vụ & Thu Tiền</div>
+                            <small class="text-muted">Minibar, giặt là, ẩm thực và thanh toán VNPay</small>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ========================================================================= *@
+@* 2. GIAO DIỆN BUỒNG PHÒNG & VẬN HÀNH (HOUSEKEEPING VIEW)                    *@
+@* ========================================================================= *@
+else if (activePerspective == "Housekeeping")
+{
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Phòng Cần Dọn Gấp" 
+                      Value="@($"{cleaningCount} Phòng")" 
+                      Description="Khách vừa trả / Cần dọn đón khách" 
+                      Icon="bi bi-brush-fill" 
+                      Variant="warning" />
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Đang Dọn / Kiểm Tra" 
+                      Value="@($"{inspectingCount} Phòng")" 
+                      Description="Nhân viên đang tiến hành dọn" 
+                      Icon="bi bi-hourglass-split" 
+                      Variant="info" />
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Phòng Đã Sạch Chuẩn" 
+                      Value="@($"{cleanCount} / {rooms.Count}")" 
+                      Description="Sẵn sàng đón khách nhận phòng" 
+                      Icon="bi bi-check2-circle" 
+                      Variant="success" />
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Sự Cố Tiện Nghi / Hư Hỏng" 
+                      Value="@($"{openIncidentsCount} Sự Cố")" 
+                      Description="Cần sửa chữa hoặc bồi hoàn" 
+                      Icon="bi bi-exclamation-octagon-fill" 
+                      Variant="danger" />
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-12 col-lg-8">
+            <div class="hotel-card h-100 shadow-sm">
+                <div class="hotel-card-header d-flex justify-content-between align-items-center">
+                    <div class="hotel-card-title">
+                        <i class="bi bi-door-closed text-primary me-2"></i>
+                        <span>Bảng Điều Phối Buồng Phòng Theo Tầng</span>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn @(housekeepingFilter == "all" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => housekeepingFilter = "all"'>
+                            Tất cả (@housekeepingRooms.Count)
+                        </button>
+                        <button type="button" class="btn @(housekeepingFilter == "dirty" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => housekeepingFilter = "dirty"'>
+                            Cần dọn (@cleaningCount)
+                        </button>
+                        <button type="button" class="btn @(housekeepingFilter == "clean" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => housekeepingFilter = "clean"'>
+                            Đã sạch (@cleanCount)
+                        </button>
+                    </div>
+                </div>
+                <div class="hotel-card-body p-0">
+                    <div class="table-responsive">
+                        <table class="hotel-table">
+                            <thead>
+                                <tr>
+                                    <th>Số Phòng</th>
+                                    <th>Tầng & Hạng</th>
+                                    <th>Lưu Trú</th>
+                                    <th>Trạng Thái Vệ Sinh</th>
+                                    <th class="text-end">Hành Động 1-Click</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var room in FilteredHousekeepingRooms.Take(10))
+                                {
+                                    <tr>
+                                        <td>
+                                            <span class="fs-6 fw-bold font-monospace text-primary">Phòng @room.RoomNumber</span>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold">Tầng @room.Floor</div>
+                                            <small class="text-muted">@room.RoomType</small>
+                                        </td>
+                                        <td>
+                                            @if (room.OccupancyStatus == "Đang ở")
+                                            {
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                                    <i class="bi bi-person-fill me-1"></i>Đang ở
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-light text-muted border">Trống</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (room.CleanlinessStatus == "Dirty")
+                                            {
+                                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1">
+                                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>Cần dọn (Dirty)
+                                                </span>
+                                            }
+                                            else if (room.CleanlinessStatus == "Inspecting")
+                                            {
+                                                <span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1">
+                                                    <i class="bi bi-hourglass-split me-1"></i>Đang kiểm tra
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                                    <i class="bi bi-check-circle-fill me-1"></i>Đã sạch chuẩn
+                                                </span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            @if (room.CleanlinessStatus == "Dirty")
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-info py-1 px-2" @onclick='() => QuickUpdateCleaningStatusAsync(room.Id, "Inspecting")'>
+                                                    <i class="bi bi-brush me-1"></i>Bắt đầu dọn
+                                                </button>
+                                            }
+                                            else if (room.CleanlinessStatus == "Inspecting")
+                                            {
+                                                <button type="button" class="btn btn-sm btn-success py-1 px-2 fw-semibold" @onclick='() => QuickUpdateCleaningStatusAsync(room.Id, "Clean")'>
+                                                    <i class="bi bi-check2-all me-1"></i>Nghiệm thu sạch
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="btn btn-sm btn-light border text-muted py-1 px-2" @onclick='() => QuickUpdateCleaningStatusAsync(room.Id, "Dirty")'>
+                                                    <i class="bi bi-arrow-repeat me-1"></i>Đánh dấu dọn lại
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <!-- Quy chuẩn vệ sinh -->
+            <div class="hotel-card mb-4 shadow-sm">
+                <div class="hotel-card-header">
+                    <div class="hotel-card-title">
+                        <i class="bi bi-clipboard-check text-success me-2"></i>
+                        <span>Tiêu Chuẩn Vệ Sinh Ca Trực</span>
+                    </div>
+                </div>
+                <div class="hotel-card-body small">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Thay toàn bộ ga giường, vỏ gối mới sau mỗi lượt khách.</li>
+                        <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Khử trùng bồn tắm, lavabo và bổ sung đầy đủ bộ kit amenities.</li>
+                        <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Kiểm kê danh mục minibar đối chiếu với danh sách bàn giao.</li>
+                        <li class="mb-0"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Báo ngay sự cố hỏng hóc hoặc mất đồ cho Giám sát ca.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Phím tắt buồng phòng -->
+            <div class="hotel-card shadow-sm">
+                <div class="hotel-card-header">
+                    <div class="hotel-card-title">
+                        <i class="bi bi-tools text-primary me-2"></i>
+                        <span>Phím Tắt Bộ Phận Vận Hành</span>
+                    </div>
+                </div>
+                <div class="hotel-card-body d-flex flex-column gap-2">
+                    <a href="housekeeping/rooms" class="btn btn-light border text-start py-2 d-flex align-items-center">
+                        <i class="bi bi-door-open text-primary fs-5 me-3"></i>
+                        <div>
+                            <div class="fw-bold small text-dark">Sơ Đồ Trạng Thái Phòng</div>
+                            <small class="text-muted">Cập nhật chi tiết hiện trạng buồng</small>
+                        </div>
+                    </a>
+                    <a href="housekeeping/tasks" class="btn btn-light border text-start py-2 d-flex align-items-center">
+                        <i class="bi bi-list-task text-success fs-5 me-3"></i>
+                        <div>
+                            <div class="fw-bold small text-dark">Nhật Ký & Nhiệm Vụ Dọn</div>
+                            <small class="text-muted">Phân công theo ca và ghi nhận giờ dọn</small>
+                        </div>
+                    </a>
+                    <a href="housekeeping/assets" class="btn btn-light border text-start py-2 d-flex align-items-center">
+                        <i class="bi bi-box-seam text-danger fs-5 me-3"></i>
+                        <div>
+                            <div class="fw-bold small text-dark">Tiện Nghi & Báo Cáo Hư Hỏng</div>
+                            <small class="text-muted">Lập phiếu đền bù hoặc sửa chữa tài sản</small>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ========================================================================= *@
+@* 3. GIAO DIỆN KẾ TOÁN & THU NGÂN (ACCOUNTANT VIEW)                          *@
+@* ========================================================================= *@
+else if (activePerspective == "Accountant")
+{
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Doanh Thu Thu Tiền Hôm Nay" 
+                      Value="@($"{todayRevenue:N0} đ")" 
+                      Description="Tổng thanh toán thành công" 
+                      Icon="bi bi-cash-stack" 
+                      Variant="success" />
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Hóa Đơn Chờ Thu / Công Nợ" 
+                      Value="@($"{pendingInvoicesCount} HĐ")" 
+                      Description="@($"Tổng tiền: {pendingInvoicesTotal:N0} đ")" 
+                      Icon="bi bi-clock-history" 
+                      Variant="warning" />
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Chi Phí Vận Hành Tháng" 
+                      Value="@($"{monthlyExpenses:N0} đ")" 
+                      Description="@($"Tổng phiếu chi tháng {DateTime.Today.Month}")" 
+                      Icon="bi bi-wallet2" 
+                      Variant="danger" />
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Giao Dịch Đã Khớp" 
+                      Value="@($"{todayTransactionsCount} Giao Dịch")" 
+                      Description="Tiền cọc & Hóa đơn checkout" 
+                      Icon="bi bi-credit-card-2-front-fill" 
+                      Variant="info" />
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-12 col-lg-8">
+            <!-- Hóa đơn gần đây -->
+            <div class="hotel-card mb-4 shadow-sm">
+                <div class="hotel-card-header d-flex justify-content-between align-items-center">
+                    <div class="hotel-card-title">
+                        <i class="bi bi-receipt text-primary me-2"></i>
+                        <span>Hóa Đơn Mới Phát Sinh Cần Đối Soát</span>
+                    </div>
+                    <a href="frontdesk/services-billing" class="btn btn-sm btn-outline-primary">Xem tất cả</a>
+                </div>
+                <div class="hotel-card-body p-0">
+                    <div class="table-responsive">
+                        <table class="hotel-table">
+                            <thead>
+                                <tr>
+                                    <th>Mã HĐ</th>
+                                    <th>Mã Đặt Phòng</th>
+                                    <th>Khách Hàng</th>
+                                    <th>Tiền Phòng</th>
+                                    <th>Tiền Dịch Vụ</th>
+                                    <th>Tổng Thanh Toán</th>
+                                    <th>Trạng Thái</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (!recentInvoices.Any())
+                                {
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4 text-muted">Chưa có hóa đơn nào phát sinh gần đây.</td>
+                                    </tr>
+                                }
+                                @foreach (var inv in recentInvoices.Take(5))
+                                {
+                                    <tr>
+                                        <td><span class="font-monospace fw-bold text-dark">#HD-@inv.Id.ToString("D4")</span></td>
+                                        <td><span class="font-monospace text-primary">@inv.BookingCode</span></td>
+                                        <td class="fw-semibold">@inv.GuestName</td>
+                                        <td>@inv.RoomTotal.ToString("N0") đ</td>
+                                        <td>@inv.ServiceTotal.ToString("N0") đ</td>
+                                        <td class="fw-bold text-success">@inv.GrandTotal.ToString("N0") đ</td>
+                                        <td>
+                                            @if (inv.Status == "Paid" || inv.Status == "da_thanh_toan")
+                                            {
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle">Đã thanh toán</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Chờ thanh toán</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chi phí vận hành gần đây -->
+            <div class="hotel-card shadow-sm">
+                <div class="hotel-card-header d-flex justify-content-between align-items-center">
+                    <div class="hotel-card-title">
+                        <i class="bi bi-cash-coin text-danger me-2"></i>
+                        <span>Phiếu Chi Phí Vận Hành Gần Đây</span>
+                    </div>
+                    <a href="frontdesk/expenses" class="btn btn-sm btn-outline-danger">Quản lý chi phí</a>
+                </div>
+                <div class="hotel-card-body p-0">
+                    <div class="table-responsive">
+                        <table class="hotel-table">
+                            <thead>
+                                <tr>
+                                    <th>Danh Mục</th>
+                                    <th>Nội Dung Chi</th>
+                                    <th>Số Tiền</th>
+                                    <th>Ngày Chi</th>
+                                    <th>Trạng Thái</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (!recentExpenses.Any())
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted">Chưa có phiếu chi phí nào trong kỳ này.</td>
+                                    </tr>
+                                }
+                                @foreach (var exp in recentExpenses.Take(5))
+                                {
+                                    <tr>
+                                        <td><span class="badge bg-light text-dark border">@exp.Category</span></td>
+                                        <td class="small">@(exp.Description ?? "Chi phí nội bộ")</td>
+                                        <td class="fw-bold text-danger">-@exp.Amount.ToString("N0") đ</td>
+                                        <td>@exp.Date.ToString("dd/MM/yyyy")</td>
+                                        <td>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle">@exp.Status</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <!-- Cơ cấu thanh toán -->
+            <div class="hotel-card mb-4 shadow-sm">
+                <div class="hotel-card-header">
+                    <div class="hotel-card-title">
+                        <i class="bi bi-pie-chart-fill text-primary me-2"></i>
+                        <span>Cơ Cấu Phương Thức Thanh Toán</span>
+                    </div>
+                </div>
+                <div class="hotel-card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-2 rounded-2 bg-light">
+                        <div>
+                            <span class="fw-bold text-dark d-block"><i class="bi bi-qr-code text-primary me-1"></i> VNPay / VietQR</span>
+                            <small class="text-muted">Cổng thanh toán online</small>
+                        </div>
+                        <span class="fw-bold text-primary">@vnpayRevenue.ToString("N0") đ</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-2 rounded-2 bg-light">
+                        <div>
+                            <span class="fw-bold text-dark d-block"><i class="bi bi-cash text-success me-1"></i> Tiền Mặt (Cash)</span>
+                            <small class="text-muted">Thu trực tiếp tại quầy</small>
+                        </div>
+                        <span class="fw-bold text-success">@cashRevenue.ToString("N0") đ</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-2 rounded-2 bg-light">
+                        <div>
+                            <span class="fw-bold text-dark d-block"><i class="bi bi-bank text-info me-1"></i> Chuyển Khoản Ngân Hàng</span>
+                            <small class="text-muted">Bank Transfer</small>
+                        </div>
+                        <span class="fw-bold text-info">@bankRevenue.ToString("N0") đ</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center p-2 rounded-2 bg-light">
+                        <div>
+                            <span class="fw-bold text-dark d-block"><i class="bi bi-wallet-fill text-danger me-1"></i> Ví MoMo</span>
+                            <small class="text-muted">Thanh toán di động</small>
+                        </div>
+                        <span class="fw-bold text-danger">@momoRevenue.ToString("N0") đ</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phím tắt kế toán -->
+            <div class="hotel-card shadow-sm">
+                <div class="hotel-card-header">
+                    <div class="hotel-card-title">
+                        <i class="bi bi-gear-fill text-secondary me-2"></i>
+                        <span>Phím Tắt Kế Toán</span>
+                    </div>
+                </div>
+                <div class="hotel-card-body d-flex flex-column gap-2">
+                    <a href="frontdesk/services-billing" class="btn btn-light border text-start py-2 d-flex align-items-center">
+                        <i class="bi bi-receipt text-primary fs-5 me-3"></i>
+                        <div>
+                            <div class="fw-bold small text-dark">Thu Tiền & Hóa Đơn Dịch Vụ</div>
+                            <small class="text-muted">In hóa đơn VAT & xác nhận thanh toán</small>
+                        </div>
+                    </a>
+                    <a href="frontdesk/expenses" class="btn btn-light border text-start py-2 d-flex align-items-center">
+                        <i class="bi bi-wallet2 text-danger fs-5 me-3"></i>
+                        <div>
+                            <div class="fw-bold small text-dark">Quản Lý Chi Phí Vận Hành</div>
+                            <small class="text-muted">Theo dõi xuất quỹ, hóa đơn mua hàng</small>
+                        </div>
+                    </a>
+                    <a href="ai-analytics/dashboard" class="btn btn-light border text-start py-2 d-flex align-items-center">
+                        <i class="bi bi-file-earmark-bar-graph text-success fs-5 me-3"></i>
+                        <div>
+                            <div class="fw-bold small text-dark">Báo Cáo Doanh Thu (BI)</div>
+                            <small class="text-muted">Biểu đồ RevPAR, ADR và tăng trưởng</small>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ========================================================================= *@
+@* 4. GIAO DIỆN QUẢN LÝ / GIÁM ĐỐC (MANAGER VIEW)                             *@
+@* ========================================================================= *@
+else if (activePerspective == "Manager")
+{
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Công Suất Buồng Phòng" 
+                      Value="@($"{occupancyRate}%")" 
+                      Description="@($"{occupiedCount} / {rooms.Count} phòng có khách")" 
+                      Icon="bi bi-pie-chart-fill" 
+                      Variant="info" />
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Doanh Thu Tích Lũy Tháng" 
+                      Value="@($"{monthlyRevenue:N0} đ")" 
+                      Description="@($"Doanh thu tháng {DateTime.Today.Month}")" 
+                      Icon="bi bi-graph-up" 
+                      Variant="success" />
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Dự Báo Nhu Cầu AI" 
+                      Value="+32% Tăng" 
+                      Description="Cao điểm du lịch cuối tuần" 
+                      Icon="bi bi-cpu-fill" 
+                      Variant="ai" />
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Đơn Nguy Cơ Hủy Cao" 
+                      Value="@($"{highRiskBookings.Count} Đơn")" 
+                      Description="Cần can thiệp chăm sóc khách" 
+                      Icon="bi bi-shield-exclamation" 
+                      Variant="danger" />
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-12 col-lg-8">
+            <!-- Cảnh báo hủy phòng AI -->
+            <div class="hotel-card mb-4 shadow-sm">
+                <div class="hotel-card-header d-flex justify-content-between align-items-center">
+                    <div class="hotel-card-title">
+                        <i class="bi bi-cpu text-primary me-2"></i>
+                        <span>Cảnh Báo AI: Khách Hàng Có Nguy Cơ Hủy Phòng (Churn Risk)</span>
+                    </div>
+                    <a href="ai-analytics/forecast" class="btn btn-sm btn-outline-primary">Xem chi tiết AI</a>
+                </div>
+                <div class="hotel-card-body p-0">
+                    <div class="table-responsive">
+                        <table class="hotel-table">
+                            <thead>
+                                <tr>
+                                    <th>Mã Đơn</th>
+                                    <th>Khách Hàng</th>
+                                    <th>Ngày Đến</th>
+                                    <th>Tổng Tiền</th>
+                                    <th>Xác Suất Hủy</th>
+                                    <th>Mức Rủi Ro</th>
+                                    <th>Yếu Tố Chính</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (!highRiskBookings.Any())
+                                {
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4 text-muted">
+                                            Hiện tại không có đơn đặt phòng nào bị xếp vào nhóm rủi ro hủy cao.
+                                        </td>
+                                    </tr>
+                                }
+                                @foreach (var item in highRiskBookings)
+                                {
+                                    <tr>
+                                        <td><span class="font-monospace fw-bold text-primary">@item.BookingCode</span></td>
+                                        <td class="fw-semibold">@item.GuestName</td>
+                                        <td>@item.CheckinDate.ToString("dd/MM/yyyy")</td>
+                                        <td class="fw-bold">@item.Total.ToString("N0") đ</td>
+                                        <td>
+                                            <div class="d-flex align-items-center gap-1">
+                                                <div class="progress flex-grow-1" style="height: 6px;">
+                                                    <div class="progress-bar bg-danger" style="width: @(item.RiskProbability * 100)%"></div>
+                                                </div>
+                                                <small class="fw-bold text-danger">@((item.RiskProbability * 100).ToString("F0"))%</small>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge @(item.RiskLevel == "Cao" ? "bg-danger" : "bg-warning text-dark")">
+                                                @item.RiskLevel
+                                            </span>
+                                        </td>
+                                        <td class="small text-muted">@item.MainFactor</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <!-- Tổng quan nhanh -->
+            <div class="hotel-card mb-4 shadow-sm">
+                <div class="hotel-card-header">
+                    <div class="hotel-card-title">
+                        <i class="bi bi-activity text-primary me-2"></i>
+                        <span>Chỉ Số Vận Hành Trọng Yếu</span>
+                    </div>
+                </div>
+                <div class="hotel-card-body small">
+                    <div class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Tổng số buồng phòng:</span>
+                        <strong class="text-dark">@rooms.Count phòng</strong>
+                    </div>
+                    <div class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Phòng đang ở:</span>
+                        <strong class="text-primary">@occupiedCount phòng</strong>
+                    </div>
+                    <div class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Phòng sạch sẵn sàng đón khách:</span>
+                        <strong class="text-success">@cleanAvailableCount phòng</strong>
+                    </div>
+                    <div class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Phòng bẩn đang dọn:</span>
+                        <strong class="text-warning">@cleaningCount phòng</strong>
+                    </div>
+                    <div class="d-flex justify-content-between py-2">
+                        <span class="text-muted">Hóa đơn công nợ chưa thu:</span>
+                        <strong class="text-danger">@pendingInvoicesCount đơn</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phím tắt quản lý -->
+            <div class="hotel-card shadow-sm">
+                <div class="hotel-card-header">
+                    <div class="hotel-card-title">
+                        <i class="bi bi-speedometer text-info me-2"></i>
+                        <span>Phím Tắt Ban Quản Lý</span>
+                    </div>
+                </div>
+                <div class="hotel-card-body d-flex flex-column gap-2">
+                    <a href="ai-analytics/dashboard" class="btn btn-light border text-start py-2 d-flex align-items-center">
+                        <i class="bi bi-pie-chart text-primary fs-5 me-3"></i>
+                        <div>
+                            <div class="fw-bold small text-dark">Báo Cáo Phân Tích (BI)</div>
+                            <small class="text-muted">Doanh thu, RevPAR và tỷ lệ lấp đầy</small>
+                        </div>
+                    </a>
+                    <a href="ai-analytics/forecast" class="btn btn-light border text-start py-2 d-flex align-items-center">
+                        <i class="bi bi-graph-up-arrow text-success fs-5 me-3"></i>
+                        <div>
+                            <div class="fw-bold small text-dark">Dự Báo AI & Rủi Ro Hủy Phòng</div>
+                            <small class="text-muted">Machine Learning dự đoán cao điểm</small>
+                        </div>
+                    </a>
+                    <a href="frontdesk/expenses" class="btn btn-light border text-start py-2 d-flex align-items-center">
+                        <i class="bi bi-cash-stack text-warning fs-5 me-3"></i>
+                        <div>
+                            <div class="fw-bold small text-dark">Giám Sát Chi Phí Vận Hành</div>
+                            <small class="text-muted">Kiểm soát dòng tiền và biên lợi nhuận</small>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ========================================================================= *@
+@* 5. GIAO DIỆN QUẢN TRỊ VIÊN HỆ THỐNG (ADMIN EXECUTIVE VIEW)                 *@
+@* ========================================================================= *@
+else
+{
+    <!-- 4 Chỉ số nghiệp vụ nhanh đại diện cho 4 phân hệ -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Khách Đang Ở (Tiền Sảnh)" 
+                      Value="@($"{occupiedCount} / {rooms.Count}")" 
+                      Description="@($"Công suất phòng: {occupancyRate}%")" 
+                      Icon="bi bi-door-open-fill" 
+                      Variant="info" />
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Phòng Cần Dọn (Buồng Phòng)" 
+                      Value="@($"{cleaningCount} Phòng")" 
+                      Description="Đang phân công dọn dẹp" 
+                      Icon="bi bi-brush-fill" 
+                      Variant="warning" />
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Dự Báo Nhu Cầu AI (AI Core)" 
+                      Value="+32% Tăng" 
+                      Description="Cao điểm du lịch cuối tuần" 
+                      Icon="bi bi-cpu-fill" 
+                      Variant="ai" />
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <StatCard Title="Tài Khoản & RBAC (Bảo Mật)" 
+                      Value="@($"{totalActiveStaffAccounts} Tài Khoản")" 
+                      Description="Hệ thống bảo mật an toàn" 
+                      Icon="bi bi-shield-check" 
+                      Variant="success" />
+        </div>
+    </div>
+
+    <!-- 4 KHỐI PHÂN HỆ NGHIỆP VỤ CỦA 4 THÀNH VIÊN -->
+    <div class="row g-4 mb-4">
+        <!-- Phân hệ 3: Tiền sảnh -->
+        <div class="col-12 col-lg-6">
+            <div class="hotel-card h-100 shadow-sm">
+                <div class="hotel-card-header">
+                    <div class="hotel-card-title">
+                        <span class="member-tag member-tag-tv3">THÀNH VIÊN 3</span>
+                        <span>Tiền Sảnh, Đặt Phòng & Dịch Vụ</span>
+                    </div>
+                    <a href="frontdesk/bookings" class="hotel-btn hotel-btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
+                        Truy cập <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="hotel-card-body">
+                    <p class="text-muted" style="font-size: 0.875rem;">
+                        Quản lý sơ đồ phòng khách sạn (Room Rack), quy trình Check-in, Check-out, gọi dịch vụ phòng và lập hóa đơn thanh toán.
+                    </p>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="frontdesk/bookings" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-calendar-check me-1"></i> Sơ đồ phòng</a>
+                        <a href="frontdesk/checkin-out" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-box-arrow-in-right me-1"></i> Check-in/out</a>
+                        <a href="frontdesk/services-billing" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-receipt me-1"></i> Hóa đơn & Thu tiền</a>
+                        <a href="frontdesk/expenses" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-cash-stack me-1"></i> Chi phí vận hành</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phân hệ 2: Buồng phòng -->
+        <div class="col-12 col-lg-6">
+            <div class="hotel-card h-100 shadow-sm">
+                <div class="hotel-card-header">
+                    <div class="hotel-card-title">
+                        <span class="member-tag member-tag-tv2">THÀNH VIÊN 2</span>
+                        <span>Buồng Phòng, Tiện Nghi & Vận Hành</span>
+                    </div>
+                    <a href="housekeeping/rooms" class="hotel-btn hotel-btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
+                        Truy cập <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="hotel-card-body">
+                    <p class="text-muted" style="font-size: 0.875rem;">
+                        Theo dõi trực quan trạng thái buồng phòng, phân công ca dọn dẹp vệ sinh và kiểm soát tài sản Room Inventory đối chiếu đền bù.
+                    </p>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="housekeeping/rooms" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-door-closed me-1"></i> Trạng thái phòng</a>
+                        <a href="housekeeping/tasks" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-brush me-1"></i> Phân công dọn</a>
+                        <a href="housekeeping/assets" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-box-seam me-1"></i> Tiện nghi & Hư hỏng</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phân hệ 4: AI & BI -->
+        <div class="col-12 col-lg-6">
+            <div class="hotel-card h-100 shadow-sm">
+                <div class="hotel-card-header">
+                    <div class="hotel-card-title">
+                        <span class="member-tag member-tag-tv4">THÀNH VIÊN 4</span>
+                        <span>AI Core, Dự Báo & Báo Cáo BI</span>
+                    </div>
+                    <a href="ai-analytics/dashboard" class="hotel-btn hotel-btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
+                        Truy cập <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="hotel-card-body">
+                    <p class="text-muted" style="font-size: 0.875rem;">
+                        AI Chatbot hỗ trợ tư vấn khách hàng tự động, mô hình Machine Learning dự báo nhu cầu đặt phòng và báo cáo BI doanh thu.
+                    </p>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="ai-analytics/dashboard" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-pie-chart me-1"></i> Báo cáo BI</a>
+                        <a href="ai-analytics/chatbot" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-robot me-1"></i> AI Chatbot</a>
+                        <a href="ai-analytics/forecast" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-graph-up me-1"></i> Dự báo & Hủy phòng</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phân hệ 1: Bảo mật & RBAC -->
+        <div class="col-12 col-lg-6">
+            <div class="hotel-card h-100 shadow-sm">
+                <div class="hotel-card-header">
+                    <div class="hotel-card-title">
+                        <span class="member-tag member-tag-tv1">THÀNH VIÊN 1</span>
+                        <span>Bảo Mật, Phân Quyền (RBAC) & Quản Trị</span>
+                    </div>
+                    <a href="admin/accounts" class="hotel-btn hotel-btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
+                        Truy cập <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="hotel-card-body">
+                    <p class="text-muted" style="font-size: 0.875rem;">
+                        Quản trị danh sách người dùng, ma trận phân quyền vai trò (RBAC), kho Voucher ưu đãi và nhật ký kiểm toán hệ thống (Audit Logs).
+                    </p>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="admin/accounts" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-people me-1"></i> Tài khoản</a>
+                        <a href="admin/rbac" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-shield-lock me-1"></i> Phân quyền</a>
+                        <a href="admin/vouchers" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-ticket me-1"></i> Vouchers</a>
+                        <a href="admin/audit-logs" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-journal-text me-1"></i> Audit Logs</a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Phân hệ 2: Buồng phòng -->
-    <div class="col-12 col-lg-6">
-        <div class="hotel-card h-100">
-            <div class="hotel-card-header">
-                <div class="hotel-card-title">
-                    <span class="member-tag member-tag-tv2">THÀNH VIÊN 2</span>
-                    <span>Buồng Phòng, Tiện Nghi & Vận Hành</span>
-                </div>
-                <a href="housekeeping/rooms" class="hotel-btn hotel-btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
-                    Truy cập <i class="bi bi-arrow-right"></i>
-                </a>
+    <!-- Bảng Nhật Ký Kiểm Toán (Live Audit Logs) -->
+    <div class="hotel-card shadow-sm">
+        <div class="hotel-card-header d-flex justify-content-between align-items-center">
+            <div class="hotel-card-title">
+                <i class="bi bi-shield-check text-success me-2"></i>
+                <span>Nhật Ký Kiểm Toán & Giám Sát Hệ Thống Thời Gian Thực</span>
             </div>
-            <div class="hotel-card-body">
-                <p class="text-muted" style="font-size: 0.875rem;">
-                    Theo dõi trực quan trạng thái buồng phòng, phân công ca dọn dẹp vệ sinh và kiểm soát tài sản Room Inventory đối chiếu đền bù.
-                </p>
-                <div class="d-flex gap-2">
-                    <a href="housekeeping/rooms" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-door-closed me-1"></i> Trạng thái phòng</a>
-                    <a href="housekeeping/tasks" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-brush me-1"></i> Phân công dọn</a>
-                    <a href="housekeeping/assets" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-box-seam me-1"></i> Tiện nghi & Hư hỏng</a>
-                </div>
+            <a href="admin/audit-logs" class="btn btn-sm btn-outline-secondary">Toàn bộ nhật ký</a>
+        </div>
+        <div class="hotel-card-body p-0">
+            <div class="table-responsive">
+                <table class="hotel-table">
+                    <thead>
+                        <tr>
+                            <th>Thời Gian</th>
+                            <th>Tài Khoản / Email</th>
+                            <th>Hành Động</th>
+                            <th>Đối Tượng</th>
+                            <th>Chi Tiết</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!recentAuditLogs.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">Chưa có nhật ký kiểm toán nào được ghi nhận.</td>
+                            </tr>
+                        }
+                        @foreach (var log in recentAuditLogs)
+                        {
+                            <tr>
+                                <td class="small text-muted font-monospace">@log.Time.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                                <td><span class="fw-semibold text-primary">@log.Email</span></td>
+                                <td><span class="badge bg-light text-dark border">@log.Action</span></td>
+                                <td class="font-monospace small">@log.ObjectName</td>
+                                <td class="small text-dark">@log.Detail</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-
-    <!-- Phân hệ 4: AI & BI -->
-    <div class="col-12 col-lg-6">
-        <div class="hotel-card h-100">
-            <div class="hotel-card-header">
-                <div class="hotel-card-title">
-                    <span class="member-tag member-tag-tv4">THÀNH VIÊN 4</span>
-                    <span>AI Core, Dự Báo & Báo Cáo BI</span>
-                </div>
-                <a href="ai-analytics/dashboard" class="hotel-btn hotel-btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
-                    Truy cập <i class="bi bi-arrow-right"></i>
-                </a>
-            </div>
-            <div class="hotel-card-body">
-                <p class="text-muted" style="font-size: 0.875rem;">
-                    AI Chatbot hỗ trợ tư vấn khách hàng tự động, mô hình Machine Learning dự báo nhu cầu đặt phòng và báo cáo BI doanh thu.
-                </p>
-                <div class="d-flex gap-2">
-                    <a href="ai-analytics/dashboard" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-pie-chart me-1"></i> Báo cáo BI</a>
-                    <a href="ai-analytics/chatbot" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-robot me-1"></i> AI Chatbot</a>
-                    <a href="ai-analytics/forecast" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-graph-up me-1"></i> Dự báo & Hủy phòng</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Phân hệ 1: Bảo mật & RBAC -->
-    <div class="col-12 col-lg-6">
-        <div class="hotel-card h-100">
-            <div class="hotel-card-header">
-                <div class="hotel-card-title">
-                    <span class="member-tag member-tag-tv1">THÀNH VIÊN 1</span>
-                    <span>Bảo Mật, Phân Quyền (RBAC) & Quản Trị</span>
-                </div>
-                <a href="admin/accounts" class="hotel-btn hotel-btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
-                    Truy cập <i class="bi bi-arrow-right"></i>
-                </a>
-            </div>
-            <div class="hotel-card-body">
-                <p class="text-muted" style="font-size: 0.875rem;">
-                    Quản trị danh sách người dùng, ma trận phân quyền vai trò (RBAC), kho Voucher ưu đãi và nhật ký kiểm toán hệ thống (Audit Logs).
-                </p>
-                <div class="d-flex gap-2 flex-wrap">
-                    <a href="admin/accounts" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-people me-1"></i> Tài khoản</a>
-                    <a href="admin/rbac" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-shield-lock me-1"></i> Phân quyền</a>
-                    <a href="admin/vouchers" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-ticket me-1"></i> Vouchers</a>
-                    <a href="admin/audit-logs" class="badge bg-light text-dark border p-2 text-decoration-none"><i class="bi bi-journal-text me-1"></i> Audit Logs</a>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+}
 
 @code {
+    private string activePerspective = "Admin";
+    private string? actionSuccessMessage;
+
     private List<Phong> rooms = new();
-    private int occupiedCount = 12;
-    private int cleaningCount = 3;
+    private int occupiedCount = 0;
+    private int cleanAvailableCount = 0;
+    private int cleaningCount = 0;
+    private int inspectingCount = 0;
+    private int cleanCount = 0;
+    private int maintenanceCount = 0;
+    private int occupancyRate = 0;
+
+    private decimal todayRevenue = 0;
+    private int todayTransactionsCount = 0;
+    private decimal vnpayRevenue = 0;
+    private decimal cashRevenue = 0;
+    private decimal bankRevenue = 0;
+    private decimal momoRevenue = 0;
+    private decimal monthlyRevenue = 0;
+
+    private int pendingInvoicesCount = 0;
+    private decimal pendingInvoicesTotal = 0;
+    private decimal monthlyExpenses = 0;
+    private int openIncidentsCount = 0;
+    private int totalActiveStaffAccounts = 0;
+
+    private string frontDeskFilter = "all";
+    private List<FrontDeskBookingItem> frontDeskBookings = new();
+    private List<FrontDeskBookingItem> frontDeskCheckIns => frontDeskBookings.Where(b => b.Direction == "CheckIn").ToList();
+    private List<FrontDeskBookingItem> frontDeskCheckOuts => frontDeskBookings.Where(b => b.Direction == "CheckOut").ToList();
+    private IEnumerable<FrontDeskBookingItem> FilteredFrontDeskBookings => frontDeskFilter switch
+    {
+        "checkin" => frontDeskCheckIns,
+        "checkout" => frontDeskCheckOuts,
+        _ => frontDeskBookings
+    };
+
+    private string housekeepingFilter = "all";
+    private List<HousekeepingRoomItem> housekeepingRooms = new();
+    private IEnumerable<HousekeepingRoomItem> FilteredHousekeepingRooms => housekeepingFilter switch
+    {
+        "dirty" => housekeepingRooms.Where(r => r.CleanlinessStatus == "Dirty"),
+        "clean" => housekeepingRooms.Where(r => r.CleanlinessStatus == "Clean"),
+        _ => housekeepingRooms
+    };
+
+    private List<InvoiceSummaryItem> recentInvoices = new();
+    private List<ExpenseSummaryItem> recentExpenses = new();
+    private List<ChurnRiskItem> highRiskBookings = new();
+    private List<AuditLogItem> recentAuditLogs = new();
+
+    private class FrontDeskBookingItem
+    {
+        public int Id { get; set; }
+        public string BookingCode { get; set; } = "";
+        public string GuestName { get; set; } = "";
+        public string GuestPhone { get; set; } = "";
+        public string RoomName { get; set; } = "";
+        public string? RoomNumber { get; set; }
+        public DateTime CheckinDate { get; set; }
+        public DateTime CheckoutDate { get; set; }
+        public decimal Total { get; set; }
+        public decimal Deposit { get; set; }
+        public string Status { get; set; } = "";
+        public string Direction { get; set; } = "CheckIn";
+    }
+
+    private class HousekeepingRoomItem
+    {
+        public int Id { get; set; }
+        public string RoomNumber { get; set; } = "";
+        public int Floor { get; set; }
+        public string RoomType { get; set; } = "";
+        public string OccupancyStatus { get; set; } = "";
+        public string CleanlinessStatus { get; set; } = "";
+    }
+
+    private class InvoiceSummaryItem
+    {
+        public int Id { get; set; }
+        public string BookingCode { get; set; } = "";
+        public string GuestName { get; set; } = "";
+        public decimal RoomTotal { get; set; }
+        public decimal ServiceTotal { get; set; }
+        public decimal GrandTotal { get; set; }
+        public string Status { get; set; } = "";
+        public DateTime CreatedAt { get; set; }
+    }
+
+    private class ExpenseSummaryItem
+    {
+        public int Id { get; set; }
+        public string Category { get; set; } = "";
+        public string? Description { get; set; }
+        public decimal Amount { get; set; }
+        public DateOnly Date { get; set; }
+        public string Status { get; set; } = "";
+    }
+
+    private class ChurnRiskItem
+    {
+        public int BookingId { get; set; }
+        public string BookingCode { get; set; } = "";
+        public string GuestName { get; set; } = "";
+        public decimal Total { get; set; }
+        public decimal RiskProbability { get; set; }
+        public string RiskLevel { get; set; } = "";
+        public string? MainFactor { get; set; }
+        public DateTime CheckinDate { get; set; }
+    }
+
+    private class AuditLogItem
+    {
+        public DateTime Time { get; set; }
+        public string? Email { get; set; }
+        public string Action { get; set; } = "";
+        public string ObjectName { get; set; } = "";
+        public string? Detail { get; set; }
+    }
 
     protected override async Task OnInitializedAsync()
     {
+        Session.OnChange += OnSessionChanged;
+        InitPerspective();
         await LoadStatsAsync();
+    }
+
+    private void InitPerspective()
+    {
+        activePerspective = Session.CurrentUser.Role switch
+        {
+            "FrontDesk" => "FrontDesk",
+            "Housekeeping" => "Housekeeping",
+            "Accountant" => "Accountant",
+            "Manager" => "Manager",
+            _ => "Admin"
+        };
+    }
+
+    private void SetPerspective(string perspective)
+    {
+        activePerspective = perspective;
+    }
+
+    private int selectedBranchId = 0; // 0 = Toàn chuỗi, 1 = Đà Nẵng, 2 = Phú Quốc, 3 = Đà Lạt
+
+    private async Task SetBranch(int branchId)
+    {
+        selectedBranchId = branchId;
+        await LoadStatsAsync();
+    }
+
+    private void OnSessionChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            InitPerspective();
+            await LoadStatsAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        Session.OnChange -= OnSessionChanged;
+    }
+
+    private string GetPageTitle() => activePerspective switch
+    {
+        "FrontDesk" => "Tổng Quan Ca Trực Tiền Sảnh",
+        "Housekeeping" => "Tổng Quan Buồng Phòng & Vận Hành",
+        "Accountant" => "Tổng Quan Kế Toán & Thu Ngân",
+        "Manager" => "Trung Tâm Giám Đốc & Phân Tích BI",
+        _ => "Trung Tâm Điều Hành Ca Trực — Staff Hub"
+    };
+
+    private string GetHeaderTitle() => activePerspective switch
+    {
+        "FrontDesk" => "Tổng Quan Ca Trực Tiền Sảnh",
+        "Housekeeping" => "Tổng Quan Buồng Phòng & Vận Hành",
+        "Accountant" => "Tổng Quan Kế Toán & Dòng Tiền",
+        "Manager" => "Trung Tâm Giám Đốc & Phân Tích BI",
+        _ => "Tổng Quan Ca Trực Khách Sạn (Executive Hub)"
+    };
+
+    private string GetHeaderSubtitle() => activePerspective switch
+    {
+        "FrontDesk" => "Điều phối khách đến/đi, sơ đồ phòng sẵn sàng, đơn đặt cọc và thu tiền trong ca trực",
+        "Housekeeping" => "Kiểm soát phòng bẩn cần dọn, ca trực vệ sinh, kiểm tra buồng và xử lý sự cố tài sản",
+        "Accountant" => "Giám sát doanh thu hôm nay, hóa đơn công nợ, chi phí vận hành và đối soát thanh toán",
+        "Manager" => "Hiệu suất công suất phòng, doanh thu tháng, dự báo nhu cầu du lịch AI và cảnh báo rủi ro hủy phòng",
+        _ => "Trung tâm điều phối thông minh kết nối 4 phân hệ nghiệp vụ dành cho Ban Quản Lý & Nhân Viên"
+    };
+
+    private string GetHeaderIcon() => activePerspective switch
+    {
+        "FrontDesk" => "bi bi-bell-fill",
+        "Housekeeping" => "bi bi-brush-fill",
+        "Accountant" => "bi bi-cash-coin",
+        "Manager" => "bi bi-graph-up-arrow",
+        _ => "bi bi-grid-1x2-fill"
+    };
+
+    private async Task QuickUpdateCleaningStatusAsync(int roomId, string newStatus)
+    {
+        try
+        {
+            var room = await Db.Phongs.FirstOrDefaultAsync(p => p.MaId == roomId);
+            if (room != null)
+            {
+                room.TrangThaiVeSinh = newStatus;
+                await Db.SaveChangesAsync();
+
+                await AuditService.GhiNhanAsync(
+                    "CAP_NHAT_BUONG_PHONG",
+                    "Phong",
+                    room.MaId.ToString(),
+                    $"Cập nhật trạng thái vệ sinh phòng {room.SoPhong} sang {newStatus}",
+                    Session.CurrentUser.Id,
+                    Session.CurrentUser.Email,
+                    "127.0.0.1",
+                    true);
+
+                actionSuccessMessage = $"Đã cập nhật trạng thái phòng {room.SoPhong} sang {newStatus} thành công!";
+                await LoadStatsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            actionSuccessMessage = $"Không thể cập nhật: {ex.Message}";
+        }
     }
 
     private async Task LoadStatsAsync()
     {
         try
         {
-            rooms = await Db.Phongs.AsNoTracking().ToListAsync();
+            var today = DateTime.Today;
+            var tomorrow = today.AddDays(1);
+
+            var effectiveBranchId = (Session.CurrentUser.Role is "Admin" or "Manager")
+                ? selectedBranchId
+                : (Session.CurrentUser.MaChiNhanh > 0 ? Session.CurrentUser.MaChiNhanh : 1);
+
+            // 1. Dữ liệu phòng
+            var roomsQuery = Db.Phongs.AsNoTracking()
+                .Include(p => p.MaLoaiPhongNavigation)
+                .AsQueryable();
+
+            if (effectiveBranchId > 0)
+            {
+                roomsQuery = roomsQuery.Where(p => p.MaChiNhanh == effectiveBranchId);
+            }
+
+            rooms = await roomsQuery.ToListAsync();
+
             if (rooms.Any())
             {
                 occupiedCount = rooms.Count(r => StatusMapper.IsRoomOccupied(r.TrangThai));
-                cleaningCount = rooms.Count(r => StatusMapper.NormalizePhongVeSinh(r.TrangThaiVeSinh) is "Dirty" or "Inspecting");
+                cleanAvailableCount = rooms.Count(r => (r.TrangThai == "Available" || r.TrangThai == "trong") && StatusMapper.NormalizePhongVeSinh(r.TrangThaiVeSinh) == "Clean");
+                cleaningCount = rooms.Count(r => StatusMapper.NormalizePhongVeSinh(r.TrangThaiVeSinh) == "Dirty");
+                inspectingCount = rooms.Count(r => StatusMapper.NormalizePhongVeSinh(r.TrangThaiVeSinh) == "Inspecting");
+                cleanCount = rooms.Count(r => StatusMapper.NormalizePhongVeSinh(r.TrangThaiVeSinh) == "Clean");
+                maintenanceCount = rooms.Count(r => r.TrangThai == "Maintenance" || r.TrangThai == "bao_tri");
+                occupancyRate = rooms.Count > 0 ? (occupiedCount * 100 / rooms.Count) : 0;
             }
+            else
+            {
+                occupiedCount = 0;
+                cleanAvailableCount = 0;
+                cleaningCount = 0;
+                inspectingCount = 0;
+                cleanCount = 0;
+                maintenanceCount = 0;
+                occupancyRate = 0;
+            }
+
+            // 2. Dữ liệu Tiền sảnh: Khách đến và đi
+            var detailsQuery = Db.ChiTietDatPhongs.AsNoTracking()
+                .Include(ct => ct.MaDatPhongNavigation)
+                .Include(ct => ct.MaLoaiPhongNavigation)
+                .Include(ct => ct.MaPhongNavigation)
+                .Where(ct => ct.TrangThai != "Cancelled" && ct.TrangThai != "cancelled");
+
+            if (effectiveBranchId > 0)
+            {
+                detailsQuery = detailsQuery.Where(ct => ct.MaDatPhongNavigation.MaChiNhanh == effectiveBranchId);
+            }
+
+            var allActiveDetails = await detailsQuery.ToListAsync();
+
+            var todayBookings = allActiveDetails
+                .Where(ct => (ct.NgayNhanPhongDuKien >= today && ct.NgayNhanPhongDuKien < tomorrow)
+                          || (ct.NgayTraPhongDuKien >= today && ct.NgayTraPhongDuKien < tomorrow))
+                .ToList();
+
+            if (!todayBookings.Any())
+            {
+                todayBookings = allActiveDetails.OrderByDescending(ct => ct.NgayNhanPhongDuKien).Take(6).ToList();
+            }
+
+            frontDeskBookings = todayBookings.Select(ct => new FrontDeskBookingItem
+            {
+                Id = ct.MaDatPhong,
+                BookingCode = ct.MaDatPhongNavigation?.MaDatPhong ?? $"#DP-{ct.MaDatPhong}",
+                GuestName = ct.MaDatPhongNavigation?.TenKhach ?? "Khách vãng lai",
+                GuestPhone = ct.MaDatPhongNavigation?.Sdtkhach ?? "",
+                RoomName = ct.MaLoaiPhongNavigation?.Ten ?? "Phòng Tiêu Chuẩn",
+                RoomNumber = ct.MaPhongNavigation?.SoPhong,
+                CheckinDate = ct.NgayNhanPhongDuKien,
+                CheckoutDate = ct.NgayTraPhongDuKien,
+                Total = ct.MaDatPhongNavigation?.TongTien ?? 0,
+                Deposit = ct.MaDatPhongNavigation?.TienDatCoc ?? 0,
+                Status = ct.TrangThai,
+                Direction = (ct.NgayNhanPhongDuKien >= today && ct.NgayNhanPhongDuKien < tomorrow) ? "CheckIn" : "CheckOut"
+            }).ToList();
+
+            // 3. Dữ liệu Buồng phòng
+            var incidentsQuery = Db.MatMatHuHongs.AsNoTracking().AsQueryable();
+            if (effectiveBranchId > 0)
+            {
+                incidentsQuery = incidentsQuery.Where(m => m.MaChiTietDatPhongNavigation != null && m.MaChiTietDatPhongNavigation.MaPhongNavigation != null && m.MaChiTietDatPhongNavigation.MaPhongNavigation.MaChiNhanh == effectiveBranchId);
+            }
+            openIncidentsCount = await incidentsQuery.CountAsync();
+            housekeepingRooms = rooms
+                .OrderBy(r => r.Tang)
+                .ThenBy(r => r.SoPhong)
+                .Select(r => new HousekeepingRoomItem
+                {
+                    Id = r.MaId,
+                    RoomNumber = r.SoPhong,
+                    Floor = r.Tang ?? 1,
+                    RoomType = r.MaLoaiPhongNavigation?.Ten ?? "Phòng Tiêu Chuẩn",
+                    OccupancyStatus = StatusMapper.IsRoomOccupied(r.TrangThai) ? "Đang ở" : "Trống",
+                    CleanlinessStatus = StatusMapper.NormalizePhongVeSinh(r.TrangThaiVeSinh)
+                }).ToList();
+
+            // 4. Dữ liệu Kế toán: Doanh thu & Hóa đơn & Chi phí
+            var paymentsQuery = Db.ThanhToans.AsNoTracking()
+                .Include(t => t.MaHoaDonNavigation)
+                    .ThenInclude(h => h.MaDatPhongNavigation)
+                .Where(t => t.TrangThai == "Success" || t.TrangThai == "success");
+
+            if (effectiveBranchId > 0)
+            {
+                paymentsQuery = paymentsQuery.Where(t => t.MaHoaDonNavigation != null && t.MaHoaDonNavigation.MaDatPhongNavigation.MaChiNhanh == effectiveBranchId);
+            }
+
+            var allPayments = await paymentsQuery.ToListAsync();
+
+            todayRevenue = allPayments
+                .Where(t => t.NgayThanhToan.Date == today)
+                .Sum(t => t.SoTienDaThanhToan);
+
+            todayTransactionsCount = allPayments.Count(t => t.NgayThanhToan.Date == today);
+
+            vnpayRevenue = allPayments
+                .Where(t => t.NgayThanhToan.Date == today && (t.PhuongThucThanhToan.Contains("VNPay") || t.PhuongThucThanhToan.Contains("VietQR")))
+                .Sum(t => t.SoTienDaThanhToan);
+
+            cashRevenue = allPayments
+                .Where(t => t.NgayThanhToan.Date == today && t.PhuongThucThanhToan.Contains("Cash"))
+                .Sum(t => t.SoTienDaThanhToan);
+
+            bankRevenue = allPayments
+                .Where(t => t.NgayThanhToan.Date == today && t.PhuongThucThanhToan.Contains("Bank"))
+                .Sum(t => t.SoTienDaThanhToan);
+
+            momoRevenue = allPayments
+                .Where(t => t.NgayThanhToan.Date == today && t.PhuongThucThanhToan.Contains("MoMo"))
+                .Sum(t => t.SoTienDaThanhToan);
+
+            monthlyRevenue = allPayments
+                .Where(t => t.NgayThanhToan.Month == today.Month && t.NgayThanhToan.Year == today.Year)
+                .Sum(t => t.SoTienDaThanhToan);
+
+            var invoicesQuery = Db.HoaDons.AsNoTracking()
+                .Include(h => h.MaDatPhongNavigation)
+                .AsQueryable();
+
+            if (effectiveBranchId > 0)
+            {
+                invoicesQuery = invoicesQuery.Where(h => h.MaDatPhongNavigation.MaChiNhanh == effectiveBranchId);
+            }
+
+            pendingInvoicesCount = await invoicesQuery.CountAsync(h => h.TrangThai == "Pending" || h.TrangThai == "pending");
+            pendingInvoicesTotal = await invoicesQuery.Where(h => h.TrangThai == "Pending" || h.TrangThai == "pending").SumAsync(h => h.TongThanhToan);
+
+            var invoices = await invoicesQuery
+                .OrderByDescending(h => h.NgayTao)
+                .Take(10)
+                .ToListAsync();
+
+            recentInvoices = invoices.Select(h => new InvoiceSummaryItem
+            {
+                Id = h.MaId,
+                BookingCode = h.MaDatPhongNavigation?.MaDatPhong ?? $"#DP-{h.MaDatPhong}",
+                GuestName = h.MaDatPhongNavigation?.TenKhach ?? "Khách vãng lai",
+                RoomTotal = h.TongTienPhong,
+                ServiceTotal = h.TongTienDichVu,
+                GrandTotal = h.TongThanhToan,
+                Status = h.TrangThai,
+                CreatedAt = h.NgayTao
+            }).ToList();
+
+            var currentMonth = today.Month;
+            var currentYear = today.Year;
+
+            var expensesQuery = Db.ChiPhiVanHanhs.AsNoTracking().AsQueryable();
+            if (effectiveBranchId > 0)
+            {
+                expensesQuery = expensesQuery.Where(c => c.MaChiNhanh == effectiveBranchId);
+            }
+
+            var expensesList = await expensesQuery
+                .OrderByDescending(c => c.NgayChi)
+                .Take(10)
+                .ToListAsync();
+
+            monthlyExpenses = await expensesQuery
+                .Where(c => c.NgayChi.Month == currentMonth && c.NgayChi.Year == currentYear)
+                .SumAsync(c => c.SoTien);
+
+            recentExpenses = expensesList.Select(c => new ExpenseSummaryItem
+            {
+                Id = c.MaId,
+                Category = c.DanhMuc,
+                Description = c.MoTa,
+                Amount = c.SoTien,
+                Date = c.NgayChi,
+                Status = c.TrangThai
+            }).ToList();
+
+            // 5. Dữ liệu Giám đốc: AI Churn Risk
+            var churnQuery = Db.DuDoanHuyPhongAis.AsNoTracking()
+                .Include(d => d.MaDatPhongNavigation)
+                    .ThenInclude(b => b.ChiTietDatPhongs)
+                .AsQueryable();
+
+            if (effectiveBranchId > 0)
+            {
+                churnQuery = churnQuery.Where(d => d.MaDatPhongNavigation.MaChiNhanh == effectiveBranchId);
+            }
+
+            var churnList = await churnQuery
+                .OrderByDescending(d => d.XacSuatHuyPhong)
+                .Take(5)
+                .ToListAsync();
+
+            highRiskBookings = churnList.Select(d => new ChurnRiskItem
+            {
+                BookingId = d.MaDatPhong,
+                BookingCode = d.MaDatPhongNavigation?.MaDatPhong ?? $"#DP-{d.MaDatPhong}",
+                GuestName = d.MaDatPhongNavigation?.TenKhach ?? "Khách vãng lai",
+                Total = d.MaDatPhongNavigation?.TongTien ?? 0,
+                RiskProbability = d.XacSuatHuyPhong,
+                RiskLevel = d.MucDoRuiRo,
+                MainFactor = d.YeuToChinh ?? "Thời gian đặt phòng xa",
+                CheckinDate = d.MaDatPhongNavigation?.ChiTietDatPhongs.FirstOrDefault()?.NgayNhanPhongDuKien ?? today
+            }).ToList();
+
+            // 6. Dữ liệu Admin: Audit Logs & Tổng tài khoản
+            var auditList = await Db.NhatKyHeThongs.AsNoTracking()
+                .OrderByDescending(a => a.ThoiGian)
+                .Take(6)
+                .ToListAsync();
+
+            recentAuditLogs = auditList.Select(a => new AuditLogItem
+            {
+                Time = a.ThoiGian,
+                Email = a.Email ?? "Hệ thống",
+                Action = a.HanhDong,
+                ObjectName = a.DoiTuong,
+                Detail = a.NoiDung
+            }).ToList();
+
+            totalActiveStaffAccounts = await Db.NguoiDungs.CountAsync(u => u.TrangThai);
         }
         catch { }
     }

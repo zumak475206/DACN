@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DACN.Web.Controllers;
 
+[Authorize]
 [Route("api/v1/dich-vu")]
 [ApiController]
 public class DichVuController(DACNContext db, IAuditService auditService) : ControllerBase
@@ -46,8 +47,11 @@ public class DichVuController(DACNContext db, IAuditService auditService) : Cont
             return NotFound(ApiResponse<DonDichVuDto>.Fail("Không tìm thấy chi tiết đặt phòng."));
 
         var currentUserId = User.GetUserId();
-        if (!User.IsStaffOrAdmin() && chiTietDatPhong.MaDatPhongNavigation?.MaNguoiDung != currentUserId)
+        if (!User.HasPermission(Quyen.OrderRoomService) && chiTietDatPhong.MaDatPhongNavigation?.MaNguoiDung != currentUserId)
             return Forbid();
+
+        if (StatusMapper.IsBookingCancelled(chiTietDatPhong.TrangThai) || StatusMapper.IsBookingCheckedOut(chiTietDatPhong.TrangThai))
+            return BadRequest(ApiResponse<DonDichVuDto>.Fail("Không thể đặt dịch vụ cho phòng đã trả hoặc đơn đã hủy."));
 
         if (req.DanhSachDichVu == null || !req.DanhSachDichVu.Any())
             return BadRequest(ApiResponse<DonDichVuDto>.Fail("Phải chọn ít nhất một dịch vụ."));

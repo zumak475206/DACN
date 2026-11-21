@@ -21,6 +21,8 @@ public partial class DatPhong
 
     public int? MaGiamGia { get; set; }
 
+    public int MaChiNhanh { get; set; } = 1;
+
     public string KenhDatPhong { get; set; } = null!;
 
     public string TrangThai { get; set; } = null!;
@@ -44,6 +46,8 @@ public partial class DatPhong
     public virtual ICollection<DuDoanHuyPhongAi> DuDoanHuyPhongAis { get; set; } = new List<DuDoanHuyPhongAi>();
 
     public virtual HoaDon? HoaDon { get; set; }
+
+    public virtual ChiNhanh? MaChiNhanhNavigation { get; set; }
 
     public virtual MaGiamGium? MaGiamGiaNavigation { get; set; }
 

@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DACN.Web.Controllers;
 
+[Authorize]
 [Route("api/v1/voucher")]
 [ApiController]
 public class VoucherController(DACNContext db, IAuditService auditService) : ControllerBase
@@ -19,7 +20,7 @@ public class VoucherController(DACNContext db, IAuditService auditService) : Con
     [HttpGet]
     public async Task<ActionResult<ApiResponse<List<VoucherDto>>>> DanhSach()
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ManageVouchers))
             return Forbid();
 
         var data = await db.MaGiamGia.AsNoTracking()

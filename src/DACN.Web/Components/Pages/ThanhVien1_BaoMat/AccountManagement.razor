@@ -81,6 +81,7 @@
                     <th>Họ và Tên</th>
                     <th>Email / SĐT</th>
                     <th>Loại</th>
+                    <th>Chi Nhánh</th>
                     <th>Vai Trò (Đổi trực tiếp)</th>
                     <th>Trạng Thái</th>
                     <th class="text-end">Bảo Mật</th>
@@ -103,6 +104,31 @@
                             <span class="hotel-badge @(u.LoaiNguoiDung == "staff" ? "hotel-badge-info" : "hotel-badge-neutral")">
                                 @(u.LoaiNguoiDung == "staff" ? "Nhân sự" : "Khách hàng")
                             </span>
+                        </td>
+                        <td style="min-width: 160px;">
+                            @if (u.LoaiNguoiDung == "staff")
+                            {
+                                @if (Session.HasPermission(Quyen.ManageUsers))
+                                {
+                                    <select class="form-select form-select-sm"
+                                            value="@(u.MaChiNhanh ?? 1)"
+                                            disabled="@(u.MaId == Session.CurrentUser.Id)"
+                                            @onchange='(e) => ChangeUserBranchAsync(u, int.Parse(e.Value?.ToString() ?? "1"))'>
+                                        @foreach (var cn in branches)
+                                        {
+                                            <option value="@cn.MaId">@cn.TenChiNhanh</option>
+                                        }
+                                    </select>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-light text-primary border">@(u.MaChiNhanhNavigation?.TenChiNhanh ?? "GrandStay Đà Nẵng")</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-muted small">—</span>
+                            }
                         </td>
                         <td style="min-width: 170px;">
                             @if (Session.HasPermission(Quyen.ManageUsers))
@@ -145,6 +171,7 @@
 @code {
     private List<NguoiDung> users = new();
     private List<VaiTro> roles = new();
+    private List<ChiNhanh> branches = new();
     private string searchKeyword = "";
     private int filterRoleId = 0;
     private string filterStatus = "all";
@@ -172,11 +199,48 @@
     private async Task LoadDataAsync()
     {
         roles = await Db.VaiTros.AsNoTracking().OrderBy(r => r.MaId).ToListAsync();
-        users = await Db.NguoiDungs
-            .AsNoTracking()
-            .Include(u => u.MaVaiTroNavigation)
-            .OrderBy(u => u.MaId)
-            .ToListAsync();
+        try
+        {
+            branches = await Db.ChiNhanhs.AsNoTracking().Where(c => c.DangHoatDong).OrderBy(c => c.MaId).ToListAsync();
+        }
+        catch
+        {
+            branches = new();
+        }
+
+        try
+        {
+            users = await Db.NguoiDungs
+                .AsNoTracking()
+                .Include(u => u.MaVaiTroNavigation)
+                .Include(u => u.MaChiNhanhNavigation)
+                .OrderBy(u => u.MaId)
+                .ToListAsync();
+        }
+        catch
+        {
+            users = await Db.NguoiDungs
+                .AsNoTracking()
+                .Include(u => u.MaVaiTroNavigation)
+                .OrderBy(u => u.MaId)
+                .ToListAsync();
+        }
+    }
+
+    private async Task ChangeUserBranchAsync(NguoiDung target, int newBranchId)
+    {
+        if (!Session.HasPermission(Quyen.ManageUsers)) return;
+        var entity = await Db.NguoiDungs.Include(x => x.MaChiNhanhNavigation).FirstOrDefaultAsync(x => x.MaId == target.MaId);
+        var branch = await Db.ChiNhanhs.FindAsync(newBranchId);
+        if (entity == null || branch == null) return;
+
+        entity.MaChiNhanh = branch.MaId;
+        await Db.SaveChangesAsync();
+        await AuditService.GhiNhanAsync("DIEU_CHUYEN_CHI_NHANH_NHAN_SU", "NguoiDung", entity.MaId.ToString(), $"Điều chuyển nhân sự '{entity.HoTen}' sang chi nhánh '{branch.TenChiNhanh}'", Session.CurrentUser.Id, Session.CurrentUser.Email, "127.0.0.1", true);
+
+        await LoadDataAsync();
+        isError = false;
+        statusMessage = $"Đã phân công nhân sự '{entity.HoTen}' về chi nhánh '{branch.TenChiNhanh}'.";
     }
 
     private async Task ChangeUserRoleAsync(NguoiDung target, int newRoleId)

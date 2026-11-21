@@ -16,7 +16,7 @@ public class DashboardController(DACNContext db) : ControllerBase
     [HttpGet("tong-quan")]
     public async Task<ActionResult<ApiResponse<DashboardAdminDto>>> TongQuan()
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ViewDashboard))
             return Forbid();
 
         var dauThang = GioVN.DauThang;
@@ -70,7 +70,7 @@ public class DashboardController(DACNContext db) : ControllerBase
     [HttpGet("kpi")]
     public async Task<ActionResult<ApiResponse<HotelBiKpiDto>>> Kpi([FromQuery] DateTime? tuNgay = null, [FromQuery] DateTime? denNgay = null)
     {
-        if (!User.HasPermission(Quyen.ViewDashboard) && !User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ViewDashboard))
             return Forbid();
 
         var start = tuNgay ?? GioVN.HomNay.AddDays(-30);
@@ -160,7 +160,7 @@ public class DashboardController(DACNContext db) : ControllerBase
     [HttpPost("doanh-thu")]
     public async Task<ActionResult<ApiResponse<List<ThongKeDoanhThuDto>>>> DoanhThu([FromBody] ThongKeDoanhThuRequest req)
     {
-        if (!User.IsStaffOrAdmin())
+        if (!User.HasPermission(Quyen.ViewDashboard))
             return Forbid();
 
         if (req.TuNgay >= req.DenNgay)
